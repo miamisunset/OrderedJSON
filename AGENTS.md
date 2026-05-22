@@ -7,8 +7,8 @@ Swift library that preserves JSON key order (deeply nested) with a `flatten` fea
 - `swift run` — build & run (no executable target currently; add one first)
 - `swift test` — run all tests (uses Swift Testing, not XCTest)
 - `swift build` — build library
-- `swift format --mode lint --parallelism 1 -p .` — lint with SwiftFormat
-- `swift format --mode format --parallelism 1 -p .` — auto-format with SwiftFormat
+- `swift format lint --recursive --parallel -p .` — lint with SwiftFormat
+- `swift format format --recursive --parallel --in-place -p .` — auto-format with SwiftFormat
 
 ## Architecture
 
@@ -46,7 +46,7 @@ Swift library that preserves JSON key order (deeply nested) with a `flatten` fea
 ## Workflow
 
 - **Branch-first** — all development on a new branch; merge to `main` only after checks pass
-- **Pre-merge** — run `swift test` (must pass) + `swift format --mode lint --parallelism 1 -p .` (must be clean) + `swift format --mode format --parallelism 1 -p .` (auto-format)
+- **Pre-merge** — run `swift test` (must pass) + `swift format lint --recursive --parallel -p .` (must be clean) + `swift format format --recursive --parallel --in-place -p .` (auto-format)
 - **Order**: lint → format → test (format first so lint sees formatted code)
 
 ## Gotchas
