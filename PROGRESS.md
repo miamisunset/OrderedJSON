@@ -109,3 +109,19 @@
 - MessagePack/UBJSON/BJData encode uses `UInt8(bitPattern:)` for negative Int8 values to avoid Swift runtime trap
 - BJData string length decoder handles both `UInt8` and `Int8` markers since encoder uses unsigned for small lengths
 - All round-trips verified: encode → decode produces identical value
+
+## Phase 7 — Test Coverage Improvement (complete)
+
+### What shipped
+All 302 tests pass with zero failures. Fixed the following bugs:
+
+- **JSONSerializer.swift**: `dump(ensureAscii: true)` now correctly escapes non-ASCII characters in compact mode by propagating `ensureAscii` through `serializeJSONCompact` and `serializeJSONString`.
+- **JSONParser.swift**: Fixed `parseUnicodeEscape` double-increment bug — escape handling in `parseString` was doing `pos += 1` unconditionally after the switch, but `parseUnicodeEscape` already advanced past the hex digits. Moved `pos += 1` into each individual case to avoid the extra increment.
+- **JSONParser.swift**: `parseNumber` now rejects incomplete floats like `"0."` (no digit after decimal point) with `unexpectedEnd()` instead of accepting them via `Double("0.")` → `0.0`.
+- **JSONFlatten.swift**: `setJSONPointerPath` was missing the non-leaf object path branch — only handled `rest.isEmpty` (leaf) but not `rest` having further segments. Added the missing `else` branch that creates/recurses into intermediate objects.
+- **JSONFlatten.swift**: `setJSONPointerPath` leaf creation for non-object roots was creating an unnecessary intermediate `JSON.object()` then overwriting it. Simplified to set the value directly.
+- **JSONFlatten.swift**: `unflatten()` now handles keys without a leading `/` by checking whether the first split segment is empty before applying `dropFirst()`.
+
+### Key decisions
+- `parseUnicodeEscape` advances `pos` by 5 total (1 for 'u' + 4 for hex digits); the caller must not add an extra increment.
+- `unflatten()` supports both `/a/b/c` and `a/b/c` key formats by conditionally dropping the leading empty segment.

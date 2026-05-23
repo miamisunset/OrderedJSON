@@ -14,7 +14,7 @@ extension JSON {
   ) -> String {
     if indent < 0 {
       var string = ""
-      serializeJSON(self, into: &string)
+      serializeJSONCompact(self, ensureAscii: ensureAscii, into: &string)
       return string
     }
     var string = ""
@@ -25,6 +25,10 @@ extension JSON {
   }
 
   private func serializeJSON(_ value: JSON, into string: inout String) {
+    serializeJSONCompact(value, ensureAscii: false, into: &string)
+  }
+
+  private func serializeJSONCompact(_ value: JSON, ensureAscii: Bool, into string: inout String) {
     switch value.storage {
     case .null:
       string += "null"
@@ -33,12 +37,12 @@ extension JSON {
     case .number(let num):
       serializeJSONNumber(num, into: &string)
     case .string(let s):
-      serializeJSONString(s, into: &string)
+      serializeJSONString(s, ensureAscii: ensureAscii, into: &string)
     case .array(let arr):
       string += "["
       for (i, el) in arr.enumerated() {
         if i > 0 { string += "," }
-        serializeJSON(el, into: &string)
+        serializeJSONCompact(el, ensureAscii: ensureAscii, into: &string)
       }
       string += "]"
     case .object(let dict):
@@ -47,9 +51,9 @@ extension JSON {
       for (key, value) in dict {
         if !first { string += "," }
         first = false
-        serializeJSONString(key, into: &string)
+        serializeJSONString(key, ensureAscii: ensureAscii, into: &string)
         string += ":"
-        serializeJSON(value, into: &string)
+        serializeJSONCompact(value, ensureAscii: ensureAscii, into: &string)
       }
       string += "}"
     }

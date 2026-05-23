@@ -112,26 +112,33 @@ extension JSON {
         switch chars[pos] {
         case "\"":
           result += "\""
+          pos += 1
         case "\\":
           result += "\\"
+          pos += 1
         case "/":
           result += "/"
+          pos += 1
         case "n":
           result += "\n"
+          pos += 1
         case "r":
           result += "\r"
+          pos += 1
         case "t":
           result += "\t"
+          pos += 1
         case "b":
           result += "\u{8}"
+          pos += 1
         case "f":
           result += "\u{12}"
+          pos += 1
         case "u":
           result += try parseUnicodeEscape(chars, &pos)
         default:
           throw JSONParseError.invalidEscape(pos)
         }
-        pos += 1
       } else {
         result.append(c)
         pos += 1
@@ -182,6 +189,9 @@ extension JSON {
     if pos < chars.count, chars[pos] == "." {
       isFloat = true
       pos += 1
+      guard pos < chars.count, chars[pos] >= "0", chars[pos] <= "9" else {
+        throw JSONParseError.unexpectedEnd()
+      }
       while pos < chars.count, chars[pos] >= "0", chars[pos] <= "9" { pos += 1 }
     }
     if pos < chars.count, chars[pos] == "e" || chars[pos] == "E" {
