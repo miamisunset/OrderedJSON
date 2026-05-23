@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint:
+    name: SwiftFormat Lint
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install SwiftFormat
+        run: brew install swiftformat
+      - name: Run SwiftFormat lint
+        run: swift format lint --recursive --parallel -p .
+      - name: Run SwiftFormat check
+        run: swift format format --recursive --parallel --in-place -p . && git diff --exit-code --stat
+
+  test:
+    name: Build & Test
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build
+        run: swift build
+      - name: Test
+        run: swift test --enable-code-coverage
+      - name: Generate coverage report
+        run: |
+          xcrun llvm-cov show \
+            .build/debug/OrderedJSONPackageTests.xctest/Contents/MacOS/OrderedJSONPackageTests \
+            -instr-prof \
+            -ignore-filename-regex="Tests/.*" \
+            -Xcode 2>&1 | head -20
