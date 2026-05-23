@@ -183,6 +183,149 @@ import Testing
   #expect(decodedBool == JSONValue.boolean(true))
 }
 
+// MARK: - Quick Start (README)
+
+@Test func docQuickStart() throws {
+  let json = """
+    {"z": 1, "a": 2, "m": 3}
+    """
+  let value = try JSONValue.parse(json)
+
+  guard case .object(let dict) = value else {
+    Issue.record("Expected object")
+    return
+  }
+  #expect(Array(dict.keys) == ["z", "a", "m"])
+
+  let flat = value.flatten()
+  #expect(flat.count == 3)
+  #expect(flat[0].key == "z")
+  #expect(flat[0].value == JSONValue.number(.integer(1)))
+  #expect(flat[1].key == "a")
+  #expect(flat[1].value == JSONValue.number(.integer(2)))
+  #expect(flat[2].key == "m")
+  #expect(flat[2].value == JSONValue.number(.integer(3)))
+}
+
+// MARK: - Parsing JSON from a String (README)
+
+@Test func docParseFromString() throws {
+  let jsonString = """
+    {"c": 3, "a": 1, "b": 2}
+    """
+  let parsed = try JSONValue.parse(jsonString)
+  guard case .object(let dict) = parsed else {
+    Issue.record("Expected object")
+    return
+  }
+  #expect(Array(dict.keys) == ["c", "a", "b"])
+}
+
+// MARK: - Standard JSON Encoding (README)
+
+@Test func docStandardEncoding() throws {
+  let value = JSONValue.object([
+    "name": .string("Bob"),
+    "age": .number(.integer(25)),
+  ])
+
+  let standardData = try value.encodeStandard()
+  let json = String(data: standardData, encoding: .utf8)
+  #expect(json == "{\"name\":\"Bob\",\"age\":25}")
+
+  guard case .object(let dict) = value else {
+    Issue.record("Expected object")
+    return
+  }
+  let name: String = try dict["name"]!.decode(as: String.self)
+  #expect(name == "Bob")
+}
+
+// MARK: - Round-Trip Nested JSON (README)
+
+@Test func docNestedRoundTrip() throws {
+  let input = """
+    {"a": {"b": 1, "c": [2, {"d": 3}]}}
+    """
+  // Use parse() for order-preserving first decode
+  let value = try JSONValue.parse(input)
+  let encoder = JSONEncoder()
+  let encoded = try encoder.encode(value)
+  let decoder = JSONDecoder()
+  let decoded = try decoder.decode(JSONValue.self, from: encoded)
+
+  // Verify structure and order are preserved through round trip
+  guard case .object(let outer) = decoded else {
+    Issue.record("Expected outer object")
+    return
+  }
+  #expect(Array(outer.keys) == ["a"])
+  guard case .object(let inner) = outer["a"]! else {
+    Issue.record("Expected inner object")
+    return
+  }
+  #expect(Array(inner.keys) == ["b", "c"])
+  #expect(inner["b"] == JSONValue.number(.integer(1)))
+  guard case .array(let arr) = inner["c"]! else {
+    Issue.record("Expected array")
+    return
+  }
+  #expect(arr.count == 2)
+  #expect(arr[0] == JSONValue.number(.integer(2)))
+  guard case .object(let deep) = arr[1] else {
+    Issue.record("Expected deep object")
+    return
+  }
+  #expect(Array(deep.keys) == ["d"])
+  #expect(deep["d"] == JSONValue.number(.integer(3)))
+}
+
+// MARK: - Round-Trip Exact Order (README — parse, modify, re-encode as standard JSON)
+
+@Test func docRoundTripExactOrder() throws {
+  let input = """
+    {"z": 1, "a": 2, "m": 3}
+    """
+  let value = try JSONValue.parse(input)
+
+  // Modify a value
+  guard case .object(var dict) = value else {
+    Issue.record("Expected object")
+    return
+  }
+  dict["a"] = .number(.integer(99))
+  let modified = JSONValue.object(dict)
+
+  // Encode back to standard JSON
+  let output = String(data: try modified.encodeStandard(), encoding: .utf8)!
+  // Output should have same key order, updated values
+  #expect(output == "{\"z\":1,\"a\":99,\"m\":3}")
+}
+
+@Test func docRoundTripNestedExactOrder() throws {
+  let input = """
+    {"a": {"b": 1, "c": [2, {"d": 3}]}}
+    """
+  let value = try JSONValue.parse(input)
+
+  // Modify a deeply nested value
+  guard case .object(var dict) = value else {
+    Issue.record("Expected object")
+    return
+  }
+  guard case .object(var inner) = dict["a"]! else {
+    Issue.record("Expected inner object")
+    return
+  }
+  inner["b"] = .number(.integer(99))
+  dict["a"] = .object(inner)
+  let modified = JSONValue.object(dict)
+
+  let output = String(data: try modified.encodeStandard(), encoding: .utf8)!
+  // Same key order, updated value
+  #expect(output == "{\"a\":{\"b\":99,\"c\":[2,{\"d\":3}]}}")
+}
+
 // MARK: - Key Order Preservation (README)
 
 @Test func docKeyOrderPreservation() throws {
