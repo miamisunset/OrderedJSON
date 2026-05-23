@@ -5,6 +5,19 @@ import OrderedCollections
 
 extension JSON {
   /// Decodes UBJSON data into a JSON value.
+  ///
+  /// Universal Binary JSON is a binary JSON format that uses type markers
+  /// and little-endian multi-byte integers.
+  ///
+  /// - Parameter data: The UBJSON-encoded data.
+  /// - Returns: A `JSON` value decoded from UBJSON.
+  /// - Throws: `JSONError.invalidUBJSON` if the data is malformed.
+  ///
+  /// ## Example
+  ///
+  /// ```swift
+  /// let decoded = try JSON.fromUBJSON(data)
+  /// ```
   public static func fromUBJSON(_ data: Data) throws -> JSON {
     var pos = 0
     let value = try decodeUBJSON(data, &pos)
@@ -15,6 +28,14 @@ extension JSON {
   }
 
   /// Encodes this JSON value into UBJSON format.
+  /// - Returns: UBJSON-encoded data.
+  ///
+  /// ## Example
+  ///
+  /// ```swift
+  /// let json = JSON.object(["key": .string("value")])
+  /// let ubjsonData = json.toUBJSON()
+  /// ```
   public func toUBJSON() -> Data {
     var bytes: [UInt8] = []
     encodeUBJSON(self, &bytes)
@@ -331,6 +352,9 @@ private func appendUBJSONUInt64(_ value: UInt64, _ bytes: inout [UInt8]) {
 // MARK: - Error
 
 extension JSONError {
+  /// Creates a UBJSON-specific error wrapped in `invalidPatch`.
+  /// - Parameter reason: A description of the error.
+  /// - Returns: A `JSONError.invalidPatch` with the UBJSON prefix.
   public static func invalidUBJSON(_ reason: String = "") -> JSONError {
     return .invalidPatch("UBJSON: \(reason)")
   }

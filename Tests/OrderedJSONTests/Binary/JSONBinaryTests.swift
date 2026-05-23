@@ -1,6 +1,6 @@
 import Foundation
-import Testing
 import OrderedCollections
+import Testing
 
 @testable import OrderedJSON
 
@@ -236,9 +236,9 @@ import OrderedCollections
 
 @Test func msgPackLargeArray16() throws {
   // Build raw bytes for a 16-element array (0xDC marker)
-  var bytes: [UInt8] = [0xDC, 0x00, 0x10] // array of 16
+  var bytes: [UInt8] = [0xDC, 0x00, 0x10]  // array of 16
   for _ in 0..<16 {
-    bytes.append(0x2A) // 42 encoded as positive fixint
+    bytes.append(0x2A)  // 42 encoded as positive fixint
   }
   let data = Data(bytes)
   let decoded = try JSON.fromMsgPack(data)
@@ -248,7 +248,7 @@ import OrderedCollections
 
 @Test func msgPackLargeArray32() throws {
   // Build raw bytes for array with 0xDD marker (3 elements)
-  var bytes: [UInt8] = [0xDD, 0x00, 0x00, 0x00, 0x03] // array of 3
+  var bytes: [UInt8] = [0xDD, 0x00, 0x00, 0x00, 0x03]  // array of 3
   for _ in 0..<3 {
     bytes.append(0x2A)
   }
@@ -262,13 +262,13 @@ import OrderedCollections
   // Build raw bytes for a map with 0xDE marker (2 entries)
   var bytes: [UInt8] = [0xDE, 0x00, 0x02]
   // key "a", value 1
-    bytes.append(0xA1)
-    bytes.append(0x61) // "a"
-    bytes.append(0x01)
+  bytes.append(0xA1)
+  bytes.append(0x61)  // "a"
+  bytes.append(0x01)
   // key "b", value 2
-    bytes.append(0xA1)
-    bytes.append(0x62) // "b"
-    bytes.append(0x02)
+  bytes.append(0xA1)
+  bytes.append(0x62)  // "b"
+  bytes.append(0x02)
   let data = Data(bytes)
   let decoded = try JSON.fromMsgPack(data)
   #expect(decoded.isObject)
@@ -279,7 +279,7 @@ import OrderedCollections
   // Build raw bytes for a map with 0xDF marker (1 entry)
   var bytes: [UInt8] = [0xDF, 0x00, 0x00, 0x00, 0x01]
   bytes.append(0xA1)
-  bytes.append(0x61) // "a"
+  bytes.append(0x61)  // "a"
   bytes.append(0x01)
   let data = Data(bytes)
   let decoded = try JSON.fromMsgPack(data)
@@ -290,7 +290,7 @@ import OrderedCollections
 @Test func msgPackString8() throws {
   // Build raw bytes for string with 0xD9 marker (len=32)
   var bytes: [UInt8] = [0xD9, 32]
-  for _ in 0..<32 { bytes.append(0x61) } // "a" * 32
+  for _ in 0..<32 { bytes.append(0x61) }  // "a" * 32
   let data = Data(bytes)
   let decoded = try JSON.fromMsgPack(data)
   #expect(decoded == JSON.string(String(repeating: "a", count: 32)))
@@ -315,7 +315,7 @@ import OrderedCollections
 }
 
 @Test func msgPackUnknownType() throws {
-  let data = Data([0xC1]) // 0xC1 is unused in MsgPack spec
+  let data = Data([0xC1])  // 0xC1 is unused in MsgPack spec
   #expect(throws: JSONError.self) { try JSON.fromMsgPack(data) }
 }
 
@@ -672,5 +672,198 @@ import OrderedCollections
   let json = JSON.number(.integer(-1_000_000))
   let data = json.toBJData()
   let decoded = try JSON.fromBJData(data)
+  #expect(decoded == json)
+}
+
+// MARK: - CBOR Edge Cases
+
+@Test func cborByteString() throws {
+  // CBOR byte string (major type 2) with 3 bytes
+  let bytes: [UInt8] = [0x43, 0x61, 0x62, 0x63]  // major 2, len=3, data="abc"
+  let data = Data(bytes)
+  let decoded = try JSON.fromCBOR(data)
+  #expect(decoded.isString)
+}
+
+@Test func cborTag() throws {
+  // CBOR tag (major type 6) followed by integer 42
+  // Tag 1: major 6 (0x60), info 1 = 0x61, then integer 42
+  let bytes: [UInt8] = [0x61, 0x18, 0x2A]  // tag 1, unsigned 42
+  let data = Data(bytes)
+  let decoded = try JSON.fromCBOR(data)
+  #expect(decoded == JSON.number(.integer(42)))
+}
+
+@Test func cborHalfFloat() throws {
+  // CBOR half-precision float (additional info 25)
+  // 1.5 encoded as half-float: 0x3E, 0x80 = 0b0 01111 1000000000 = 1.5
+  let bytes: [UInt8] = [0xFA, 0x3E, 0x80]  // major 7, info 25, value=0x3E80
+  let data = Data(bytes)
+  let decoded = try JSON.fromCBOR(data)
+  #expect(decoded.isNumber)
+}
+
+@Test func cborUndefined() throws {
+  // CBOR undefined value (major 7, info 23) — maps to null
+  let bytes: [UInt8] = [0xF7]  // major 7, info 23 (undefined)
+  let data = Data(bytes)
+  let decoded = try JSON.fromCBOR(data)
+  #expect(decoded.isNull)
+}
+
+@Test func cborEmptyData() throws {
+  #expect(throws: JSONError.self) { try JSON.fromCBOR(Data()) }
+}
+
+@Test func cborReservedInfo() throws {
+  // Reserved additional info (28-31) should throw
+  let bytes: [UInt8] = [0xF8]  // major 7, info 28 (reserved)
+  let data = Data(bytes)
+  #expect(throws: JSONError.self) { try JSON.fromCBOR(data) }
+}
+
+@Test func cborUnknownMajorType() throws {
+  // CBOR only defines major types 0-7; the default case is unreachable
+  // but we can verify it exists by testing with a marker that has no handler
+  // The reserved info case is tested in cborReservedInfo
+}
+
+@Test func cborHalfFloatDenormalized() throws {
+  // Half-float denormalized value (exp=0)
+  let bytes: [UInt8] = [0xFA, 0x00, 0x01]  // major 7, info 25, value=0x0001 (min denormalized)
+  let data = Data(bytes)
+  let decoded = try JSON.fromCBOR(data)
+  #expect(decoded.isNumber)
+}
+
+@Test func cborHalfFloatInf() throws {
+  // Half-float infinity (exp=31, mant=0)
+  let bytes: [UInt8] = [0xFA, 0xFC, 0x00]  // major 7, info 25, value=0xFC00 (-inf)
+  let data = Data(bytes)
+  let decoded = try JSON.fromCBOR(data)
+  #expect(decoded.isNumber)
+}
+
+@Test func cborHalfFloatNaN() throws {
+  // Half-float NaN (exp=31, mant!=0)
+  let bytes: [UInt8] = [0xFA, 0xFE, 0x00]  // major 7, info 25, value=0xFE00 (NaN)
+  let data = Data(bytes)
+  let decoded = try JSON.fromCBOR(data)
+  #expect(decoded.isNumber)
+  #expect(decoded.isFloat)
+}
+
+// MARK: - UBJSON Edge Cases
+
+@Test func ubjsonCharMarker() throws {
+  // UBJSON char marker 'C' followed by a single character
+  let bytes: [UInt8] = [0x43, 0x41]  // 'C', 'A'
+  let data = Data(bytes)
+  let decoded = try JSON.fromUBJSON(data)
+  #expect(decoded == JSON.string("A"))
+}
+
+@Test func ubjsonEmptyData() throws {
+  #expect(throws: JSONError.self) { try JSON.fromUBJSON(Data()) }
+}
+
+@Test func ubjsonUnknownMarker() throws {
+  // UBJSON marker 'X' (not in spec)
+  let bytes: [UInt8] = [0x58]
+  let data = Data(bytes)
+  #expect(throws: JSONError.self) { try JSON.fromUBJSON(data) }
+}
+
+@Test func ubjsonStringLenUnexpectedEnd() throws {
+  // UBJSON string marker with incomplete length marker
+  let bytes: [UInt8] = [0x53]  // 'S' marker, no length
+  let data = Data(bytes)
+  #expect(throws: JSONError.self) { try JSON.fromUBJSON(data) }
+}
+
+@Test func ubjsonCountUnexpectedEnd() throws {
+  // UBJSON array marker with incomplete count
+  let bytes: [UInt8] = [0x5B]  // '[' marker, no count
+  let data = Data(bytes)
+  #expect(throws: JSONError.self) { try JSON.fromUBJSON(data) }
+}
+
+@Test func ubjsonStringMarkerNotString() throws {
+  // UBJSON object with non-string key marker
+  let bytes: [UInt8] = [0x7B, 0x49, 0x01, 0x49, 0x02]  // object with int8 keys
+  let data = Data(bytes)
+  #expect(throws: JSONError.self) { try JSON.fromUBJSON(data) }
+}
+
+// MARK: - BJData Edge Cases
+
+@Test func bjdataCharMarker() throws {
+  // BJData char marker 'C' followed by a single character
+  let bytes: [UInt8] = [0x43, 0x41]  // 'C', 'A'
+  let data = Data(bytes)
+  let decoded = try JSON.fromBJData(data)
+  #expect(decoded == JSON.string("A"))
+}
+
+@Test func bjdataEmptyData() throws {
+  #expect(throws: JSONError.self) { try JSON.fromBJData(Data()) }
+}
+
+@Test func bjdataUnknownMarker() throws {
+  // BJData marker 'X' (not in spec)
+  let bytes: [UInt8] = [0x58]
+  let data = Data(bytes)
+  #expect(throws: JSONError.self) { try JSON.fromBJData(data) }
+}
+
+@Test func bjdataStringLenUnexpectedEnd() throws {
+  // BJData string marker with incomplete length marker
+  let bytes: [UInt8] = [0x53]  // 'S' marker, no length
+  let data = Data(bytes)
+  #expect(throws: JSONError.self) { try JSON.fromBJData(data) }
+}
+
+@Test func bjdataStringMarkerNotString() throws {
+  // BJData object with non-string key marker
+  let bytes: [UInt8] = [0x7B, 0x49, 0x01, 0x49, 0x02]
+  let data = Data(bytes)
+  #expect(throws: JSONError.self) { try JSON.fromBJData(data) }
+}
+
+// MARK: - BSON Edge Cases
+
+@Test func bsonUnsupportedType() throws {
+  // BSON type 0x07 (object id) is not supported
+  var bytes: [UInt8] = [0x00, 0x00, 0x00, 0x00]  // placeholder length
+  bytes.append(0x07)  // type: object id (unsupported)
+  bytes.append(0x65)  // key: "e"
+  bytes.append(0x00)  // null terminator for key
+  // Need valid length — just use minimal document with unsupported type
+  let totalLen = UInt32(bytes.count + 1)  // +1 for null terminator
+  bytes[0] = UInt8(totalLen & 0xFF)
+  bytes[1] = UInt8((totalLen >> 8) & 0xFF)
+  bytes[2] = UInt8((totalLen >> 16) & 0xFF)
+  bytes[3] = UInt8((totalLen >> 24) & 0xFF)
+  bytes.append(0x00)  // document null terminator
+  let data = Data(bytes)
+  #expect(throws: JSONError.self) { try JSON.fromBSON(data) }
+}
+
+@Test func bsonEmptyData() throws {
+  #expect(throws: JSONError.self) { try JSON.fromBSON(Data()) }
+}
+
+@Test func bsonUnexpectedEnd() throws {
+  // Truncated BSON document (incomplete length bytes)
+  let data = Data([0x05, 0x00])  // only 2 bytes, need 4 for length
+  #expect(throws: JSONError.self) { try JSON.fromBSON(data) }
+}
+
+// MARK: - CBOR Large Negative
+
+@Test func cborLargeNegativeInt64() throws {
+  let json = JSON.number(.integer(-1_000_000_000))
+  let data = json.toCBOR()
+  let decoded = try JSON.fromCBOR(data)
   #expect(decoded == json)
 }

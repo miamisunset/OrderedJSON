@@ -90,9 +90,29 @@ import Testing
   var json = JSON.object(["a": JSON.string("old")])
   let ptr = try JSONPointer("/a")
   ptr.set(into: &json, value: JSON.string("new"))
-  // set is currently a no-op (TODO)
-  // Verify the value didn't change
-  #expect(json["a"] == JSON.string("old"))
+  #expect(json["a"] == JSON.string("new"))
+}
+
+@Test func pointerSetRoot() throws {
+  var json = JSON.string("old")
+  let ptr = try JSONPointer("")
+  ptr.set(into: &json, value: JSON.string("new"))
+  #expect(json == JSON.string("new"))
+}
+
+@Test func pointerSetCreatesIntermediate() throws {
+  var json = JSON.object([:])
+  let ptr = try JSONPointer("/a/b/c")
+  ptr.set(into: &json, value: JSON.string("deep"))
+  #expect(json["a"]?["b"]?["c"] == JSON.string("deep"))
+}
+
+@Test func pointerSetCreatesArray() throws {
+  var json = JSON.object([:])
+  let ptr = try JSONPointer("/0")
+  ptr.set(into: &json, value: JSON.string("first"))
+  #expect(json.isArray)
+  #expect(json[0] == JSON.string("first"))
 }
 
 // MARK: - Flatten/Unflatten Edge Cases

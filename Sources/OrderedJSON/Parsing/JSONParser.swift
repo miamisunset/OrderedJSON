@@ -3,7 +3,24 @@ import OrderedCollections
 
 extension JSON {
   /// Parses JSON from a string, preserving key order in objects.
-  /// Uses a recursive descent parser for order-preserving decoding.
+  ///
+  /// Uses a recursive descent parser that iterates through the input
+  /// character-by-character. Unlike `Codable`, this method directly
+  /// constructs `JSON` values without going through an intermediate
+  /// representation, preserving the original key order from the input.
+  ///
+  /// - Parameter jsonString: A valid JSON string.
+  /// - Returns: A `JSON` value parsed from the string.
+  /// - Throws: `JSONParseError` if the input is not valid JSON.
+  ///
+  /// ## Example
+  ///
+  /// ```swift
+  /// let json = try JSON.parse(#"{"b":1,"a":2}"#)
+  /// json["b"]  // 1
+  /// json["a"]  // 2
+  /// // Keys are in order: "b", "a"
+  /// ```
   public static func parse(_ jsonString: String) throws -> JSON {
     var pos = 0
     let chars = Array(jsonString)

@@ -3,13 +3,46 @@ import OrderedCollections
 
 /// The core JSON type — a value type wrapping an internal Storage enum.
 /// Mirrors `nlohmann::basic_json` with a rich method-based API.
+///
+/// `JSON` preserves the order of keys in parsed objects. It uses
+/// `OrderedDictionary<String, JSON>` from `swift-collections` instead of
+/// the unordered `Dictionary`. This means round-tripping a JSON object
+/// through parse/dump retains key ordering.
+///
+/// ## Creating values
+///
+/// ```swift
+/// let j: JSON = .object([
+///   "name": .string("Alice"),
+///   "age":  .number(.integer(30))
+/// ])
+/// ```
+///
+/// ## Factory methods
+///
+/// Use `JSON.object(_:)`, `JSON.array(_:)`, `JSON.string(_:)`, etc.
+/// Convenience `init` overloads accept `String`, `Bool`, `Int64`, `Int`,
+/// `Double`, `[JSON]`, and `OrderedDictionary<String, JSON>`.
+///
+/// ## Type checks
+///
+/// `isNull`, `isBoolean`, `isNumber`, `isInteger`, `isFloat`, `isString`,
+/// `isObject`, `isArray`, `isPrimitive`, `isStructured`, `type`, `typeName`.
 public struct JSON: Hashable, Sendable {
+
+  /// The underlying storage enum.
   internal enum Storage: Hashable, Sendable {
+    /// An ordered dictionary mapping string keys to JSON values.
     case object(OrderedDictionary<String, JSON>)
+    /// An ordered array of JSON values.
     case array([JSON])
+    /// A string value.
     case string(String)
+    /// A numeric value (integer or floating-point).
     case number(JSONNumber)
+    /// A boolean value.
     case boolean(Bool)
+    /// The JSON `null` value.
     case null
   }
 
@@ -21,28 +54,47 @@ public struct JSON: Hashable, Sendable {
 
   // MARK: - Factory methods
 
+  /// Creates a JSON object value from an ordered dictionary.
+  /// - Parameter dict: The ordered dictionary of key-value pairs.
+  /// - Returns: A JSON object.
   public static func object(_ dict: OrderedDictionary<String, JSON>) -> JSON {
     JSON(storage: .object(dict))
   }
 
+  /// Creates a JSON array value from an array of JSON values.
+  /// - Parameter elements: The array elements.
+  /// - Returns: A JSON array.
   public static func array(_ elements: [JSON]) -> JSON {
     JSON(storage: .array(elements))
   }
 
+  /// Creates a JSON string value.
+  /// - Parameter value: The string value.
+  /// - Returns: A JSON string.
   public static func string(_ value: String) -> JSON {
     JSON(storage: .string(value))
   }
 
+  /// Creates a JSON number value (integer or floating-point).
+  /// - Parameter value: The `JSONNumber` value.
+  /// - Returns: A JSON number.
   public static func number(_ value: JSONNumber) -> JSON {
     JSON(storage: .number(value))
   }
 
+  /// Creates a JSON boolean value.
+  /// - Parameter value: The boolean value.
+  /// - Returns: A JSON boolean.
   public static func boolean(_ value: Bool) -> JSON {
     JSON(storage: .boolean(value))
   }
 
+  /// The JSON `null` singleton value.
+  /// Equivalent to `JSON.nullValue()`.
   public static let null = JSON(storage: .null)
 
+  /// Creates a JSON null value.
+  /// - Returns: A JSON null.
   public static func nullValue() -> JSON {
     JSON(storage: .null)
   }
@@ -59,46 +111,56 @@ public struct JSON: Hashable, Sendable {
 
   // MARK: - Type checks
 
+  /// Returns `true` if this value is JSON `null`.
   public var isNull: Bool {
     if case .null = storage { return true }
     return false
   }
 
+  /// Returns `true` if this value is a boolean.
   public var isBoolean: Bool {
     if case .boolean = storage { return true }
     return false
   }
 
+  /// Returns `true` if this value is a number (integer or floating-point).
   public var isNumber: Bool {
     if case .number = storage { return true }
     return false
   }
 
+  /// Returns `true` if this value is an integer number.
   public var isInteger: Bool {
     if case .number(.integer) = storage { return true }
     return false
   }
 
+  /// Returns `true` if this value is a floating-point number.
   public var isFloat: Bool {
     if case .number(.float) = storage { return true }
     return false
   }
 
+  /// Returns `true` if this value is a string.
   public var isString: Bool {
     if case .string = storage { return true }
     return false
   }
 
+  /// Returns `true` if this value is an object (ordered dictionary).
   public var isObject: Bool {
     if case .object = storage { return true }
     return false
   }
 
+  /// Returns `true` if this value is an array.
   public var isArray: Bool {
     if case .array = storage { return true }
     return false
   }
 
+  /// Returns `true` if this value is a primitive (null, boolean, number, or string).
+  /// Primitives are leaf values with no child elements.
   public var isPrimitive: Bool {
     switch storage {
     case .null, .boolean, .number, .string: return true
@@ -106,6 +168,8 @@ public struct JSON: Hashable, Sendable {
     }
   }
 
+  /// Returns `true` if this value is a structured type (object or array).
+  /// Structured types can contain child elements.
   public var isStructured: Bool {
     switch storage {
     case .object, .array: return true
@@ -113,6 +177,7 @@ public struct JSON: Hashable, Sendable {
     }
   }
 
+  /// Enum representing the JSON type of a value.
   public enum JSONType: Hashable, Sendable {
     case null
     case boolean
@@ -122,6 +187,7 @@ public struct JSON: Hashable, Sendable {
     case array
   }
 
+  /// Returns the JSON type of this value as a `JSONType` enum case.
   public var type: JSONType {
     switch storage {
     case .null: return .null
@@ -133,6 +199,8 @@ public struct JSON: Hashable, Sendable {
     }
   }
 
+  /// Returns a human-readable name for the JSON type of this value.
+  /// One of: `"null"`, `"boolean"`, `"number"`, `"string"`, `"object"`, `"array"`.
   public var typeName: String {
     switch type {
     case .null: return "null"
@@ -180,6 +248,8 @@ extension JSON {
 }
 
 extension JSON {
+  /// Equality comparison. Two JSON values are equal if they have the same
+  /// storage case and the same wrapped value.
   public static func == (lhs: JSON, rhs: JSON) -> Bool {
     switch (lhs.storage, rhs.storage) {
     case (.null, .null): return true
@@ -192,7 +262,3 @@ extension JSON {
     }
   }
 }
-
-// MARK: - Backward compatibility typealias
-
-public typealias JSONValue = JSON

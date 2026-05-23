@@ -5,6 +5,19 @@ import OrderedCollections
 
 extension JSON {
   /// Decodes CBOR data into a JSON value.
+  ///
+  /// CBOR (Concise Binary Object Representation) is a binary JSON format
+  /// designed for small code size and minimal message size.
+  ///
+  /// - Parameter data: The CBOR-encoded data.
+  /// - Returns: A `JSON` value decoded from CBOR.
+  /// - Throws: `JSONError.invalidCBOR` if the data is malformed.
+  ///
+  /// ## Example
+  ///
+  /// ```swift
+  /// let decoded = try JSON.fromCBOR(data)
+  /// ```
   public static func fromCBOR(_ data: Data) throws -> JSON {
     var pos = 0
     let value = try decodeCBOR(data, &pos)
@@ -15,6 +28,14 @@ extension JSON {
   }
 
   /// Encodes this JSON value into CBOR format.
+  /// - Returns: CBOR-encoded data.
+  ///
+  /// ## Example
+  ///
+  /// ```swift
+  /// let json = JSON.object(["key": .string("value")])
+  /// let cborData = json.toCBOR()
+  /// ```
   public func toCBOR() -> Data {
     var bytes: [UInt8] = []
     encodeCBOR(self, &bytes)
@@ -268,6 +289,9 @@ private func appendUInt64(_ value: UInt64, _ bytes: inout [UInt8]) {
 // MARK: - Error
 
 extension JSONError {
+  /// Creates a CBOR-specific error wrapped in `invalidPatch`.
+  /// - Parameter reason: A description of the error.
+  /// - Returns: A `JSONError.invalidPatch` with the CBOR prefix.
   public static func invalidCBOR(_ reason: String = "") -> JSONError {
     return .invalidPatch("CBOR: \(reason)")
   }

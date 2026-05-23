@@ -5,7 +5,22 @@ import OrderedCollections
 
 extension JSON {
   /// Applies a JSON Patch (RFC 6902) to this value and returns the patched result.
-  /// The original value is not mutated.
+  ///
+  /// The original value is not mutated — a copy is made and returned.
+  ///
+  /// - Parameter patchValue: A JSON array of patch operations.
+  /// - Returns: A new `JSON` value with all patch operations applied.
+  /// - Throws: `JSONError.invalidPatch` if the patch is malformed or an operation fails.
+  ///
+  /// ## Example
+  ///
+  /// ```swift
+  /// let json = JSON.object(["foo": .string("bar")])
+  /// let patch = JSON.array([
+  ///   .object(["op": .string("add"), "path": .string("/baz"), "value": .string("qux")])
+  /// ])
+  /// let patched = try json.patch(patch)
+  /// ```
   public func patch(_ patchValue: JSON) throws -> JSON {
     var copy = self
     try copy.patchInPlace(patchValue)
@@ -13,6 +28,9 @@ extension JSON {
   }
 
   /// Applies a JSON Patch (RFC 6902) in-place, mutating this value.
+  ///
+  /// - Parameter patchValue: A JSON array of patch operations.
+  /// - Throws: `JSONError.invalidPatch` if the patch is malformed or an operation fails.
   public mutating func patchInPlace(_ patchValue: JSON) throws {
     guard case .array(let operations) = patchValue.storage else {
       throw JSONError.invalidPatch("Patch must be an array of operations")
@@ -249,6 +267,24 @@ extension JSON {
 
 extension JSON {
   /// Creates a JSON Patch (RFC 6902) that transforms `source` into `target`.
+  ///
+  /// The diff is computed recursively:
+  /// - Objects: keys that differ generate add/remove/replace operations.
+  /// - Arrays: element-by-element comparison with add/remove for excess.
+  /// - Other types: direct replace if different.
+  ///
+  /// - Parameters:
+  ///   - source: The original JSON value.
+  ///   - target: The desired JSON value.
+  /// - Returns: A JSON array of patch operations.
+  ///
+  /// ## Example
+  ///
+  /// ```swift
+  /// let a = JSON.object(["a": .number(.integer(1))])
+  /// let b = JSON.object(["a": .number(.integer(2))])
+  /// let patch = JSON.diff(a, b)  // [{"op":"replace","path":"/a","value":2}]
+  /// ```
   public static func diff(_ source: JSON, _ target: JSON) -> JSON {
     var operations: [JSON] = []
     diffInternal(source: source, target: target, path: "", operations: &operations)

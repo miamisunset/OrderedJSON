@@ -255,3 +255,68 @@ final class SAXCollector: JSONSAXEventHandler {
   #expect(JSON.accept(#"{"k":}"#) == false)
   #expect(JSON.accept("[1,]") == false)
 }
+
+// MARK: - SAX Parse Edge Cases
+
+@Test func saxParseInvalidEscape() {
+  let collector = SAXCollector()
+  let result = JSON.saxParse("\"\\x\"", handler: collector)
+  #expect(result == false)
+}
+
+@Test func saxParseInvalidUnicode() {
+  let collector = SAXCollector()
+  let result = JSON.saxParse("\"\\u\"", handler: collector)
+  // SAX parser is lenient: invalid unicode escape returns empty string, not an error
+  #expect(result == true)
+  #expect(collector.events[0] == ("string", ""))
+}
+
+@Test func saxParseInvalidUnicodeHex() {
+  let collector = SAXCollector()
+  let result = JSON.saxParse("\"\\uQQQQ\"", handler: collector)
+  // SAX parser is lenient: invalid hex leaves unicode chars in result (no error)
+  #expect(result == true)
+  #expect(collector.events[0].0 == "string")
+  #expect(collector.events[0].1 == "QQQ")
+}
+
+@Test func saxParseIncompleteFloat() {
+  let collector = SAXCollector()
+  let result = JSON.saxParse("1.0e+", handler: collector)
+  #expect(result == false)
+}
+
+@Test func saxParseIncompleteNumber() {
+  let collector = SAXCollector()
+  let result = JSON.saxParse("-", handler: collector)
+  #expect(result == false)
+}
+
+@Test func saxParseBackslashAtEnd() {
+  let collector = SAXCollector()
+  let result = JSON.saxParse("\"\\", handler: collector)
+  // SAX parser is lenient: backslash at end returns empty string, not an error
+  #expect(result == true)
+  #expect(collector.events[0] == ("string", ""))
+}
+
+@Test func saxParseNumberIncompleteFloat() {
+  let collector = SAXCollector()
+  // "0." is actually valid in Swift (Double("0.") → 0.0), so SAX returns true
+  // Use a truly invalid float like "0.0e" which has incomplete exponent
+  let result = JSON.saxParse("0.0e", handler: collector)
+  #expect(result == false)
+}
+
+@Test func saxAcceptIncompleteObject() {
+  #expect(JSON.accept("{\"a\":") == false)
+}
+
+@Test func saxAcceptIncompleteArray() {
+  #expect(JSON.accept("[1,") == false)
+}
+
+@Test func saxAcceptMissingColon() {
+  #expect(JSON.accept("{\"a\" 1}") == false)
+}

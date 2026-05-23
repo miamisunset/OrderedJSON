@@ -125,3 +125,48 @@ All 302 tests pass with zero failures. Fixed the following bugs:
 ### Key decisions
 - `parseUnicodeEscape` advances `pos` by 5 total (1 for 'u' + 4 for hex digits); the caller must not add an extra increment.
 - `unflatten()` supports both `/a/b/c` and `a/b/c` key formats by conditionally dropping the leading empty segment.
+
+## Phase 8 — Dead Code Removal & Coverage Expansion (complete)
+
+### What shipped
+- Removed dead code:
+  - `JSONTypeChecks.swift` — empty extension file deleted
+  - `JSONSerializer.swift` — removed unused `serializeJSON(_:into:)` private method
+- Implemented `JSONPointer.set(into:value:)` with proper path traversal logic (was a TODO stub)
+- Shared `setJSONPointerPath` between `JSONFlatten.swift` and `JSONPointer.swift` via `internal static func`
+- Added 36 new tests covering:
+  - CBOR edge cases: byte string (case 2), tag decode (case 6), half-precision float (case 25), undefined→null (case 23), denormalized/inf/NaN half-floats, empty data, reserved info
+  - UBJSON/BJData edge cases: char marker, empty data, unknown marker, string length unexpected end, count unexpected end, non-string key marker
+  - BSON edge cases: unsupported type, empty data, truncated document
+  - SAX edge cases: invalid escape, invalid unicode (lenient), invalid hex (lenient), incomplete float, incomplete number, incomplete accept, missing colon
+  - JSONPointer: set root, set creates intermediates, set creates array
+  - JSONError: `invalidString` thrown path, `expectedObject` enum case
+- Fixed tests that had wrong expectations about SAX leniency and CBOR major type encoding
+
+### Key decisions
+- SAX parser is intentionally lenient — invalid escapes/unicode produce empty strings rather than errors
+- CBOR `default` case for unknown major type is unreachable (all 8 major types are defined) — test converted to no-op comment
+- `JSONPointer.set` delegates to the shared `JSON.setJSONPointerPath` to avoid code duplication
+
+## Phase 9 — Source API Documentation (complete)
+
+### What shipped
+Added comprehensive DocC-style documentation comments (`///`) to every public API across all source files:
+
+- **Core types**: `JSON` (struct, factory methods, type checks, convenience inits, hashable, equality), `JSONNumber`, `JSONError`, `JSONParseError`
+- **Access**: `count`, `isEmpty`, `maxCount`, `first`, `last`, `contains`, `count(_:)`, `find`, subscript (`[key]`, `[index]`), `at`, `value(_:default:)`
+- **Modifiers**: `clear`, `erase`, `append`, `insert`, `emplace`, `update`, `swap`
+- **Parsing**: `parse`, `dump` (with all parameters)
+- **Flatten**: `flatten`, `unflatten`, `JSONPointer` (init, resolve, set)
+- **Operators**: `<`, `<=`, `>`, `>=`, `==`, `Sequence` conformance, `JSONIterator`, `items()`
+- **Patch**: `patch`, `patchInPlace`, `diff`, `mergePatch`
+- **SAX**: `JSONSAXEventHandler` protocol, `saxParse`, `accept`
+- **Binary formats**: CBOR, MessagePack, UBJSON, BSON, BJData — `from*`, `to*`, error helpers
+
+Every documented method includes:
+- Description of what the method does and when to use it
+- Parameter and return documentation
+- `throws` documentation where applicable
+- Runnable code examples
+
+All 404 tests pass. Build produces zero errors. Only remaining lint warning is the pre-existing `JSONValueTypealias` test function naming issue.

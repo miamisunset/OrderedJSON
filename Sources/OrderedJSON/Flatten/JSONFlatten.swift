@@ -3,7 +3,23 @@ import OrderedCollections
 
 extension JSON {
   /// Flattens nested JSON into a flat object with JSON Pointer keys (`/a/b/c`).
-  /// Returns a `JSON` object where each key is a JSON Pointer path and each value is a leaf value.
+  ///
+  /// Each leaf value is mapped to a JSON Pointer path. Empty objects and
+  /// arrays produce no entries. Non-object roots return `self`.
+  ///
+  /// - Returns: A `JSON` object where each key is a JSON Pointer path and
+  ///   each value is a leaf value.
+  ///
+  /// ## Example
+  ///
+  /// ```swift
+  /// let json = JSON.object([
+  ///   "a": .object(["b": .number(.integer(1)), "c": .number(.integer(2))])
+  /// ])
+  /// let flat = json.flatten()
+  /// // flat["/a/b"] == 1
+  /// // flat["/a/c"] == 2
+  /// ```
   public func flatten() -> JSON {
     var result = OrderedDictionary<String, JSON>()
     flattenInternal(prefix: "", into: &result)
@@ -30,6 +46,23 @@ extension JSON {
   }
 
   /// Reconstructs a nested JSON value from a flattened object with JSON Pointer keys.
+  ///
+  /// Keys can be in either `/a/b/c` format (with leading `/`) or `a/b/c` format
+  /// (without leading `/`). Both are supported.
+  ///
+  /// - Returns: A nested `JSON` value reconstructed from the flat keys.
+  ///
+  /// ## Example
+  ///
+  /// ```swift
+  /// let flat = JSON.object([
+  ///   "/a/b": .number(.integer(1)),
+  ///   "/a/c": .number(.integer(2))
+  /// ])
+  /// let nested = flat.unflatten()
+  /// // nested["a"]["b"] == 1
+  /// // nested["a"]["c"] == 2
+  /// ```
   public func unflatten() -> JSON {
     guard case .object(let dict) = storage else { return self }
 
@@ -51,56 +84,5 @@ extension JSON {
     }
 
     return root
-  }
-
-  /// Recursively sets a value at a path of segments, creating intermediate objects/arrays.
-  private static func setJSONPointerPath(into json: inout JSON, parts: [String], value: JSON) {
-    guard let first = parts.first else {
-      json = value
-      return
-    }
-    let rest = Array(parts.dropFirst())
-
-    if let index = Int(first) {
-      // Array path segment
-      if case .array(var arr) = json.storage {
-        while arr.count <= index {
-          arr.append(JSON.null)
-        }
-        setJSONPointerPath(into: &arr[index], parts: rest, value: value)
-        json.storage = .array(arr)
-      } else {
-        var arr = [JSON](repeating: JSON.null, count: index + 1)
-        if rest.isEmpty {
-          arr[index] = value
-        } else {
-          arr[index] = JSON.object(OrderedDictionary<String, JSON>())
-          setJSONPointerPath(into: &arr[index], parts: rest, value: value)
-        }
-        json = .array(arr)
-      }
-    } else {
-      // Object path segment
-      if case .object(var dict) = json.storage {
-        if rest.isEmpty {
-          dict[first] = value
-        } else {
-          if dict[first] == nil {
-            dict[first] = JSON.object(OrderedDictionary<String, JSON>())
-          }
-          setJSONPointerPath(into: &dict[first]!, parts: rest, value: value)
-        }
-        json.storage = .object(dict)
-      } else {
-        var dict = OrderedDictionary<String, JSON>()
-        if rest.isEmpty {
-          dict[first] = value
-        } else {
-          dict[first] = JSON.object(OrderedDictionary<String, JSON>())
-          setJSONPointerPath(into: &dict[first]!, parts: rest, value: value)
-        }
-        json = .object(dict)
-      }
-    }
   }
 }

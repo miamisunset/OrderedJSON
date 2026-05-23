@@ -449,11 +449,13 @@ import Testing
 }
 
 @Test func diffArrayRemoveExcess() {
-  let source = JSON.array([JSON.number(.integer(1)), JSON.number(.integer(2)), JSON.number(.integer(3))])
+  let source = JSON.array([
+    JSON.number(.integer(1)), JSON.number(.integer(2)), JSON.number(.integer(3)),
+  ])
   let target = JSON.array([JSON.number(.integer(1))])
   let patch = JSON.diff(source, target)
   #expect(patch.isArray)
-  #expect(patch.count == 2) // replace index 1, remove index 2? Actually remove trailing
+  #expect(patch.count == 2)  // replace index 1, remove index 2? Actually remove trailing
 }
 
 @Test func diffArrayRecursiveObjects() {

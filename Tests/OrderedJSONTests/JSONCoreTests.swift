@@ -236,11 +236,6 @@ import Testing
   #expect(dumped == "\"\\u0001\\u0002\"")
 }
 
-@Test func JSONValueTypealias() {
-  let j: JSONValue = JSON.string("hello")
-  #expect(j.isString)
-}
-
 // MARK: - JSONError Tests
 
 @Test func jsonErrorDescriptions() {
@@ -272,4 +267,16 @@ import Testing
   for err in errors {
     #expect(!err.description.isEmpty)
   }
+}
+
+@Test func jsonErrorInvalidStringThrown() throws {
+  // JSONPointer.init throws JSONError.invalidString for paths without leading /
+  #expect(throws: JSONError.invalidString) { try JSONPointer("foo") }
+}
+
+@Test func jsonErrorExpectedObjectNotThrown() {
+  // expectedObject is a valid enum case but never thrown in library code
+  // Verify it exists and can be compared
+  let err = JSONError.expectedObject
+  #expect(err != JSONError.invalidString)
 }

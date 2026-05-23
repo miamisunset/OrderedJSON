@@ -5,6 +5,19 @@ import OrderedCollections
 
 extension JSON {
   /// Decodes MessagePack data into a JSON value.
+  ///
+  /// MessagePack is a binary serialization format that is more compact
+  /// than JSON while preserving type information.
+  ///
+  /// - Parameter data: The MessagePack-encoded data.
+  /// - Returns: A `JSON` value decoded from MessagePack.
+  /// - Throws: `JSONError.invalidMsgPack` if the data is malformed.
+  ///
+  /// ## Example
+  ///
+  /// ```swift
+  /// let decoded = try JSON.fromMsgPack(data)
+  /// ```
   public static func fromMsgPack(_ data: Data) throws -> JSON {
     var pos = 0
     let value = try decodeMsgPack(data, &pos)
@@ -15,6 +28,14 @@ extension JSON {
   }
 
   /// Encodes this JSON value into MessagePack format.
+  /// - Returns: MessagePack-encoded data.
+  ///
+  /// ## Example
+  ///
+  /// ```swift
+  /// let json = JSON.object(["key": .string("value")])
+  /// let msgpackData = json.toMsgPack()
+  /// ```
   public func toMsgPack() -> Data {
     var bytes: [UInt8] = []
     encodeMsgPack(self, &bytes)
@@ -369,6 +390,9 @@ private func appendUInt64(_ value: UInt64, _ bytes: inout [UInt8]) {
 // MARK: - Error
 
 extension JSONError {
+  /// Creates a MessagePack-specific error wrapped in `invalidPatch`.
+  /// - Parameter reason: A description of the error.
+  /// - Returns: A `JSONError.invalidPatch` with the MessagePack prefix.
   public static func invalidMsgPack(_ reason: String = "") -> JSONError {
     return .invalidPatch("MsgPack: \(reason)")
   }

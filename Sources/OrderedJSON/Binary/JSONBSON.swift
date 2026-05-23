@@ -5,6 +5,21 @@ import OrderedCollections
 
 extension JSON {
   /// Decodes BSON data into a JSON value.
+  ///
+  /// BSON (Binary JSON) is a binary representation of JSON documents used
+  /// primarily by MongoDB. This implementation supports the most common
+  /// BSON types: double, string, embedded document, array, binary data,
+  /// boolean, null, int32, and int64.
+  ///
+  /// - Parameter data: The BSON-encoded data.
+  /// - Returns: A `JSON` value decoded from BSON.
+  /// - Throws: `JSONError.invalidBSON` if the data is malformed.
+  ///
+  /// ## Example
+  ///
+  /// ```swift
+  /// let decoded = try JSON.fromBSON(data)
+  /// ```
   public static func fromBSON(_ data: Data) throws -> JSON {
     var pos = 0
     let value = try decodeBSONDocument(data, &pos)
@@ -15,6 +30,14 @@ extension JSON {
   }
 
   /// Encodes this JSON value into BSON format.
+  /// - Returns: BSON-encoded data.
+  ///
+  /// ## Example
+  ///
+  /// ```swift
+  /// let json = JSON.object(["key": .string("value")])
+  /// let bsonData = json.toBSON()
+  /// ```
   public func toBSON() -> Data {
     var bytes: [UInt8] = []
     // BSON document: placeholder for length, then elements, then null
@@ -303,6 +326,9 @@ private func appendBSONUInt64(_ value: UInt64, _ bytes: inout [UInt8]) {
 // MARK: - Error
 
 extension JSONError {
+  /// Creates a BSON-specific error wrapped in `invalidPatch`.
+  /// - Parameter reason: A description of the error.
+  /// - Returns: A `JSONError.invalidPatch` with the BSON prefix.
   public static func invalidBSON(_ reason: String = "") -> JSONError {
     return .invalidPatch("BSON: \(reason)")
   }

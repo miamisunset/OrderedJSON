@@ -5,6 +5,21 @@ import OrderedCollections
 
 extension JSON {
   /// Decodes BJData into a JSON value.
+  ///
+  /// BJData is a binary JSON format that extends UBJSON with unsigned integer
+  /// types, end markers for arrays/objects, and optimized integer encoding.
+  /// This implementation supports all BJData marker types including
+  /// unsigned integers (UInt8-UInt64) and end-of-array/object markers.
+  ///
+  /// - Parameter data: The BJData-encoded data.
+  /// - Returns: A `JSON` value decoded from BJData.
+  /// - Throws: `JSONError.invalidBJData` if the data is malformed.
+  ///
+  /// ## Example
+  ///
+  /// ```swift
+  /// let decoded = try JSON.fromBJData(data)
+  /// ```
   public static func fromBJData(_ data: Data) throws -> JSON {
     var pos = 0
     let value = try decodeBJData(data, &pos)
@@ -15,6 +30,14 @@ extension JSON {
   }
 
   /// Encodes this JSON value into BJData format.
+  /// - Returns: BJData-encoded data.
+  ///
+  /// ## Example
+  ///
+  /// ```swift
+  /// let json = JSON.object(["key": .string("value")])
+  /// let bjdataData = json.toBJData()
+  /// ```
   public func toBJData() -> Data {
     var bytes: [UInt8] = []
     encodeBJData(self, &bytes)
@@ -355,6 +378,9 @@ private func appendBJDataUInt64(_ value: UInt64, _ bytes: inout [UInt8]) {
 // MARK: - Error
 
 extension JSONError {
+  /// Creates a BJData-specific error wrapped in `invalidPatch`.
+  /// - Parameter reason: A description of the error.
+  /// - Returns: A `JSONError.invalidPatch` with the BJData prefix.
   public static func invalidBJData(_ reason: String = "") -> JSONError {
     return .invalidPatch("BJData: \(reason)")
   }

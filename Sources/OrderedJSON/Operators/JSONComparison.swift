@@ -4,7 +4,20 @@ import OrderedCollections
 extension JSON {
   // MARK: - Comparison operators (matching nlohmann/json semantics)
 
-  /// Less-than comparison. For objects/arrays, compares count; for primitives, compares wrapped value.
+  /// Less-than comparison.
+  ///
+  /// Matches nlohmann/json semantics:
+  /// - Null is less than any non-null value.
+  /// - Booleans: `false < true`.
+  /// - Numbers are compared numerically with integer-to-float promotion.
+  /// - Strings are compared lexicographically.
+  /// - Arrays and objects are compared by count (shorter is smaller).
+  /// - Different types are not comparable (returns `false`).
+  ///
+  /// - Parameters:
+  ///   - lhs: The left-hand side JSON value.
+  ///   - rhs: The right-hand side JSON value.
+  /// - Returns: `true` if `lhs` is less than `rhs`.
   public static func < (lhs: JSON, rhs: JSON) -> Bool {
     switch (lhs.storage, rhs.storage) {
     case (.null, .null): return false
@@ -23,16 +36,31 @@ extension JSON {
   }
 
   /// Less-than-or-equal comparison.
+  ///
+  /// - Parameters:
+  ///   - lhs: The left-hand side JSON value.
+  ///   - rhs: The right-hand side JSON value.
+  /// - Returns: `true` if `lhs <= rhs`.
   public static func <= (lhs: JSON, rhs: JSON) -> Bool {
     lhs < rhs || lhs == rhs
   }
 
   /// Greater-than comparison.
+  ///
+  /// - Parameters:
+  ///   - lhs: The left-hand side JSON value.
+  ///   - rhs: The right-hand side JSON value.
+  /// - Returns: `true` if `lhs > rhs`.
   public static func > (lhs: JSON, rhs: JSON) -> Bool {
     rhs < lhs
   }
 
   /// Greater-than-or-equal comparison.
+  ///
+  /// - Parameters:
+  ///   - lhs: The left-hand side JSON value.
+  ///   - rhs: The right-hand side JSON value.
+  /// - Returns: `true` if `lhs >= rhs`.
   public static func >= (lhs: JSON, rhs: JSON) -> Bool {
     rhs < lhs || lhs == rhs
   }

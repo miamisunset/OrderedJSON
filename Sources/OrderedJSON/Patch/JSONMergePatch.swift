@@ -5,8 +5,33 @@ import OrderedCollections
 
 extension JSON {
   /// Applies a JSON Merge Patch (RFC 7396) to this value.
-  /// - Parameter patch: The merge patch to apply. `nil` removes the value (sets to null).
+  ///
+  /// Merge patches are simpler than JSON Patch — they are JSON objects
+  /// where each key either:
+  /// - Has a `null` value (removes the key from the target)
+  /// - Has an object value (recursively merges into the existing object)
+  /// - Has any other value (replaces or adds the key)
+  ///
+  /// If the patch itself is `null`, the target is replaced with `null` (removed).
+  /// If the patch is not an object, it replaces the entire target.
+  ///
+  /// - Parameter patch: The merge patch to apply.
   /// - Returns: A new merged JSON value.
+  ///
+  /// ## Example
+  ///
+  /// ```swift
+  /// let target = JSON.object([
+  ///   "a": .string("old"),
+  ///   "b": .string("keep")
+  /// ])
+  /// let patch = JSON.object([
+  ///   "a": .null,           // remove key "a"
+  ///   "b": .string("updated"),  // update key "b"
+  ///   "c": .number(.integer(3)) // add new key "c"
+  /// ])
+  /// let merged = target.mergePatch(patch)
+  /// ```
   public func mergePatch(_ patch: JSON) -> JSON {
     return mergePatchInternal(target: self, patch: patch)
   }

@@ -2,8 +2,20 @@ import Foundation
 import OrderedCollections
 
 extension JSON: Sequence {
-  /// Iterates over elements. For arrays, yields each element. For objects, yields key-value pairs.
-  /// For primitives, yields a single element (self).
+  /// Iterates over the elements of this JSON value.
+  ///
+  /// For arrays, yields each element in order.
+  /// For objects, yields each value (not key-value pairs).
+  /// For primitives, yields a single element (`self`).
+  ///
+  /// To iterate over key-value pairs of objects, use `items()` instead.
+  ///
+  /// ## Example
+  ///
+  /// ```swift
+  /// let json = JSON.array([.number(.integer(1)), .number(.integer(2))])
+  /// for element in json { print(element) }  // 1, 2
+  /// ```
   public func makeIterator() -> JSONIterator {
     switch storage {
     case .array(let arr):
@@ -16,6 +28,10 @@ extension JSON: Sequence {
   }
 }
 
+/// An iterator over the elements of a `JSON` value.
+///
+/// Created by `JSON.makeIterator()`. Iterates array elements, object values,
+/// or a single primitive value.
 public struct JSONIterator: IteratorProtocol {
   enum Mode {
     case array(IndexingIterator<[JSON]>)
@@ -60,6 +76,20 @@ public struct JSONIterator: IteratorProtocol {
 
 extension JSON {
   /// Returns an array of key-value pairs for objects, or an empty array for non-objects.
+  ///
+  /// Unlike `Sequence` iteration (which yields only values), `items()` yields
+  /// both keys and values. The order matches insertion order.
+  ///
+  /// ## Example
+  ///
+  /// ```swift
+  /// let json = JSON.object(["name": .string("Alice"), "age": .number(.integer(30))])
+  /// for (key, value) in json.items() {
+  ///   print("\(key): \(value)")
+  /// }
+  /// ```
+  ///
+  /// - Returns: An array of `(key, value)` tuples.
   public func items() -> [(key: String, value: JSON)] {
     guard case .object(let dict) = storage else { return [] }
     var result: [(key: String, value: JSON)] = []
