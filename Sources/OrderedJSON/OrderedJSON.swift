@@ -2,33 +2,16 @@ import Foundation
 import OrderedCollections
 
 /// A JSON number that preserves whether the original value was an integer or a float.
-package enum JSONNumber: Hashable, Sendable, Codable {
+package enum JSONNumber: Hashable, Sendable {
   case integer(Int64)
   case float(Double)
-
-  package func encode(to encoder: any Encoder) throws {
-    var container = encoder.singleValueContainer()
-    switch self {
-    case .integer(let value): try container.encode(value)
-    case .float(let value): try container.encode(value)
-    }
-  }
-
-  package init(from decoder: any Decoder) throws {
-    let container = try decoder.singleValueContainer()
-    if let intValue = try? container.decode(Int64.self) {
-      self = .integer(intValue)
-    } else {
-      self = .float(try container.decode(Double.self))
-    }
-  }
 }
 
 /// An ordered dictionary typealias used for JSON object representations.
 package typealias OrderedJSONObject = OrderedDictionary<String, JSONValue>
 
 /// A JSON value that preserves key order for objects.
-package enum JSONValue: Hashable, Sendable, Codable {
+package enum JSONValue: Hashable, Sendable {
   case object(OrderedJSONObject)
   case array([JSONValue])
   case string(String)
@@ -58,36 +41,6 @@ package enum JSONValue: Hashable, Sendable, Codable {
         result.append(contentsOf: value.flattenInternal(prefix: fullKey))
       }
       return result
-    }
-  }
-
-  package func encode(to encoder: any Encoder) throws {
-    switch self {
-    case .object(let dict):
-      // Encode as nested key-value pairs in an unkeyed container
-      // to preserve key ordering. Each entry is a 2-element array
-      // [key, value], which is unambiguous with regular arrays.
-      var container = encoder.unkeyedContainer()
-      for (key, value) in dict {
-        var pair = container.nestedUnkeyedContainer()
-        try pair.encode(key)
-        try pair.encode(value)
-      }
-    case .array(let array):
-      var container = encoder.singleValueContainer()
-      try container.encode(array)
-    case .string(let string):
-      var container = encoder.singleValueContainer()
-      try container.encode(string)
-    case .number(let number):
-      var container = encoder.singleValueContainer()
-      try container.encode(number)
-    case .boolean(let bool):
-      var container = encoder.singleValueContainer()
-      try container.encode(bool)
-    case .null:
-      var container = encoder.singleValueContainer()
-      try container.encodeNil()
     }
   }
 
@@ -355,109 +308,9 @@ package struct JSONParseError: Error, CustomStringConvertible, Hashable, Sendabl
   }
 }
 
-// MARK: - Codable conformance via JSONDecoder/JSONEncoder
-
-extension JSONValue {
-  /// `Codable` conformance for JSONValue. Encodes using our custom nested-pair
-  /// format for objects (to preserve key order). Decodes by first trying our
-  /// order-preserving parser on the underlying data, then falling back to
-  /// the standard `JSONDecoder` path for nested-pair and scalar values.
-
-  package init(from decoder: any Decoder) throws {
-    // Try to get the raw data and use our order-preserving parser.
-    // This ensures standard JSON input preserves key order.
-    if let dataUserInfo = decoder.userInfo[.jsonData],
-      let data = dataUserInfo as? Data,
-      let jsonString = String(data: data, encoding: .utf8)
-    {
-      do {
-        self = try JSONValue.parse(jsonString)
-        return
-      } catch {
-        // Fall through to standard decoding
-      }
-    }
-
-    // Try keyed container (standard JSON object format via JSONDecoder).
-    if let keyedContainer = try? decoder.container(keyedBy: JSONCodingKey.self) {
-      var object = OrderedJSONObject()
-      for key in keyedContainer.allKeys {
-        object[key.stringValue] = try keyedContainer.decode(JSONValue.self, forKey: key)
-      }
-      self = .object(object)
-      return
-    }
-
-    // Try unkeyed container — could be an object (nested [key, value] pairs
-    // from our custom encoding) or a regular array.
-    if var container = try? decoder.unkeyedContainer() {
-      var elements: [JSONValue] = []
-      while !container.isAtEnd {
-        elements.append(try container.decode(JSONValue.self))
-      }
-      // Check for nested-pair object format: each element is a 2-element
-      // array [key, value] where key is a string.
-      if !elements.isEmpty {
-        var isObject = true
-        var object = OrderedJSONObject()
-        for element in elements {
-          guard case .array(let pair) = element,
-            pair.count == 2,
-            case .string(let key) = pair[0]
-          else {
-            isObject = false
-            break
-          }
-          object[key] = pair[1]
-        }
-        if isObject {
-          self = .object(object)
-          return
-        }
-      }
-      self = .array(elements)
-      return
-    }
-
-    let container = try decoder.singleValueContainer()
-    if container.decodeNil() {
-      self = .null
-      return
-    }
-    if let string = try? container.decode(String.self) {
-      self = .string(string)
-      return
-    }
-    if let bool = try? container.decode(Bool.self) {
-      self = .boolean(bool)
-      return
-    }
-    if let number = try? container.decode(JSONNumber.self) {
-      self = .number(number)
-      return
-    }
-
-    throw DecodingError.typeMismatch(
-      JSONValue.self,
-      DecodingError.Context(
-        codingPath: decoder.codingPath,
-        debugDescription: "JSON value could not be decoded"
-      )
-    )
-  }
-}
-
-package struct JSONCodingKey: CodingKey {
-  package var stringValue: String
-  package init?(stringValue: String) { self.stringValue = stringValue }
-  package var intValue: Int? { nil }
-  package init?(intValue: Int) { nil }
-}
-
-extension CodingUserInfoKey {
-  /// Set on `JSONDecoder.userInfo` to the raw `Data` before calling
-  /// `decode(JSONValue.self, from:)` to enable order-preserving JSON parsing.
-  public static let jsonData = CodingUserInfoKey(rawValue: "com.orderedjson.data")!
+package enum JSONError: Error, Sendable, Hashable {
+  case invalidString
+  case expectedObject
 }
 
 // MARK: - Standard JSON Encoding
@@ -543,13 +396,6 @@ extension JSONValue {
     string += "\""
   }
 
-  /// Decodes this JSON value as the given `Codable` type using standard JSON encoding.
-  /// Useful for extracting typed values from a JSON object's keys when implementing
-  /// custom `Codable` with extra fields capture.
-  package func decode<T: Codable>(as type: T.Type) throws -> T {
-    let data = try encodeStandard()
-    return try JSONDecoder().decode(T.self, from: data)
-  }
 }
 
 /// Splits an `OrderedJSONObject` into known and extra keys based on a set of known key strings.

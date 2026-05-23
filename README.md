@@ -173,116 +173,9 @@ let result = empty.flatten()
 // result.isEmpty == true
 ```
 
-## Encoding & Decoding (Codable)
+## Standard JSON Encoding
 
-`JSONValue` conforms to `Codable` and works with `JSONEncoder` / `JSONDecoder`:
-
-```swift
-import OrderedJSON
-import Foundation
-
-let encoder = JSONEncoder()
-let decoder = JSONDecoder()
-
-// Encode a value
-let original = JSONValue.object([
-  "z": .number(.integer(1)),
-  "a": .number(.integer(2)),
-  "m": .number(.integer(3)),
-])
-let data = try encoder.encode(original)
-
-// Decode back — key order is preserved
-let decoded = try decoder.decode(JSONValue.self, from: data)
-guard case .object(let dict) = decoded else { return }
-// dict.keys == ["z", "a", "m"]
-```
-
-### Numeric Type Preservation
-
-Integers and floats round-trip correctly:
-
-```swift
-import OrderedJSON
-import Foundation
-
-let jsonString = """
-  {
-      "int": 42,
-      "float": 3.14
-  }
-  """
-let data = Data(jsonString.utf8)
-let decoder = JSONDecoder()
-let value = try decoder.decode(JSONValue.self, from: data)
-
-guard case .object(let dict) = value else { return }
-// dict["int"]   == .number(.integer(42))
-// dict["float"] == .number(.float(3.14))
-```
-
-### Encoding Null, Booleans, Strings, Numbers
-
-```swift
-import OrderedJSON
-import Foundation
-
-let encoder = JSONEncoder()
-let decoder = JSONDecoder()
-
-// Null
-let nullData = try encoder.encode(JSONValue.null)
-let decodedNull = try decoder.decode(JSONValue.self, from: nullData)
-// decodedNull == JSONValue.null
-
-// String
-let stringData = try encoder.encode(JSONValue.string("hello"))
-let decodedString = try decoder.decode(JSONValue.self, from: stringData)
-// decodedString == JSONValue.string("hello")
-
-// Number
-let numberData = try encoder.encode(JSONValue.number(.integer(42)))
-let decodedNumber = try decoder.decode(JSONValue.self, from: numberData)
-// decodedNumber == JSONValue.number(.integer(42))
-
-// Boolean
-let boolData = try encoder.encode(JSONValue.boolean(true))
-let decodedBool = try decoder.decode(JSONValue.self, from: boolData)
-// decodedBool == JSONValue.boolean(true)
-```
-
-## How Key Order Preservation Works
-
-`JSONValue` encodes objects as alternating key-value pairs rather than standard JSON objects. This is necessary because most JSON parsers discard key ordering when decoding keyed containers.
-
-- **Encoding**: Objects become alternating `[key, value]` pairs in an unkeyed container
-- **Decoding**: Supports both standard JSON objects (keyed containers) and alternating pairs
-- **Result**: Keys retain insertion order through encode-decode round-trips
-
-```swift
-import OrderedJSON
-import Foundation
-
-let encoder = JSONEncoder()
-let decoder = JSONDecoder()
-
-let original = JSONValue.object([
-  "z": .number(.integer(1)),
-  "a": .number(.integer(2)),
-  "m": .number(.integer(3)),
-])
-
-let data = try encoder.encode(original)
-let decoded = try decoder.decode(JSONValue.self, from: data)
-
-guard case .object(let dict) = decoded else { return }
-let keys = Array(dict.keys)
-// keys == ["z", "a", "m"]  — order is preserved
-```
-
-## Standard JSON Encoding & Decoding
-
-Sometimes you need to encode/decode as plain JSON objects (not alternating pairs). Use `encodeStandard()` and `decode(as:)`:
+Use `encodeStandard()` to serialize back to standard JSON:
 
 ```swift
 import OrderedJSON
@@ -295,11 +188,6 @@ let value = JSONValue.object([
 
 // Encode as standard JSON: {"name":"Bob","age":25}
 let standardData = try value.encodeStandard()
-
-// Decode a single value as a typed Codable type
-guard case .object(let dict) = value else { return }
-let name: String = try dict["name"]!.decode(as: String.self)
-// name == "Bob"
 ```
 
 ## Extra Fields Capture (serde `#[serde(flatten)]` equivalent)
@@ -308,30 +196,26 @@ let name: String = try dict["name"]!.decode(as: String.self)
 
 ### Step-by-Step Pattern
 
-1. Define a struct with known `CodingKeys` and an `extra` field of type `OrderedJSONObject`
-2. In `init(from:)`: decode the full JSON as `JSONValue`, split known keys from extras
-3. In `encode(to:)`: encode known fields and extras as alternating pairs
+1. Define a struct with known fields and an `extra` field of type `OrderedJSONObject`
+2. In `init(from jsonData: Data)`: parse the full JSON as `JSONValue`, split known keys from extras
+3. In `encode()`: merge known fields and extras and call `encodeStandard()`
 
 ```swift
 import OrderedJSON
 import Foundation
 
-struct User: Codable {
+struct User {
   let name: String
   let email: String
   let extra: OrderedJSONObject
 
-  enum CodingKeys: String, CodingKey, CaseIterable {
-    case name, email
-  }
-
-  init(from decoder: any Decoder) throws {
-    let fullValue = try JSONValue(from: decoder)
+  init(from jsonData: Data) throws {
+    let fullValue = try JSONValue.parse(String(data: jsonData, encoding: .utf8)!)
     guard case .object(let dict) = fullValue else {
-      throw DecodingError.typeMismatch(...)
+      throw JSONError.expectedObject
     }
-    let knownKeyStrings = Set(CodingKeys.allCases.map { $0.stringValue })
-    let (known, extra) = splitExtraFields(from: dict, knownKeys: knownKeyStrings)
+    let knownKeys: Set<String> = ["name", "email"]
+    let (known, extra) = splitExtraFields(from: dict, knownKeys: knownKeys)
     let knownData = try JSONValue.object(known).encodeStandard()
     let base = try JSONDecoder().decode(UserBase.self, from: knownData)
     name = base.name
@@ -339,21 +223,20 @@ struct User: Codable {
     self.extra = extra
   }
 
-  func encode(to encoder: any Encoder) throws {
-    var unkeyed = encoder.unkeyedContainer()
-    try unkeyed.encode(CodingKeys.name.stringValue)
-    try unkeyed.encode(name)
-    try unkeyed.encode(CodingKeys.email.stringValue)
-    try unkeyed.encode(email)
+  func encode() throws -> Data {
+    var merged: OrderedJSONObject = [
+      "name": .string(name),
+      "email": .string(email),
+    ]
     for (key, value) in extra {
-      try unkeyed.encode(key)
-      try unkeyed.encode(value)
+      merged[key] = value
     }
+    return try JSONValue.object(merged).encodeStandard()
   }
 }
 
 // Helper base struct for known fields
-private struct UserBase: Codable {
+private struct UserBase: Decodable {
   let name: String
   let email: String
 }
@@ -368,8 +251,7 @@ let jsonString = """
   {"name": "Alice", "email": "a@b.com", "age": 30, "city": "NYC"}
   """
 let data = Data(jsonString.utf8)
-let decoder = JSONDecoder()
-let user = try decoder.decode(User.self, from: data)
+let user = try User(from: data)
 // user.name        == "Alice"
 // user.email       == "a@b.com"
 // user.extra.keys  == ["age", "city"]
@@ -378,10 +260,9 @@ let user = try decoder.decode(User.self, from: data)
 
 ### Helper Functions
 
-Three utilities support this pattern:
+Two utilities support this pattern:
 
-- **`encodeStandard()`** — encodes as standard JSON (keyed objects) for compatibility with `JSONDecoder`
-- **`decode<T: Codable>(as:)`** — decodes a single `JSONValue` as any `Codable` type
+- **`encodeStandard()`** — encodes as standard JSON (keyed objects)
 - **`splitExtraFields(from:knownKeys:)`** — splits an `OrderedJSONObject` into known and extra key groups
 
 ```swift
@@ -391,10 +272,6 @@ let value = JSONValue.object([
 ])
 let data = try value.encodeStandard()
 // data -> {"name":"Bob","age":25}
-
-guard case .object(let dict) = value else { return }
-let name: String = try dict["name"]!.decode(as: String.self)
-// name == "Bob"
 
 let (known, extra) = splitExtraFields(from: dict, knownKeys: ["name"])
 // known == ["name": "Bob"]
@@ -434,6 +311,6 @@ let output = String(data: try modified.encodeStandard(), encoding: .utf8)!
 - **Empty objects**: Use `JSONValue.object([:])` rather than `JSONValue.object(OrderedJSONObject())`.
 - **Numeric types**: Use `.integer(Int64)` for whole numbers and `.float(Double)` for decimals to preserve type information through encoding/decoding.
 - **Flatten iteration**: The `flatten()` result is an array of tuples; iterate with `for (key, value) in result`.
-- **Error handling**: Wrap decoding from untrusted sources in `do {} catch {}` as usual with Foundation's `JSONDecoder`.
+- **Error handling**: Wrap parsing from untrusted sources in `do {} catch {}`.
 - **Thread safety**: `JSONValue` is `Hashable` and `Sendable`, making it safe to use in collections and across concurrency domains.
-- **Order preservation for standard JSON**: To preserve key order when decoding standard JSON, set `decoder.userInfo[.jsonData]` to the raw `Data` before calling `decode(JSONValue.self, from:)`. This triggers the order-preserving parser.
+- **Order preservation**: Use `JSONValue.parse()` for order-preserving parsing and `encodeStandard()` for serialization.

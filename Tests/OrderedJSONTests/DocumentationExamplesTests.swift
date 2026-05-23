@@ -111,78 +111,6 @@ import Testing
   #expect(result.isEmpty)
 }
 
-// MARK: - Encoding & Decoding (README)
-
-@Test func docEncodingDecoding() throws {
-  let encoder = JSONEncoder()
-  let decoder = JSONDecoder()
-
-  // Encode a value
-  let original = JSONValue.object([
-    "z": .number(.integer(1)),
-    "a": .number(.integer(2)),
-    "m": .number(.integer(3)),
-  ])
-  let data = try encoder.encode(original)
-
-  // Decode back — key order is preserved
-  let decoded = try decoder.decode(JSONValue.self, from: data)
-  guard case .object(let dict) = decoded else {
-    Issue.record("Expected object")
-    return
-  }
-  // dict.keys == ["z", "a", "m"]
-  #expect(Array(dict.keys) == ["z", "a", "m"])
-}
-
-@Test func docNumericTypePreservation() throws {
-  let jsonString = """
-    {
-        "int": 42,
-        "float": 3.14
-    }
-    """
-  let data = try #require(jsonString.data(using: .utf8))
-  let decoder = JSONDecoder()
-  let value = try decoder.decode(JSONValue.self, from: data)
-
-  guard case .object(let dict) = value else {
-    Issue.record("Expected object")
-    return
-  }
-  // dict["int"]   == .number(.integer(42))
-  // dict["float"] == .number(.float(3.14))
-  let intVal = try #require(dict["int"])
-  #expect(intVal == .number(.integer(42)))
-  let floatVal = try #require(dict["float"])
-  #expect(floatVal == .number(.float(3.14)))
-}
-
-@Test func docEncodingScalars() throws {
-  let encoder = JSONEncoder()
-  let decoder = JSONDecoder()
-
-  // Null
-  let nullData = try encoder.encode(JSONValue.null)
-  let decodedNull = try decoder.decode(JSONValue.self, from: nullData)
-  #expect(decodedNull == JSONValue.null)
-
-  // String
-  let stringData = try encoder.encode(JSONValue.string("hello"))
-  let decodedString = try decoder.decode(JSONValue.self, from: stringData)
-  #expect(decodedString == JSONValue.string("hello"))
-
-  // Number
-  let numberData = try encoder.encode(JSONValue.number(.integer(42)))
-  let decodedNumber = try decoder.decode(JSONValue.self, from: numberData)
-  #expect(decodedNumber == JSONValue.number(.integer(42)))
-
-  // Boolean
-  let boolData = try encoder.encode(JSONValue.boolean(true))
-  let decodedBool = try decoder.decode(JSONValue.self, from: boolData)
-  #expect(decodedBool == JSONValue.boolean(true))
-}
-
 // MARK: - Quick Start (README)
 
 @Test func docQuickStart() throws {
@@ -232,13 +160,6 @@ import Testing
   let standardData = try value.encodeStandard()
   let json = String(data: standardData, encoding: .utf8)
   #expect(json == "{\"name\":\"Bob\",\"age\":25}")
-
-  guard case .object(let dict) = value else {
-    Issue.record("Expected object")
-    return
-  }
-  let name: String = try dict["name"]!.decode(as: String.self)
-  #expect(name == "Bob")
 }
 
 // MARK: - Round-Trip Nested JSON (README)
@@ -249,10 +170,8 @@ import Testing
     """
   // Use parse() for order-preserving first decode
   let value = try JSONValue.parse(input)
-  let encoder = JSONEncoder()
-  let encoded = try encoder.encode(value)
-  let decoder = JSONDecoder()
-  let decoded = try decoder.decode(JSONValue.self, from: encoded)
+  let encoded = try value.encodeStandard()
+  let decoded = try JSONValue.parse(String(data: encoded, encoding: .utf8)!)
 
   // Verify structure and order are preserved through round trip
   guard case .object(let outer) = decoded else {
@@ -329,18 +248,14 @@ import Testing
 // MARK: - Key Order Preservation (README)
 
 @Test func docKeyOrderPreservation() throws {
-  let encoder = JSONEncoder()
-  let decoder = JSONDecoder()
-
-  // Keys are inserted in a specific order
   let original = JSONValue.object([
     "z": .number(.integer(1)),
     "a": .number(.integer(2)),
     "m": .number(.integer(3)),
   ])
 
-  let data = try encoder.encode(original)
-  let decoded = try decoder.decode(JSONValue.self, from: data)
+  let data = try original.encodeStandard()
+  let decoded = try JSONValue.parse(String(data: data, encoding: .utf8)!)
 
   guard case .object(let dict) = decoded else {
     Issue.record("Expected object")
