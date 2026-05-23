@@ -1,6 +1,6 @@
-# OrderedJSON
+# OrderedJSON — Swift translation of nlohmann/json
 
-Swift library that preserves JSON key order (deeply nested) with a `flatten` feature similar to `serde_json`.
+Swift library that preserves JSON key order with a rich method-based API mirroring `nlohmann::basic_json` (`JSON for Modern C++`). Includes flatten/unflatten, JSON Patch/Merge Patch, SAX parsing, binary format support, and full subscript/type-check/modifier access.
 
 ## Commands
 
@@ -16,29 +16,37 @@ Swift library that preserves JSON key order (deeply nested) with a `flatten` fea
 - Uses `OrderedCollections` from `swift-collections` for ordered key preservation
 - Minimal platforms: iOS 26 / macOS 26 / tvOS 26 / watchOS 26 (Swift 6.3, language mode v6)
 - `StrictConcurrency` enabled — all public APIs must be `Sendable`-aware
-- Source lives in `Sources/OrderedJSON/OrderedJSON.swift` (currently a stub)
+- Core type: `JSON` struct wrapping a `Storage` enum (6 cases: object/array/string/number/boolean/null)
+- Source organized by concern in `Sources/OrderedJSON/{Core,Parsing,Access,Modifiers,Flatten,Patch,SAX,Binary,Operators}/`
+- Tests mirror the same structure in `Tests/OrderedJSONTests/`
 
 ## Key goals
 
-1. **Ordered parsing** — `JSONObject` backed by `OrderedDictionary`; keys retain insertion order
-2. **Deep order preservation** — nested objects and arrays all preserve order recursively
-3. **Flatten** — `FlattenResult<Key, Value>` akin to `serde_json::Value::flatten()`, producing flat key–value pairs with dotted paths
-4. **Codable** — `JSONValue` should be `Codable` (encodes/decode as standard JSON) while round-tripping preserves order
+1. **Ordered parsing** — `JSON` backed by `OrderedDictionary`; keys retain insertion order
+2. **Rich API** — mirror nlohmann/json: subscript, type checks, modifiers, capacity, lookup, comparison, sequence, flatten/unflatten, patch/diff/merge, SAX parsing, binary formats
+3. **Flatten** — `flatten()` produces JSON Pointer keys (`/a/b/c`), `unflatten()` reconstructs
+4. **Binary formats** — CBOR, MessagePack, UBJSON, BSON, BJData support
+5. **No Codable** — `parse()` / `encodeStandard()` / `dump()` replace it
 
 ## Conventions
 
 - Use `OrderedDictionary` (not `Dictionary`) for all JSON object representations
-- Use `JSONValue` enum with cases: `.object(OrderedJSONObject)`, `.array([JSONValue])`, `.string(String)`, `.number(JSONNumber)`, `.boolean(Bool)`, `.null`
-- `JSONNumber` stores `NSNumber` or a custom wrapper to preserve numeric type (int vs float) — no premature stringification
-- `flatten()` returns `[(key: String, value: JSONValue)]` where keys are dot-separated paths (e.g. `"a.b.c"`)
+- Core type is `JSON` struct (not `JSONValue` enum); enum stays as internal `Storage`
+- `JSONNumber` enum: `.integer(Int64)` / `.float(Double)` — no premature stringification
+- `flatten()` returns `JSON` object with JSON Pointer keys (`/` prefix)
 - All tests use `@Test` / `#expect(...)` (Swift Testing, no XCTest)
 - Prefer `package` access for testability over `public` on internal helpers
 
+## Plan Reference
+- All implementation follows `REDESIGN_PLAN.md` — the authoritative design document.
+- Before starting work, read `REDESIGN_PLAN.md` to understand the current phase and file layout.
+- After completing each phase, update `PROGRESS.md` with key outcomes and any deviations from plan.
+
 ## Progress Tracking
 - Never append raw phase logs to this file.
-- Maintain a clean, up-to-date summary of active phases in this file.
+- Maintain a clean, up-to-date summary of active phases in `PROGRESS.md`.
 - For completed phases: summarize key outcomes + decisions concisely in `PROGRESS.md`, then archive details if needed.
-- Keep total length under ~800–1500 tokens when possible.
+- Keep `AGENTS.md` length under ~800–1500 tokens when possible.
 
 ## Coverage
 - Aim for 100% test coverage. Every new or changed code path must have a corresponding test.
@@ -54,3 +62,21 @@ Swift library that preserves JSON key order (deeply nested) with a `flatten` fea
 - Swift 6 / language mode v6 means strict isolation; use `struct` / `Sendable` conformances rather than `actor` for value types
 - `OrderedDictionary` is from `swift-collections`, import `OrderedCollections`
 - No `main.swift` exists; add a CLI target if you need `swift run` to do something
+- Multi-file project: `Package.swift` must list all source files explicitly or use a directory-based source layout
+
+## Implementation Plan (Phases)
+
+### Phase 1 — Core Struct + Type Checks + Subscript + Capacity + Lookup + Modifiers + Flatten
+Implement: `JSON` struct, `Storage` enum, `JSONNumber`, `OrderedJSONObject`, errors, parser, serializer, type checks, subscript/at/value, count/empty, contains/find, clear/erase/append/insert/emplace/update/swap, first/last, flatten/unflatten, dump.
+
+### Phase 2 — Comparison Operators + Sequence Conformance
+Add `==`, `!=`, `<`, `>`, `<=`, `>=` operators, `Sequence` conformance, `items()`.
+
+### Phase 3 — JSON Patch + Merge Patch
+Add `patch`, `patchInPlace`, `diff`, `mergePatch`.
+
+### Phase 4 — SAX Parsing
+Add `JSONSAXEventHandler`, `saxParse`.
+
+### Phase 5 — Binary Formats
+Add CBOR, MessagePack, UBJSON, BSON, BJData.
