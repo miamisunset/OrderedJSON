@@ -26,7 +26,7 @@ Swift library that preserves JSON key order with a rich method-based API mirrori
 2. **Rich API** — mirror nlohmann/json: subscript, type checks, modifiers, capacity, lookup, comparison, sequence, flatten/unflatten, patch/diff/merge, SAX parsing, binary formats
 3. **Flatten** — `flatten()` produces JSON Pointer keys (`/a/b/c`), `unflatten()` reconstructs
 4. **Binary formats** — CBOR, MessagePack, UBJSON, BSON, BJData support
-5. **No Codable** — `parse()` / `encodeStandard()` / `dump()` replace it
+5. **No Codable** — `parse()` / `dump()` replace it
 
 ## Conventions
 
@@ -67,7 +67,7 @@ Swift library that preserves JSON key order with a rich method-based API mirrori
 ## Implementation Plan (Phases)
 
 ### Phase 1 — Core Struct + Type Checks + Subscript + Capacity + Lookup + Modifiers + Flatten
-Implement: `JSON` struct, `Storage` enum, `JSONNumber`, `OrderedJSONObject`, errors, parser, serializer, type checks, subscript/at/value, count/empty, contains/find, clear/erase/append/insert/emplace/update/swap, first/last, flatten/unflatten, dump.
+Implement: `JSON` struct, `Storage` enum, `JSONNumber`, `OrderedDictionary<String, JSON>`, errors, parser, serializer, type checks, subscript/at/value, count/empty, contains/find, clear/erase/append/insert/emplace/update/swap, first/last, flatten/unflatten, dump.
 
 ### Phase 2 — Comparison Operators + Sequence Conformance
 Add `==`, `!=`, `<`, `>`, `<=`, `>=` operators, `Sequence` conformance, `items()`.
@@ -80,3 +80,6 @@ Add `JSONSAXEventHandler`, `saxParse`.
 
 ### Phase 5 — Binary Formats
 Add CBOR, MessagePack, UBJSON, BSON, BJData.
+
+### Phase 6 — Comprehensive User Documentation
+Rewrite `README.md` to cover all shipped features with current API signatures (`JSON` struct, not `JSONValue`), organized by feature area with runnable code examples. Include quick-start, installation, every API category (type checks, subscript, modifiers, flatten, comparison, patch, SAX, binary), error handling, and best practices.

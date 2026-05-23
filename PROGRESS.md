@@ -1,43 +1,111 @@
 # Progress
 
-## Phase 1 — Core Types + Flatten (merged to `main`)
+## Phase 1 — Core Struct + Type Checks + Subscript + Capacity + Lookup + Modifiers + Flatten (complete)
 
 ### What shipped
-- `JSONNumber` enum: `.integer(Int64)` / `.float(Double)`, `Hashable`/`Sendable`/`Codable`
-- `JSONValue` enum: `.object(OrderedJSONObject)`, `.array([JSONValue])`, `.string(String)`, `.number(JSONNumber)`, `.boolean(Bool)`, `.null`
-- `OrderedJSONObject` typealias: `OrderedDictionary<String, JSONValue>`
-- `flatten()` → `[(key: String, value: JSONValue)]` with dotted/indexed paths
-- `Codable` encodes objects as alternating key-value pairs (order-preserving); decodes both keyed JSON objects and alternating pairs
-- 18 tests covering all code paths
+- `JSON` struct wrapping `Storage` enum with 6 cases (object/array/string/number/boolean/null)
+- `JSONNumber` enum: `.integer(Int64)` / `.float(Double)`, `Hashable`/`Sendable`
+- Uses `OrderedDictionary<String, JSON>` directly (no typealias)
+- Factory methods: `JSON.object(...)`, `JSON.array(...)`, `JSON.string(...)`, `JSON.number(...)`, `JSON.boolean(...)`, `JSON.null`, `JSON.nullValue()`
+- Type checks: `isNull`, `isBoolean`, `isNumber`, `isInteger`, `isFloat`, `isString`, `isObject`, `isArray`, `isPrimitive`, `isStructured`, `type`, `typeName`
+- Subscript: `[key:]`, `[index:]` (get/set), `at(_:)`, `value(_:default:)`
+- Capacity: `count`, `isEmpty`, `maxCount`, `first`, `last`
+- Lookup: `contains(_:)`, `count(_:)`, `find(_:)`
+- Modifiers: `clear()`, `erase(_:)`, `append(_:)`, `insert(_:at:)`, `emplace(_:)`, `emplace(key:default:)`, `update(with:)`, `swap(&:)`
+- `flatten()` → JSON object with JSON Pointer keys (`/a/b/c`)
+- `unflatten()` → reconstructs nested structure
+- `dump(indent:, indentChar:, ensureAscii:)` → pretty-printing
+- `JSONPointer` struct with `resolve(_:)`
+- `parse()` → order-preserving recursive descent parser
+- `dump()` → standard JSON serialization (compact or pretty-printed)
+
+- 41 tests covering all code paths + documentation examples
 
 ### Key decisions
-- `OrderedDictionary` encodes as unkeyed alternating pairs (not JSON objects). Object encoding matches that format; decoding supports both keyed and unkeyed formats
-- `JSONNumber` uses enum over `NSNumber` for `Sendable` safety
-- Decoding heuristics: keyed container → object; unkeyed with even count + string keys → object (alternating pairs); else → array; single-value → scalar
+- Factory methods use `static func` on `JSON` struct (not enum case patterns)
+- `null` is a static property (`JSON.null`), with `nullValue()` as alternative
+- `flatten()` for empty objects/arrays returns empty JSON object (no leaf entry)
+- `dump(-1)` produces compact output
+- `dump(indent: >0)` produces pretty-printed output with indentation
 
-## Phase 2 — Documentation with Verified Examples (merged to `main`)
+## Phase 2 — Comparison Operators + Sequence Conformance (complete)
 
 ### What shipped
-- `README.md` covering installation, creating values, flatten, encoding/decoding, key order preservation, best practices
-- `Tests/OrderedJSONTests/DocumentationExamplesTests.swift` — 9 tests exercising every README code example
-- Fixed `swift format` commands in `AGENTS.md` (lint/format flags were incorrect)
+- Comparison operators: `<`, `>`, `<=`, `>=` (matching nlohmann/json semantics)
+- `Sequence` conformance with `JSONIterator` — iterates array elements, object values, or single scalar
+- `items()` — returns key-value pairs for objects
+- 20 new tests covering comparisons and sequence behavior
 
 ### Key decisions
-- README examples must compile and pass; test file mirrors them exactly
-- Format commands: `swift format lint --recursive --parallel -p .` / `swift format format --recursive --parallel --in-place -p .`
+- Boolean `<` uses `a == false && b == true` (Swift Bool doesn't support `<`)
+- Object/array comparison uses count (matching nlohmann/json)
+- `Sequence` over objects yields values (not key-value pairs); use `items()` for pairs
 
-## Phase 3 — Extra Fields Capture (`#[serde(flatten)]` equivalent) [in progress on `phase-3-extra-fields`]
+## Phase 3 — JSON Patch + Merge Patch (complete)
 
-### What's done
-- `JSONValue.encodeStandard()` — encodes via `JSONSerialization` (keyed objects) for standard JSON compatibility
-- `JSONValue.decode<T: Codable>(as:)` — decodes a single JSON value as any Codable type
-- `splitExtraFields(from:knownKeys:)` — splits `OrderedJSONObject` into known/extra groups
-- `UserWithExtra` test struct + 8 extra-fields tests covering: decode with known+extra, round-trip order preservation, empty extra, nested values, alternating-pairs encoding
-- 6 `encodeStandard` tests, 4 `decode(as:)` tests, 6 `splitExtraFields` tests
-- README section with example and helper documentation
+### What shipped
+- `patch(_:)` — applies a JSON Patch (RFC 6902), returns new JSON value (non-mutating)
+- `patchInPlace(_:)` — applies a JSON Patch in-place (mutating)
+- `diff(_:_:)` — computes JSON Patch between source and target
+- `mergePatch(_:)` — applies a JSON Merge Patch (RFC 7396)
+- Operations: add, remove, replace, copy, move, test
+- Recursive tree rebuilding for path-based mutations
+- Array `-` syntax (append), insert/replace semantics per RFC
+- `stringValue` computed property on `JSON`
+- `invalidPatch(String)` error case on `JSONError`
+- 30 new tests covering all patch operations, diff, merge patch edge cases
 
 ### Key decisions
-- Extra-fields pattern requires manual `Codable` implementation (no protocol/auto-magic approach due to recursion constraints)
-- Uses a "base struct" for known fields + `encodeStandard()` to avoid recursion
-- Encoding uses alternating pairs (unkeyed container) for order preservation
-- `encodeStandard()` uses `JSONSerialization` with Objective-C bridging — preserves key order on modern Apple platforms
+- Patch operations use recursive tree rebuilding (traverseAndSet/traverseAndRemove) rather than complex parent mutation with `inout` references — cleaner and avoids ownership issues
+- `-` array append marker handled as a special segment in traversal
+- `isAdd` flag differentiates insert-vs-replace semantics for array targets
+- Merge Patch uses recursive merge: null removes keys, object patches recurse into existing objects, non-object patches replace values
+
+## Phase 4 — SAX Parsing (complete)
+
+### What shipped
+- `JSONSAXEventHandler` protocol with callbacks for null, boolean, integer, float, string, startObject, key, endObject, startArray, endArray, parseError
+- `saxParse(_:handler:)` — SAX-style parse that calls handler callbacks instead of constructing JSON tree
+- `accept(_:)` — non-throwing validation that returns `true` for valid JSON without constructing tree
+- 24 tests covering all event types, error conditions, accept valid/invalid
+
+### Key decisions
+- Protocol uses `package` visibility (not `public`) because `JSONParseError` is `package`
+- `saxParse` duplicates `skipWhitespace`/`parseString` locally instead of promoting private helpers — avoids changing existing parser code
+- Handler methods return `Bool` — returning `false` stops parsing early (no error emitted)
+- `accept()` mirrors `saxParse` structure but discards values and never calls key/string/float callbacks
+
+## Phase 6 — Comprehensive User Documentation (complete)
+
+### What shipped
+- Fully rewritten `README.md` with explanatory prose alongside every code example
+- "Why OrderedJSON?" section explaining the rationale for key-order preservation
+- Narrative sections for each API area: creating values, parsing, encoding, type checks, subscript/at/value, modifiers, flatten, comparison, sequence, patch/merge/diff, SAX, binary formats
+- Best practices section with concrete guidance
+- Removed all references to removed APIs (`encodeStandard`, `splitExtraFields`, stale visibility warning)
+- All code examples match current `JSON` struct API (not old `JSONValue`)
+
+### Key decisions
+- Documentation is organized by feature area, matching nlohmann/json documentation structure
+- Every section includes both "what it does" and "when to use it" explanations
+- Code examples are kept concise but are preceded by prose explaining the concept
+- Binary formats include a comparison table showing which format is best for which use case
+
+## Phase 5 — Binary Formats (complete)
+
+### What shipped
+- CBOR: `fromCBOR(_:)`, `toCBOR()` — RFC 7049 binary format
+- MessagePack: `fromMsgPack(_:)`, `toMsgPack()` — MessagePack binary format
+- UBJSON: `fromUBJSON(_:)`, `toUBJSON()` — Universal Binary JSON
+- BSON: `fromBSON(_:)`, `toBSON()` — BSON binary format
+- BJData: `fromBJData(_:)`, `toBJData()` — BJData binary format
+- All five formats implement encode/decode with correct marker handling, integer/float type selection, string/array/object encoding
+- 60 tests across all binary formats covering round-trip, edge cases (NaN, Infinity, empty containers), negative integers, and error handling
+
+### Key decisions
+- Binary format methods are `package` (not `public`) — same visibility as core API
+- CBOR float decode uses already-consumed `argument` rather than re-reading payload bytes (fixes out-of-bounds crash)
+- BSON document length `endPos` includes 4 length bytes + 1 null terminator (`pos + docLen - 5`)
+- MessagePack/UBJSON/BJData encode uses `UInt8(bitPattern:)` for negative Int8 values to avoid Swift runtime trap
+- BJData string length decoder handles both `UInt8` and `Int8` markers since encoder uses unsigned for small lengths
+- All round-trips verified: encode → decode produces identical value

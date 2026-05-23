@@ -1,32 +1,40 @@
 # OrderedJSON
 
-A Swift library that preserves JSON key order (deeply nested) with a `flatten` feature similar to `serde_json::Value::flatten()`.
+A Swift library that preserves JSON key order with a rich method-based API mirroring `nlohmann::basic_json` (`JSON for Modern C++`). Includes order-preserving parsing, type checks, subscript access, modifiers, flatten/unflatten, JSON Patch/Merge Patch, SAX parsing, and binary format support (CBOR, MessagePack, UBJSON, BSON, BJData).
+
+---
+
+## Why OrderedJSON?
+
+Standard JSON dictionaries have no defined key order — Swift's `Dictionary` and most JSON libraries treat key order as an implementation detail. But many applications depend on insertion order: API signatures, serialization formats, configuration files, and protocol buffers all benefit from deterministic ordering.
+
+OrderedJSON behaves like `nlohmann::ordered_json` — keys always retain the order they were inserted or parsed in. Every `dump()` call produces the same key order as the input.
+
+---
 
 ## Quick Start
 
 ```swift
 import OrderedJSON
 
-// Parse JSON with key order preserved
+// Parse JSON — key order is preserved from the input
 let json = """
   {"z": 1, "a": 2, "m": 3}
   """
-let value = try JSONValue.parse(json)
+let value = try JSON.parse(json)
 
 // Keys are in the original order: ["z", "a", "m"]
-guard case .object(let dict) = value else { return }
-print(dict.keys) // ["z", "a", "m"]
+print(value.count)        // 3
+print(value["z"])         // Optional(JSON(.integer(1)))
 
-// Flatten nested JSON into dotted paths
-let flat = value.flatten()
-for (key, value) in flat {
-  print("\(key) => \(value)")
-}
-// Output:
-// z => 1
-// a => 2
-// m => 3
+// Encode back — same key order, deterministic output
+let output = value.dump(-1) // compact JSON string
+// output == `{"z":1,"a":2,"m":3}`
 ```
+
+Unlike `JSONSerialization`, which may reorder keys arbitrarily, `JSON.parse()` guarantees that `dump()` reproduces the exact input order. This is the core promise of OrderedJSON.
+
+---
 
 ## Installation
 
@@ -56,40 +64,53 @@ let package = Package(
 )
 ```
 
+---
+
 ## Creating Values
 
-`JSONValue` is an enum with cases for each JSON type:
+OrderedJSON provides two ways to construct values: explicit factory methods and convenience initializers. Factory methods make the JSON type explicit, while initializers are terser for simple literals.
 
 ```swift
 import OrderedJSON
 
-// Primitives
-let stringVal = JSONValue.string("hello")
-let numberVal = JSONValue.number(.integer(42))
-let floatVal  = JSONValue.number(.float(3.14))
-let boolVal   = JSONValue.boolean(true)
-let nullVal   = JSONValue.null
+// Factory methods — explicit about the JSON type
+let str   = JSON.string("hello")           // string
+let num   = JSON.number(.integer(42))      // integer number
+let flt   = JSON.number(.float(3.14))      // float number
+let bool  = JSON.boolean(true)             // boolean
+let nul   = JSON.null                      // null
+let nul2  = JSON.nullValue()               // null (alternative)
+
+// Convenience initializers — shorter for simple types
+let s     = JSON("hello")                  // string
+let n     = JSON(42)                       // integer
+let x     = JSON(3.14)                     // float
+let b     = JSON(true)                     // boolean
 
 // Arrays
-let arrayVal = JSONValue.array([
-  .string("a"),
-  .number(.integer(1)),
-  .boolean(false),
-  .null,
+let arr   = JSON.array([
+  JSON.string("a"),
+  JSON.number(.integer(1)),
+  JSON.boolean(false),
+  JSON.null,
 ])
 
 // Objects — keys preserve insertion order
-let objectVal = JSONValue.object([
-  "name": .string("Alice"),
-  "age":  .number(.integer(30)),
-  "city": .string("New York"),
+let obj = JSON.object([
+  "name": JSON.string("Alice"),
+  "age":  JSON.number(.integer(30)),
+  "city": JSON.string("New York"),
 ])
-// objectVal's keys: ["name", "age", "city"]
+// obj's keys: ["name", "age", "city"]
 ```
 
-## Parsing JSON from a String
+Use `JSON.number(.integer(...))` for whole numbers and `JSON.number(.float(...))` for decimals. This distinction matters — it is preserved through `dump()` and `parse()` round-trips.
 
-Use `JSONValue.parse()` for order-preserving parsing from a raw string:
+---
+
+## Parsing JSON
+
+`JSON.parse()` is the primary way to turn a JSON string into an OrderedJSON value. It performs recursive descent parsing and always preserves key insertion order.
 
 ```swift
 import OrderedJSON
@@ -97,220 +118,448 @@ import OrderedJSON
 let jsonString = """
   {"c": 3, "a": 1, "b": 2}
   """
-let parsed = try JSONValue.parse(jsonString)
-guard case .object(let dict) = parsed else { return }
-print(dict.keys) // ["c", "a", "b"] — original order preserved
+let parsed = try JSON.parse(jsonString)
+// parsed is a JSON object with keys in original order: ["c", "a", "b"]
 ```
 
-## Flatten (Dotted-Path Notation)
+### Duplicate keys
 
-The `flatten()` method converts deeply nested JSON into flat key-value pairs using dot-separated paths for objects and `[index]` notation for arrays:
+If the input contains duplicate keys, `parse()` keeps the **last** value and the **first** key position. This matches `nlohmann/json` behavior.
+
+```swift
+let dupes = try JSON.parse("""
+  {"x": 1, "x": 2, "x": 3}
+  """)
+// dupes["x"] == 3, key position remains first occurrence
+```
+
+### Error handling
+
+Parsing throws `JSONParseError` on malformed input. Always wrap untrusted input in `do {} catch {}`.
+
+---
+
+## Encoding / Serialization
+
+`dump()` converts a `JSON` value back into a JSON string. It accepts an `indent` parameter: use `-1` for compact output (no whitespace) or a positive integer for pretty-printing.
 
 ```swift
 import OrderedJSON
 
-let value = JSONValue.object([
-  "a": .string("x"),
-  "b": .object([
-    "c": .string("deep")
-  ]),
-  "d": .array([
-    .number(.integer(1)),
-    .object([
-      "e": .string("nested")
-    ]),
-  ]),
+let value = JSON.object([
+  "name": JSON.string("Bob"),
+  "age": JSON.number(.integer(25)),
 ])
 
-let flat = value.flatten()
-// Returns:
-// (key: "a",      value: "x")
-// (key: "b.c",    value: "deep")
-// (key: "d[0]",   value: 1)
-// (key: "d[1].e", value: "nested")
+// Compact JSON — single line, no whitespace
+let compact = value.dump()
+// {"name":"Bob","age":25}
+
+// Pretty-printed JSON — 2-space indentation
+let pretty = value.dump(indent: 2)
+// {
+//   "name": "Bob",
+//   "age": 25
+// }
 ```
 
-### Flatten Scalars
+`dump(indent: -1)` is the standard compact format. `dump(indent: 2)` is the typical pretty-printed format. The key order is always preserved regardless of indent value.
 
-Scalar values (strings, numbers, booleans, null) produce a single entry with an empty key:
+---
+
+## Type Checks
+
+OrderedJSON provides a full set of type-checking properties that mirror `nlohmann/json`. These let you inspect what kind of JSON value you are dealing with before attempting access.
 
 ```swift
-import OrderedJSON
+let json = JSON.parse("""{"x": 1, "y": [2], "z": null}""")
 
-let scalar = JSONValue.string("hello")
-let result = scalar.flatten()
-// result[0].key   == ""
-// result[0].value == JSONValue.string("hello")
+let x = json["x"]!
+x.isNull         // false
+x.isBoolean      // false
+x.isNumber       // true
+x.isInteger      // true  (Int64)
+x.isFloat        // false (no fractional part)
+x.isString       // false
+x.isObject       // false
+x.isArray        // false
+x.isPrimitive    // true  (null/boolean/number/string)
+x.isStructured   // false (object/array)
+
+x.type           // JSONType.number
+x.typeName       // "number"
 ```
 
-### Flatten Arrays
+The type hierarchy follows `nlohmann/json`: `null < boolean < number < string < object < array`. This ordering is used by comparison operators (see Comparison section).
 
-Array elements use `[index]` notation:
+---
+
+## Subscript / At / Value Access
+
+OrderedJSON supports three access patterns: optional subscripting (`[]`), throwing access (`at()`), and default-value access (`value()`).
 
 ```swift
-import OrderedJSON
+let json = JSON.parse("""
+  {"name": "Alice", "items": [10, 20]}
+  """)
 
-let array = JSONValue.array([
-  .string("a"),
-  .number(.integer(2)),
-  .boolean(true),
-])
-let flat = array.flatten()
-// flat[0].key == "[0]"
-// flat[1].key == "[1]"
-// flat[2].key == "[2]"
+// Key subscript — returns nil for missing keys
+json["name"]     // Optional(JSON.string("Alice"))
+json["missing"]  // nil
+
+// Index subscript — works on arrays
+json["items"]?[0]  // Optional(JSON.number(.integer(10)))
+
+// Key subscript (set) — mutates the value
+var mutable = json
+mutable["name"] = JSON.string("Bob")
+
+// Index subscript (set) — mutates array element
+mutable["items"]?[0] = JSON.number(.integer(99))
+
+// Throwing access — throws JSONTypeError / JSONOutOfRangeError
+try json.at("name")      // JSON.string("Alice")
+try json.at(0)            // throws — root is not array
+try json.at("missing")    // throws — key not found
+
+// Value with default — returns default for missing keys
+json.value("name", default: JSON.null)       // JSON.string("Alice")
+json.value("missing", default: JSON("x"))    // JSON.string("x")
 ```
 
-### Flatten Empty Objects
+**When to use each:**
+- `[]` — safe access where nil is a valid "not found" signal
+- `at()` — when a missing key/index should be treated as an error
+- `value()` — when you always want a valid value, with a sensible default
 
-Empty objects produce an empty result:
+---
+
+## Capacity / Lookup
+
+Query the contents of objects and arrays with count, isEmpty, first, last, contains, and find.
 
 ```swift
-import OrderedJSON
+let json = JSON.parse("""
+  {"a": 1, "b": 2, "c": 3}
+  """)
 
-let empty = JSONValue.object([:])
-let result = empty.flatten()
-// result.isEmpty == true
+json.count     // 3  — number of keys in object, elements in array
+json.isEmpty   // false
+json.maxCount  // Int.max (unbounded)
+json.first     // Optional(JSON.number(.integer(1)))  — first value
+json.last      // Optional(JSON.number(.integer(3)))  — last value
+
+json.contains("b")   // true  — key exists in object
+json.count("b")      // 1     — each key appears at most once
+json.find("b")       // Optional(JSON.number(.integer(2)))  — value for key
+json.find("missing") // nil
 ```
 
-## Standard JSON Encoding
+On objects, `contains` checks key existence. `find` retrieves the value for a key. `first`/`last` give you the first and last values in insertion order.
 
-Use `encodeStandard()` to serialize back to standard JSON:
+---
+
+## Modifiers
+
+OrderedJSON provides mutating methods for modifying JSON values in place. All modifier methods are `mutating` — they require a `var` binding.
 
 ```swift
-import OrderedJSON
-import Foundation
+var json = JSON.parse("""
+  {"a": 1, "b": 2}
+  """)
 
-let value = JSONValue.object([
-  "name": .string("Bob"),
-  "age": .number(.integer(25)),
-])
+json.clear()              // remove all keys/elements
+json["a"] = JSON(10)      // set via subscript
+json.erase("a")           // remove key from object
+json.erase(0)             // remove first element (array only)
 
-// Encode as standard JSON: {"name":"Bob","age":25}
-let standardData = try value.encodeStandard()
+// Array operations
+var arr = JSON.array([JSON(1), JSON(2), JSON(3)])
+arr.append(JSON(4))                       // [1, 2, 3, 4]
+arr.insert(JSON(0), at: 0)               // [0, 1, 2, 3, 4]
+arr.emplace(JSON(5))                     // append if array, no-op for objects
+
+// Object operations
+var obj = JSON.object(["x": JSON(1)])
+obj.emplace(key: "y", default: JSON(2))   // adds if key absent
+obj.emplace(key: "x", default: JSON(99))  // no-op — key exists
+obj.update(with: JSON.object(["y": JSON(3), "z": JSON(4)]))  // merge keys
+
+// Swap two values
+var a = JSON(1), b = JSON(2)
+a.swap(with: &b)  // a == 2, b == 1
 ```
 
-## Extra Fields Capture (serde `#[serde(flatten)]` equivalent)
+**Key distinction:** `append`/`insert` work on arrays. `emplace`/`update` work on objects. `erase` works on both — use a string key for objects, an integer index for arrays.
 
-`OrderedJSON` provides helpers to capture unknown JSON fields into an `OrderedJSONObject`, similar to Rust's `#[serde(flatten)]` on a `HashMap<String, Value>`.
+---
 
-### Step-by-Step Pattern
+## Flatten / Unflatten
 
-1. Define a struct with known fields and an `extra` field of type `OrderedJSONObject`
-2. In `init(from jsonData: Data)`: parse the full JSON as `JSONValue`, split known keys from extras
-3. In `encode()`: merge known fields and extras and call `encodeStandard()`
+`flatten()` converts a nested JSON value into a flat object whose keys are JSON Pointer paths (`/a/b/c`). `unflatten()` reconstructs the original nested structure.
 
 ```swift
-import OrderedJSON
-import Foundation
+let json = JSON.parse("""
+  {"a": "x", "b": {"c": "deep"}, "d": [1, {"e": "nested"}]}
+  """)
 
-struct User {
-  let name: String
-  let email: String
-  let extra: OrderedJSONObject
+let flat = json.flatten()
+// flat is a JSON object with JSON Pointer keys:
+//   "/a"     -> "x"
+//   "/b/c"   -> "deep"
+//   "/d/0"   -> 1
+//   "/d/1/e" -> "nested"
 
-  init(from jsonData: Data) throws {
-    let fullValue = try JSONValue.parse(String(data: jsonData, encoding: .utf8)!)
-    guard case .object(let dict) = fullValue else {
-      throw JSONError.expectedObject
-    }
-    let knownKeys: Set<String> = ["name", "email"]
-    let (known, extra) = splitExtraFields(from: dict, knownKeys: knownKeys)
-    let knownData = try JSONValue.object(known).encodeStandard()
-    let base = try JSONDecoder().decode(UserBase.self, from: knownData)
-    name = base.name
-    email = base.email
-    self.extra = extra
-  }
+let restored = flat.unflatten()
+// restored == json (round-trip)
+```
 
-  func encode() throws -> Data {
-    var merged: OrderedJSONObject = [
-      "name": .string(name),
-      "email": .string(email),
-    ]
-    for (key, value) in extra {
-      merged[key] = value
-    }
-    return try JSONValue.object(merged).encodeStandard()
-  }
+This is useful for serialization to flat formats (e.g., query strings, database columns) while retaining the ability to reconstruct the original hierarchy. The JSON Pointer format matches `nlohmann/json` exactly.
+
+---
+
+## JSON Pointer
+
+A `JSONPointer` resolves a pointer string against a JSON value to retrieve the referenced element.
+
+```swift
+let json = JSON.parse("""
+  {"a": {"b": {"c": 42}}}
+  """)
+
+let ptr = try JSONPointer("/a/b/c")
+ptr.resolve(json)  // Optional(JSON.number(.integer(42)))
+```
+
+JSON Pointer (RFC 6901) is the standard way to reference a specific value within a JSON document. The `/` prefix denotes the root.
+
+---
+
+## Comparison Operators
+
+OrderedJSON implements full comparison semantics matching `nlohmann/json`. Values are ordered by type first, then by content.
+
+```swift
+JSON(1) <  JSON(2)     // true
+JSON(1) >  JSON(2)     // false
+JSON(1) <= JSON(2)     // true
+JSON(1) >= JSON(2)     // false
+
+JSON.string("a") == JSON.string("a")   // true
+JSON.string("a") != JSON.string("b")   // true
+```
+
+### Type ordering
+
+nlohmann/json defines a strict type hierarchy:
+
+```
+null < boolean < number < string < object < array
+```
+
+This means `JSON.null < JSON.boolean(true)` is true, and `JSON.null < JSON.string("x")` is true. Objects compare by key count first, then by each key-value pair. Arrays compare by element count first, then by each element.
+
+```swift
+// Type ordering examples
+JSON.null < JSON.boolean(true)                // true
+JSON.boolean(false) < JSON.number(.integer(1)) // true
+JSON.number(.integer(1)) < JSON.string("a")    // true
+JSON.string("a") < JSON.object(["x": JSON(1)]) // true
+JSON.object(["x": JSON(1)]) < JSON.array([JSON(1)]) // true
+```
+
+### Mixed number comparison
+
+Integers and floats are compared as numbers, not types:
+
+```swift
+JSON.number(.integer(1)) < JSON.number(.float(2.5))    // true
+JSON.number(.integer(42)) == JSON.number(.float(42.0))  // true
+JSON.number(.float(42.0)) == JSON.number(.integer(42))  // true
+```
+
+---
+
+## Sequence Conformance
+
+`JSON` conforms to `Sequence`, enabling iteration over array elements or object values.
+
+```swift
+let arr = JSON.array([JSON(1), JSON(2), JSON(3)])
+for element in arr {
+  print(element)  // 1, 2, 3
 }
 
-// Helper base struct for known fields
-private struct UserBase: Decodable {
-  let name: String
-  let email: String
+let obj = JSON.object(["x": JSON(10), "y": JSON(20)])
+for value in obj {
+  print(value)  // 10, 20 (values only)
+}
+
+// Key-value pairs
+for (key, value) in obj.items() {
+  print("\(key): \(value)")  // x: 10, y: 20
 }
 ```
 
-### Decoding with Extra Fields
+When iterating an object, `Sequence` yields values in insertion order. Use `items()` to get both keys and values together.
 
-When decoding `{"name": "Alice", "email": "a@b.com", "age": 30, "city": "NYC"}`:
+---
+
+## JSON Patch (RFC 6902)
+
+JSON Patch defines a sequence of operations to transform a JSON document. OrderedJSON supports both non-mutating (`patch`) and mutating (`patchInPlace`) application.
 
 ```swift
-let jsonString = """
-  {"name": "Alice", "email": "a@b.com", "age": 30, "city": "NYC"}
-  """
-let data = Data(jsonString.utf8)
-let user = try User(from: data)
-// user.name        == "Alice"
-// user.email       == "a@b.com"
-// user.extra.keys  == ["age", "city"]
-// user.extra["age"]  == .number(.integer(30))
+let source = JSON.parse("""
+  {"a": 1, "b": 2}
+  """)
+
+let patch = JSON.parse("""
+  [{"op": "add",     "path": "/c", "value": 3},
+   {"op": "remove",  "path": "/b"},
+   {"op": "replace", "path": "/a", "value": 99}]
+  """)
+
+// Non-mutating — returns a new value
+let patched = try source.patch(patch)
+
+// Mutating — modifies in place
+var mutable = source
+try mutable.patchInPlace(patch)
 ```
 
-### Helper Functions
+Supported operations: `add`, `remove`, `replace`, `copy`, `move`, `test`. The `test` operation returns `JSONPatchError.testFailed` if the test fails, matching `nlohmann/json` behavior.
 
-Two utilities support this pattern:
+---
 
-- **`encodeStandard()`** — encodes as standard JSON (keyed objects)
-- **`splitExtraFields(from:knownKeys:)`** — splits an `OrderedJSONObject` into known and extra key groups
+## Diff
+
+`diff()` computes the JSON Patch sequence needed to transform one JSON value into another.
 
 ```swift
-let value = JSONValue.object([
-  "name": .string("Bob"),
-  "age": .number(.integer(25)),
+let source = JSON.parse("""
+  {"a": 1, "b": 2}
+  """)
+let target = JSON.parse("""
+  {"a": 1, "c": 3}
+  """)
+
+let diff = JSON.diff(source, target)
+// diff == [
+//   {"op": "remove", "path": "/b"},
+//   {"op": "add",    "path": "/c", "value": 3}
+// ]
+```
+
+The resulting patch can be applied to `source` to produce `target`. This is useful for computing minimal updates between JSON documents.
+
+---
+
+## JSON Merge Patch (RFC 7396)
+
+Merge Patch is a simpler alternative to JSON Patch. Instead of operation lists, you provide a partial JSON document representing the desired changes.
+
+```swift
+let source = JSON.parse("""
+  {"a": 1, "b": {"c": 2, "d": 3}}
+  """)
+
+let patch = JSON.parse("""
+  {"a": null, "b": {"c": 99}}
+  """)
+
+let merged = source.mergePatch(patch)
+// merged == {"b": {"c": 99}}   — "a" removed, "b.d" kept, "b.c" replaced
+```
+
+**Rules:**
+- `null` value → key is removed from the target
+- Non-null scalar → replaces existing value
+- Object → merges recursively into existing object
+- Array → replaces existing array entirely
+
+---
+
+## SAX Parsing
+
+SAX (Simple API for XML) parsing streams JSON events to a handler without building a full document tree. This is useful for large JSON documents where you want to process events incrementally without holding the entire document in memory.
+
+```swift
+class MyHandler: JSONSAXEventHandler {
+  func null() -> Bool { print("null"); return true }
+  func boolean(_ v: Bool) -> Bool { print("bool: \(v)"); return true }
+  func integer(_ v: Int64) -> Bool { print("int: \(v)"); return true }
+  func float(_ v: Double, string: String) -> Bool { print("float: \(v)"); return true }
+  func string(_ v: String) -> Bool { print("string: \(v)"); return true }
+  func startObject() -> Bool { print("{"); return true }
+  func key(_ v: String) -> Bool { print("key: \(v)"); return true }
+  func endObject() -> Bool { print("}"); return true }
+  func startArray() -> Bool { print("["); return true }
+  func endArray() -> Bool { print("]"); return true }
+  func parseError(_ e: JSONParseError, data: Data) -> Bool { print("error"); return false }
+}
+
+let ok = JSON.saxParse("""{"a": 1}""", handler: MyHandler())
+// Prints: { key: a int: 1 }
+
+// Non-throwing validation — returns true for valid JSON
+JSON.accept("""{"valid": 1}""")   // true
+JSON.accept("invalid")            // false
+```
+
+Return `false` from any handler method to abort parsing early. `accept()` is a convenience wrapper that returns `Bool` instead of throwing.
+
+---
+
+## Binary Formats
+
+OrderedJSON supports five binary JSON formats. Each format offers different trade-offs between size, speed, and feature support.
+
+| Format | Best for |
+|--------|---------|
+| **CBOR** | IoT, web push, COSE (RFC 7049) |
+| **MessagePack** | General compact encoding, Redis |
+| **UBJSON** | Binary JSON with type markers |
+| **BSON** | MongoDB documents |
+| **BJData** | Binary JSON with size prefix |
+
+```swift
+let json = JSON.object([
+  "name": JSON.string("Bob"),
+  "age": JSON.number(.integer(25)),
 ])
-let data = try value.encodeStandard()
-// data -> {"name":"Bob","age":25}
 
-let (known, extra) = splitExtraFields(from: dict, knownKeys: ["name"])
-// known == ["name": "Bob"]
-// extra == ["age": 25]
+// CBOR
+let cbor = json.toCBOR()
+let back = try JSON.fromCBOR(cbor)
+
+// MessagePack
+let msg = json.toMsgPack()
+let back2 = try JSON.fromMsgPack(msg)
+
+// UBJSON
+let ubj = json.toUBJSON()
+let back3 = try JSON.fromUBJSON(ubj)
+
+// BSON
+let bson = json.toBSON()
+let back4 = try JSON.fromBSON(bson)
+
+// BJData
+let bjd = json.toBJData()
+let back5 = try JSON.fromBJData(bjd)
 ```
 
-## Round-Trip: Parse → Modify → Encode (Exact Order)
+All five formats preserve key order during encode and decode round-trips.
 
-The most common use case: parse JSON, update values, and encode back to standard JSON with the same key order:
-
-```swift
-import OrderedJSON
-
-let input = """
-  {"z": 1, "a": 2, "m": 3}
-  """
-let value = try JSONValue.parse(input)
-
-// Modify values (key order is preserved in the dictionary)
-guard case .object(var dict) = value else { return }
-dict["a"] = .number(.integer(99))
-let modified = JSONValue.object(dict)
-
-// Encode back to standard JSON — same key order, updated values
-let output = String(data: try modified.encodeStandard(), encoding: .utf8)!
-// output == {"z":1,"a":99,"m":3}
-```
-
-**How it works:**
-- `JSONValue.parse()` parses with order preservation using a recursive descent parser
-- `OrderedDictionary` retains insertion order through modifications
-- `encodeStandard()` serializes as standard JSON objects (not alternating pairs), preserving key order
-- The result is a JSON string with identical key ordering as the input, but with updated values
+---
 
 ## Best Practices
 
-- **Empty objects**: Use `JSONValue.object([:])` rather than `JSONValue.object(OrderedJSONObject())`.
+- **Empty objects**: Use `JSON.object([:])` or `JSON.object(OrderedDictionary())`.
 - **Numeric types**: Use `.integer(Int64)` for whole numbers and `.float(Double)` for decimals to preserve type information through encoding/decoding.
-- **Flatten iteration**: The `flatten()` result is an array of tuples; iterate with `for (key, value) in result`.
 - **Error handling**: Wrap parsing from untrusted sources in `do {} catch {}`.
-- **Thread safety**: `JSONValue` is `Hashable` and `Sendable`, making it safe to use in collections and across concurrency domains.
-- **Order preservation**: Use `JSONValue.parse()` for order-preserving parsing and `encodeStandard()` for serialization.
+- **Thread safety**: `JSON` is `Hashable` and `Sendable`, safe to use in collections and across concurrency domains.
+- **Order preservation**: Use `JSON.parse()` for order-preserving parsing and `dump(-1)` for compact serialization.
+- **Flatten round-trip**: `flatten()` followed by `unflatten()` returns the original value.
+- **Choose access pattern**: Use `[]` for optional access, `at()` for throwing access, `value()` for default-value access.

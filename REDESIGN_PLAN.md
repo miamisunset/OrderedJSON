@@ -6,8 +6,8 @@ Transform `OrderedJSON` from a minimal enum-based JSON library into an idiomatic
 ## Current State
 - `JSONValue` enum with 6 cases (`.object`, `.array`, `.string`, `.number`, `.boolean`, `.null`)
 - `JSONNumber` enum (`.integer(Int64)`, `.float(Double)`)
-- `OrderedJSONObject` typealias for `OrderedDictionary<String, JSONValue>`
-- Standalone `parse()`, `encodeStandard()`, `flatten()`, `splitExtraFields()`
+- Uses `OrderedDictionary<String, JSON>` directly (no typealias)
+- Standalone `parse()`, `dump()`, `flatten()`
 - No subscript, no type checks, no modifiers, no JSON Pointer, no binary formats
 
 ## Target State
@@ -23,7 +23,7 @@ Transform `OrderedJSON` from a minimal enum-based JSON library into an idiomatic
 ```swift
 public struct JSON: Hashable, Sendable {
   internal enum Storage: Hashable, Sendable {
-    case object(OrderedJSONObject)  // OrderedDictionary<String, JSON>
+    case object(OrderedDictionary<String, JSON>)
     case array([JSON])
     case string(String)
     case number(JSONNumber)
@@ -38,7 +38,7 @@ public struct JSON: Hashable, Sendable {
 
 ### Supporting Types (unchanged)
 - `JSONNumber` — stays as `.integer(Int64)` / `.float(Double)`
-- `OrderedJSONObject` — stays as `OrderedDictionary<String, JSON>`
+- No `OrderedJSONObject` typealias — use `OrderedDictionary<String, JSON>` directly
 
 ---
 
@@ -167,7 +167,7 @@ Support CBOR, MessagePack, UBJSON, BSON, BJData as static `from*` / instance `to
 9. Add `first`, `last` properties
 10. Add `flatten()`, `unflatten()` (JSON Pointer format)
 11. Add `dump(...)` (pretty-printing)
-12. Keep existing `parse()`, `encodeStandard()` — `encodeStandard()` becomes the compact output equivalent
+12. Keep existing `parse()`, `dump()` — `dump(-1)` produces compact output
 
 ### Phase 2 — Comparison Operators + Sequence Conformance
 13. Add `==`, `!=`, `<`, `>`, `<=`, `>=` operators
@@ -184,13 +184,16 @@ Support CBOR, MessagePack, UBJSON, BSON, BJData as static `from*` / instance `to
 ### Phase 5 — Binary Formats
 19. Add CBOR, MessagePack, UBJSON, BSON, BJData support
 
+### Phase 6 — Comprehensive User Documentation
+20. Rewrite `README.md` with current `JSON` struct API, organized by feature area with runnable examples
+
 ---
 
 ## Backward Compatibility
 - `JSONValue` can become `typealias JSONValue = JSON` or remain as an internal alias
-- `OrderedJSONObject` stays as-is
+- No `OrderedJSONObject` typealias — `OrderedDictionary<String, JSON>` used directly
 - `flatten()` currently returns `[(key: String, value: JSONValue)]` — will change to return `JSON` object
-- `encodeStandard()` → kept as-is for compact output; `dump(-1)` will produce same result
+- `dump()` → compact (`dump(-1)`) or pretty-printed output
 
 ---
 
@@ -198,7 +201,7 @@ Support CBOR, MessagePack, UBJSON, BSON, BJData as static `from*` / instance `to
 
 1. **Struct over enum extension**: Adding methods to enum via extensions works, but subscript `[key:]` returning `Self?` with mutation is cleaner on a struct. The enum stays as internal storage.
 2. **JSON Pointer flatten**: nlohmann/json uses `/` paths. We match this exactly.
-3. **No Codable**: Already decided — `parse()` / `encodeStandard()` / `dump()` replace it.
+3. **No Codable**: Already decided — `parse()` / `dump()` replace it.
 4. **Mutable subscript**: `j["key"] = value` works because struct has mutating methods. `j["key"]` as a getter returns `JSON?`.
 5. **Sendable**: `JSON` is a struct of `Sendable` parts — no `actor` needed.
 6. **Multiple files**: Organized by concern, not monolithic — see File Layout below.
@@ -214,11 +217,11 @@ Sources/OrderedJSON/
 ├── Core/
 │   ├── JSON.swift                  # JSON struct, Storage enum, type checks, factory methods
 │   ├── JSONNumber.swift            # JSONNumber enum (integer/float)
-│   ├── OrderedJSONObject.swift     # typealias for OrderedDictionary
+│   ├── OrderedJSONObject.swift     # typealias for OrderedDictionary (removed — use OrderedDictionary directly)
 │   └── JSONError.swift             # Error types: JSONError, JSONParseError, JSONTypeError, JSONOutOfRangeError
 ├── Parsing/
 │   ├── JSONParser.swift            # Recursive descent parser (current parse logic)
-│   └── JSONSerializer.swift        # Serialization (encodeStandard / dump logic)
+│   └── JSONSerializer.swift        # Serialization (dump logic)
 ├── Access/
 │   ├── JSONSubscript.swift         # subscript[key:], subscript[index:], at(_:), value(_:default:)
 │   ├── JSONLookup.swift            # contains, count(_:), find
@@ -290,7 +293,7 @@ Add explicit source file layout:
   sources: [
     "Core/JSON.swift",
     "Core/JSONNumber.swift",
-    "Core/OrderedJSONObject.swift",
+    // "Core/OrderedJSONObject.swift",  // removed — typealias deleted
     "Core/JSONError.swift",
     "Parsing/JSONParser.swift",
     "Parsing/JSONSerializer.swift",
