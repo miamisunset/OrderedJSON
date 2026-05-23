@@ -280,3 +280,16 @@ import Testing
   let err = JSONError.expectedObject
   #expect(err != JSONError.invalidString)
 }
+
+// MARK: - Hashable / Equality Tests
+
+@Test func hashableEquality() {
+  #expect(JSON.string("a") == JSON.string("a"))
+  #expect(JSON.string("a") != JSON.string("b"))
+  #expect(JSON.number(.integer(1)) == JSON.number(.integer(1)))
+  #expect(JSON.number(.integer(1)) != JSON.number(.float(1.0)))
+  #expect(JSON.boolean(true) == JSON.boolean(true))
+  #expect(JSON.boolean(true) != JSON.boolean(false))
+  #expect(JSON.null == JSON.null)
+  #expect(JSON.string("a") != JSON.null)
+}

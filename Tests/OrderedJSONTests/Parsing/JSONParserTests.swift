@@ -205,3 +205,42 @@ import Testing
 @Test func parseErrorNullIncomplete() throws {
   #expect(throws: JSONParseError.unexpectedToken(0)) { try JSON.parse("nu") }
 }
+
+// MARK: - Standard Encoding Tests
+
+@Test func encodeStandardNull() {
+  #expect(JSON.null.dump(indent: -1) == "null")
+}
+
+@Test func encodeStandardBool() {
+  #expect(JSON.boolean(true).dump(indent: -1) == "true")
+}
+
+@Test func encodeStandardInt() {
+  #expect(JSON.number(.integer(42)).dump(indent: -1) == "42")
+}
+
+@Test func encodeStandardFloat() {
+  #expect(JSON.number(.float(3.14)).dump(indent: -1) == "3.14")
+}
+
+@Test func encodeStandardString() {
+  #expect(JSON.string("hello").dump(indent: -1) == "\"hello\"")
+}
+
+@Test func encodeStandardArray() {
+  let value = JSON.array([
+    JSON.string("a"),
+    JSON.number(.integer(1)),
+    JSON.boolean(true),
+  ])
+  #expect(value.dump(indent: -1) == "[\"a\",1,true]")
+}
+
+@Test func encodeStandardObject() {
+  let value = JSON.object([
+    "name": JSON.string("Alice"),
+    "age": JSON.number(.integer(30)),
+  ])
+  #expect(value.dump(indent: -1) == "{\"name\":\"Alice\",\"age\":30}")
+}
