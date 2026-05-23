@@ -156,10 +156,15 @@ private func decodeMsgPackString(_ data: Data, _ pos: inout Int, _ len: Int) thr
 }
 
 private func decodeMsgPackBin(_ data: Data, _ pos: inout Int, _ sizeLen: Int) throws -> JSON {
-  let len =
-    sizeLen == 1
-    ? Int(data[pos]) : (sizeLen == 2 ? Int(readUInt16(data, &pos)) : Int(readUInt32(data, &pos)))
-  if sizeLen > 1 { pos += sizeLen }
+  let len: Int
+  if sizeLen == 1 {
+    len = Int(data[pos])
+    pos += 1
+  } else if sizeLen == 2 {
+    len = Int(readUInt16(data, &pos))
+  } else {
+    len = Int(readUInt32(data, &pos))
+  }
   let body = data[pos..<pos + len]
   pos += len
   return JSON.string(body.base64EncodedString())

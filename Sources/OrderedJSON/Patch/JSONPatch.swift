@@ -158,7 +158,9 @@ extension JSON {
       if isLast {
         var copy = arr
         if isAdd {
-          if idx >= copy.count {
+          if idx > copy.count {
+            throw JSONError.invalidPatch("Array index out of bounds for add")
+          } else if idx == copy.count {
             copy.append(value)
           } else {
             copy.insert(value, at: idx)
@@ -226,6 +228,9 @@ extension JSON {
         throw JSONError.invalidPatch("Cannot key into non-object for remove")
       }
       if isLast {
+        guard dict.keys.contains(segment) else {
+          throw JSONError.invalidPatch("Key not found: \(segment)")
+        }
         dict.removeValue(forKey: segment)
         return .object(dict)
       } else {

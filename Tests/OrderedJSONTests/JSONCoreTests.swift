@@ -194,6 +194,24 @@ import Testing
   #expect(JSON.array([]).dump(indent: 2) == "[]")
 }
 
+@Test func dumpPrettyNull() {
+  #expect(JSON.null.dump(indent: 2) == "null")
+}
+
+@Test func dumpPrettyBool() {
+  #expect(JSON.boolean(true).dump(indent: 2) == "true")
+  #expect(JSON.boolean(false).dump(indent: 2) == "false")
+}
+
+@Test func dumpPrettyNumber() {
+  #expect(JSON.number(.integer(42)).dump(indent: 2) == "42")
+  #expect(JSON.number(.float(3.14)).dump(indent: 2) == "3.14")
+}
+
+@Test func dumpPrettyString() {
+  #expect(JSON.string("hello").dump(indent: 2) == "\"hello\"")
+}
+
 @Test func dumpEnsureAscii() {
   let val = JSON.string("héllo")
   let ascii = val.dump(indent: -1, ensureAscii: true)

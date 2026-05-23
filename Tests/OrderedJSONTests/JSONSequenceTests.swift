@@ -96,3 +96,19 @@ import Testing
   let items = JSON.object([:]).items()
   #expect(items.isEmpty)
 }
+
+@Test func iteratorExhaustion() {
+  // Test that calling next() after exhaustion returns nil (covers .empty case)
+  var iter = JSON.array([JSON.string("a"), JSON.string("b")]).makeIterator()
+  #expect(iter.next() == JSON.string("a"))
+  #expect(iter.next() == JSON.string("b"))
+  #expect(iter.next() == nil)
+
+  var objIter = JSON.object(["k": JSON.string("v")]).makeIterator()
+  #expect(objIter.next() == JSON.string("v"))
+  #expect(objIter.next() == nil)
+
+  var scalarIter = JSON.number(.integer(1)).makeIterator()
+  #expect(scalarIter.next() == JSON.number(.integer(1)))
+  #expect(scalarIter.next() == nil)
+}

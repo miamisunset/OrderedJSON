@@ -183,6 +183,16 @@ import Testing
   #expect(throws: JSONParseError.unexpectedEnd()) { try JSON.parse("0.") }
 }
 
+@Test func parseErrorTrailingBackslash() throws {
+  // Line 110: backslash at end of string
+  #expect(throws: JSONParseError.unexpectedEnd()) { try JSON.parse("\"\\") }
+}
+
+@Test func parseErrorInvalidDouble() throws {
+  // Line 215: Double(s) returns nil for incomplete exponent
+  #expect(throws: JSONParseError.invalidNumber(0)) { try JSON.parse("1.0e+") }
+}
+
 @Test func parseErrorTrailingGarbage() throws {
   #expect(throws: JSONParseError.unexpectedToken(3)) { try JSON.parse("[1]x") }
 }

@@ -181,3 +181,27 @@ import Testing
   }
   #expect(dict["a"] == JSON.string("x"))
 }
+
+@Test func unflattenArrayWithNestedObject() {
+  // Path /0/foo: first segment "0" creates array from object root, rest not empty
+  let flat = JSON.object([
+    "/0/foo": JSON.string("bar")
+  ])
+  let result = flat.unflatten()
+  #expect(result.isArray)
+  #expect(result[0]?.isObject == true)
+  #expect(result[0]?["foo"] == JSON.string("bar"))
+}
+
+@Test func unflattenMixedArrayAndObjectPaths() {
+  // First path /0 creates array root; second path /foo/bar overwrites root to object
+  // (conflicting root types — last one wins)
+  let flat = JSON.object([
+    "/0": JSON.string("a"),
+    "/foo/bar": JSON.string("b"),
+  ])
+  let result = flat.unflatten()
+  #expect(result.isObject)
+  #expect(result["foo"]?.isObject == true)
+  #expect(result["foo"]?["bar"] == JSON.string("b"))
+}
