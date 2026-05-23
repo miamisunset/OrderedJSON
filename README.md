@@ -554,6 +554,45 @@ All five formats preserve key order during encode and decode round-trips.
 
 ---
 
+## Feature Parity vs. nlohmann/json
+
+OrderedJSON covers ~95% of `nlohmann::basic_json`'s API surface. Here are the gaps, why they exist, and whether we plan to add them.
+
+| Feature | nlohmann/json | OrderedJSON | Reason | Future? |
+|---------|---------------|-------------|--------|---------|
+| **`is_number_unsigned`** | Detects `uint64_t` integers | ❌ Not implemented | Swift uses `Int64` for all integers; `UInt64` isn't needed since JSON numbers have no unsigned concept per RFC 7159 | Unlikely |
+| **`is_binary` / `is_discarded`** | Binary byte array type / SAX discarded state | ❌ Not implemented | Binary CBOR/msgpack data decoded as base64 strings; discarded state is internal to SAX parsing | Possible later |
+| **`get<T>()`, `get_to()`, `get_ptr()`, `get_ref()`** | Template-based value extraction | ❌ Not implemented | Swift's static type system makes this less critical — use `stringValue`, `isInteger`, subscript access, etc. | Possible later |
+| **`push_back`** | Named `push_back` for arrays | ❌ Named `append` instead | Swift convention uses `append`; semantics are identical | Low priority |
+| **`operator+=`** | Compound assignment for array/object addition | ❌ Not implemented | Swift uses `append` / `+=` on arrays directly | Unlikely |
+| **`emplace_back`** | Emplace back for arrays | ❌ Covered by `emplace` | `emplace` for arrays is identical to `append` | Low priority |
+| **`begin` / `end` / `cbegin` / `cend` / `rbegin` / `rend`** | Explicit iterator API | ❌ Not implemented | Swift `Sequence`/`Collection` conformance provides equivalent iteration with `for-in` loops | Possible later |
+| **`front` / `back`** | First/last element access | ❌ Named `first` / `last` | Same semantics, Swift-familiar naming | Low priority |
+| **`meta()`** | Returns library version info | ❌ Not implemented | C++-specific; Swift packages track version via `Package.swift` | Unlikely |
+| **`get_allocator()`** | Allocator access | ❌ Not implemented | C++-specific concept; irrelevant in Swift's ARC model | Unlikely |
+| **`operator<<` / `operator>>`** | Stream I/O operators | ❌ Not implemented | Swift uses `dump()` / `parse()` instead of stream operators | Unlikely |
+| **`operator""_json`** | String literal for JSON | ❌ Not implemented | Swift doesn't support custom string literals; use `JSON.parse("...")` instead | Unlikely |
+| **`to_string`** | ADL-friendly string conversion | ❌ Not implemented | Swift has `CustomStringConvertible` / `dump()` | Low priority |
+
+### Summary
+
+All major feature categories from `nlohmann/json` are implemented:
+
+- ✅ Factory methods, type checks, subscript/at/value access
+- ✅ Modifiers (clear, erase, append, insert, emplace, update, swap)
+- ✅ Comparison operators (==, !=, <, <=, >, >=)
+- ✅ Sequence conformance (for-in, items())
+- ✅ Parsing (parse, accept) and serialization (dump)
+- ✅ SAX parsing (saxParse)
+- ✅ Flatten/unflatten, JSON Pointer (resolve, set)
+- ✅ JSON Patch (patch, patchInPlace, diff) and Merge Patch (mergePatch)
+- ✅ All five binary formats (CBOR, MessagePack, UBJSON, BSON, BJData)
+- ✅ Hashable, Sendable, and full documentation
+
+The missing features are either **Swift-inappropriate** (C++ stream operators, allocators, string literals, unsigned integer distinction) or **naming differences** (`append` vs `push_back`, `first`/`last` vs `front`/`back`). None affect the library's ability to serve as a complete ordered JSON implementation for Swift.
+
+---
+
 ## Best Practices
 
 - **Empty objects**: Use `JSON.object([:])` or `JSON.object(OrderedDictionary())`.

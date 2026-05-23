@@ -687,8 +687,8 @@ import Testing
 
 @Test func cborTag() throws {
   // CBOR tag (major type 6) followed by integer 42
-  // Tag 1: major 6 (0x60), info 1 = 0x61, then integer 42
-  let bytes: [UInt8] = [0x61, 0x18, 0x2A]  // tag 1, unsigned 42
+  // Tag 1: major 6 (0xC0), info 1 = 0xC1, then integer 42
+  let bytes: [UInt8] = [0xC1, 0x18, 0x2A]  // tag 1, unsigned 42
   let data = Data(bytes)
   let decoded = try JSON.fromCBOR(data)
   #expect(decoded == JSON.number(.integer(42)))
