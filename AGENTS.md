@@ -5,7 +5,7 @@ Swift library that preserves JSON key order with a rich method-based API mirrori
 ## Commands
 
 - `swift run` — build & run (no executable target currently; add one first)
-- `swift test` — run all tests (uses Swift Testing, not XCTest)
+- `swift test --enable-code-coverage` — run all tests with code coverage (uses Swift Testing, not XCTest)
 - `swift build` — build library
 - `swift format lint --recursive --parallel -p .` — lint with SwiftFormat
 - `swift format format --recursive --parallel --in-place -p .` — auto-format with SwiftFormat
@@ -54,7 +54,7 @@ Swift library that preserves JSON key order with a rich method-based API mirrori
 ## Workflow
 
 - **Branch-first** — all development on a new branch; merge to `main` only after checks pass
-- **Pre-merge** — run `swift test` (must pass) + `swift format lint --recursive --parallel -p .` (must be clean) + `swift format format --recursive --parallel --in-place -p .` (auto-format)
+- **Pre-merge** — run `swift test --enable-code-coverage` (must pass) + `swift format lint --recursive --parallel -p .` (must be clean) + `swift format format --recursive --parallel --in-place -p .` (auto-format)
 - **Order**: lint → format → test (format first so lint sees formatted code)
 
 ## Gotchas
