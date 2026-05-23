@@ -1,5 +1,7 @@
 # OrderedJSON
 
+> ⚠️ **Warning:** This repository was developed by a friendly AI assistant. Use at your own risk. While all code compiles, all tests pass, and the API mirrors `nlohmann::basic_json` closely, the code has not been reviewed by a human developer. Verify critical paths before using in production.
+
 A Swift library that preserves JSON key order with a rich method-based API mirroring `nlohmann::basic_json` (`JSON for Modern C++`). Includes order-preserving parsing, type checks, subscript access, modifiers, flatten/unflatten, JSON Patch/Merge Patch, SAX parsing, and binary format support (CBOR, MessagePack, UBJSON, BSON, BJData).
 
 ---
