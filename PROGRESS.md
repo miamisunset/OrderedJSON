@@ -238,6 +238,10 @@ All 403 tests pass. Build produces zero errors. CI pipeline passes (SwiftFormat 
 - 50 tests total (all passing)
 
 ## Release
+- Merged all 3 PRs (#9, #10, #11) to `main`
+- Tagged and released as **v2.2.0**
+- New features: JSONBuilder, setIfPresent/addIfPresent matrix, objectKeys accessor, README TOC
+- 50 builder tests + full existing suite pass
 - Merged `codable-support` → `main` via squash-merge at `9cc89b2`
 - Tagged and released as **v2.1.0**
 - README updated with Codable documentation, performance section, throwing accessor table
