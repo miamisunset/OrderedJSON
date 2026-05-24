@@ -9,7 +9,7 @@ on:
 jobs:
   lint:
     name: SwiftFormat Lint
-    runs-on: macos-latest
+    runs-on: macos-26
     steps:
       - uses: actions/checkout@v4
       - name: Install SwiftFormat
@@ -21,17 +21,12 @@ jobs:
 
   test:
     name: Build & Test
-    runs-on: macos-latest
+    runs-on: macos-26
     steps:
       - uses: actions/checkout@v4
-      - name: Install Swiftly and Swift 6.3
+      - name: Select Xcode 26.4.1
         run: |
-          curl -O https://download.swift.org/swiftly/darwin/swiftly.pkg
-          installer -pkg swiftly.pkg -target CurrentUserHomeDirectory
-          echo "$HOME/.swiftly/bin" >> $GITHUB_PATH
-          "$HOME/.swiftly/bin/swiftly" init --assume-yes
-          "$HOME/.swiftly/bin/swiftly" install 6.3.0
-      - name: Build
-        run: swift build
-      - name: Test
-        run: swift test
+          sudo xcode-select -s /Applications/Xcode_26.4.1.app
+          xcrun swift --version
+      - name: Build & Test
+        run: xcrun swift test --parallel
