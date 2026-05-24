@@ -142,12 +142,19 @@ final class _JSONDecodeImpl: Decoder {
 // MARK: - Foundation type decoding helpers
 
 private func decodeDate(
-  from json: JSON, with strategy: DateDecodingStrategy, codingPath: [CodingKey]
+  from json: JSON, with strategy: DateDecodingStrategy, codingPath: [CodingKey],
+  dateDecodingStrategy: DateDecodingStrategy,
+  dataDecodingStrategy: DataDecodingStrategy,
+  decimalDecodingStrategy: DecimalDecodingStrategy
 ) throws -> Date {
   switch strategy {
   case .deferredToDate:
     // Fall through to Date's own Decodable implementation
-    let impl = _JSONDecodeImpl(json: json, codingPath: codingPath)
+    let impl = _JSONDecodeImpl(
+      json: json, codingPath: codingPath,
+      dateDecodingStrategy: dateDecodingStrategy,
+      dataDecodingStrategy: dataDecodingStrategy,
+      decimalDecodingStrategy: decimalDecodingStrategy)
     return try Date(from: impl)
   case .secondsSince1970:
     return Date(timeIntervalSince1970: try json.requireDouble())
@@ -174,18 +181,29 @@ private func decodeDate(
     }
     return date
   case .custom(let closure):
-    let impl = _JSONDecodeImpl(json: json, codingPath: codingPath)
+    let impl = _JSONDecodeImpl(
+      json: json, codingPath: codingPath,
+      dateDecodingStrategy: dateDecodingStrategy,
+      dataDecodingStrategy: dataDecodingStrategy,
+      decimalDecodingStrategy: decimalDecodingStrategy)
     return try closure(json, impl)
   }
 }
 
 private func decodeData(
-  from json: JSON, with strategy: DataDecodingStrategy, codingPath: [CodingKey]
+  from json: JSON, with strategy: DataDecodingStrategy, codingPath: [CodingKey],
+  dateDecodingStrategy: DateDecodingStrategy,
+  dataDecodingStrategy: DataDecodingStrategy,
+  decimalDecodingStrategy: DecimalDecodingStrategy
 ) throws -> Data {
   switch strategy {
   case .deferredToData:
     // Fall through to Data's own Decodable implementation
-    let impl = _JSONDecodeImpl(json: json, codingPath: codingPath)
+    let impl = _JSONDecodeImpl(
+      json: json, codingPath: codingPath,
+      dateDecodingStrategy: dateDecodingStrategy,
+      dataDecodingStrategy: dataDecodingStrategy,
+      decimalDecodingStrategy: decimalDecodingStrategy)
     return try Data(from: impl)
   case .base64:
     let string = try json.requireString()
@@ -197,7 +215,11 @@ private func decodeData(
     }
     return data
   case .custom(let closure):
-    let impl = _JSONDecodeImpl(json: json, codingPath: codingPath)
+    let impl = _JSONDecodeImpl(
+      json: json, codingPath: codingPath,
+      dateDecodingStrategy: dateDecodingStrategy,
+      dataDecodingStrategy: dataDecodingStrategy,
+      decimalDecodingStrategy: decimalDecodingStrategy)
     return try closure(json, impl)
   }
 }
@@ -207,11 +229,54 @@ private func decodeDecimal(
 ) throws -> Decimal {
   switch strategy {
   case .asString:
-    return Decimal(string: try json.requireString()) ?? Decimal.nan
+    let string = try json.requireString()
+    guard let decimal = Decimal(string: string) else {
+      throw DecodingError.dataCorrupted(
+        DecodingError.Context(
+          codingPath: codingPath,
+          debugDescription: "Invalid Decimal string: \(string)"))
+    }
+    return decimal
   case .asNumber:
-    let value = try json.requireDouble()
-    return Decimal(string: String(value)) ?? Decimal.nan
+    switch json.storage {
+    case .number(.integer(let i)):
+      return Decimal(i)
+    case .number(.float(let d)):
+      return Decimal(Double(d))
+    default:
+      throw DecodingError.typeMismatch(
+        Decimal.self,
+        DecodingError.Context(
+          codingPath: codingPath,
+          debugDescription: "Expected a JSON number for Decimal decoding"))
+    }
   }
+}
+
+private func decodeURL(
+  from json: JSON, codingPath: [CodingKey]
+) throws -> URL {
+  let string = try json.requireString()
+  guard let url = URL(string: string) else {
+    throw DecodingError.dataCorrupted(
+      DecodingError.Context(
+        codingPath: codingPath,
+        debugDescription: "Invalid URL string: \(string)"))
+  }
+  return url
+}
+
+private func decodeUUID(
+  from json: JSON, codingPath: [CodingKey]
+) throws -> UUID {
+  let string = try json.requireString()
+  guard let uuid = UUID(uuidString: string) else {
+    throw DecodingError.dataCorrupted(
+      DecodingError.Context(
+        codingPath: codingPath,
+        debugDescription: "Invalid UUID string: \(string)"))
+  }
+  return uuid
 }
 
 // MARK: - Keyed decoding container
@@ -313,17 +378,23 @@ struct _JSONKeyedDecodingContainer<Key: CodingKey>: KeyedDecodingContainerProtoc
     // Foundation type special handling
     if T.self == Date.self {
       return try decodeDate(
-        from: value, with: impl.dateDecodingStrategy, codingPath: codingPath + [key]) as! T
+        from: value, with: impl.dateDecodingStrategy, codingPath: codingPath + [key],
+        dateDecodingStrategy: impl.dateDecodingStrategy,
+        dataDecodingStrategy: impl.dataDecodingStrategy,
+        decimalDecodingStrategy: impl.decimalDecodingStrategy) as! T
     }
     if T.self == Data.self {
       return try decodeData(
-        from: value, with: impl.dataDecodingStrategy, codingPath: codingPath + [key]) as! T
+        from: value, with: impl.dataDecodingStrategy, codingPath: codingPath + [key],
+        dateDecodingStrategy: impl.dateDecodingStrategy,
+        dataDecodingStrategy: impl.dataDecodingStrategy,
+        decimalDecodingStrategy: impl.decimalDecodingStrategy) as! T
     }
     if T.self == URL.self {
-      return URL(string: try value.requireString()) as! T
+      return try decodeURL(from: value, codingPath: codingPath + [key]) as! T
     }
     if T.self == UUID.self {
-      return UUID(uuidString: try value.requireString()) as! T
+      return try decodeUUID(from: value, codingPath: codingPath + [key]) as! T
     }
     if T.self == Decimal.self {
       return try decodeDecimal(
@@ -505,18 +576,26 @@ struct _JSONUnkeyedDecodingContainer: UnkeyedDecodingContainer {
     let value = try currentElement()
     // Foundation type special handling
     if T.self == Date.self {
-      return try decodeDate(from: value, with: impl.dateDecodingStrategy, codingPath: codingPath)
+      return try decodeDate(
+        from: value, with: impl.dateDecodingStrategy, codingPath: codingPath,
+        dateDecodingStrategy: impl.dateDecodingStrategy,
+        dataDecodingStrategy: impl.dataDecodingStrategy,
+        decimalDecodingStrategy: impl.decimalDecodingStrategy)
         as! T
     }
     if T.self == Data.self {
-      return try decodeData(from: value, with: impl.dataDecodingStrategy, codingPath: codingPath)
+      return try decodeData(
+        from: value, with: impl.dataDecodingStrategy, codingPath: codingPath,
+        dateDecodingStrategy: impl.dateDecodingStrategy,
+        dataDecodingStrategy: impl.dataDecodingStrategy,
+        decimalDecodingStrategy: impl.decimalDecodingStrategy)
         as! T
     }
     if T.self == URL.self {
-      return URL(string: try value.requireString()) as! T
+      return try decodeURL(from: value, codingPath: codingPath) as! T
     }
     if T.self == UUID.self {
-      return UUID(uuidString: try value.requireString()) as! T
+      return try decodeUUID(from: value, codingPath: codingPath) as! T
     }
     if T.self == Decimal.self {
       return try decodeDecimal(
@@ -662,18 +741,26 @@ struct _JSONSingleValueDecodingContainer: SingleValueDecodingContainer {
   func decode<T: Decodable>(_ type: T.Type) throws -> T {
     // Foundation type special handling
     if T.self == Date.self {
-      return try decodeDate(from: json, with: impl.dateDecodingStrategy, codingPath: codingPath)
+      return try decodeDate(
+        from: json, with: impl.dateDecodingStrategy, codingPath: codingPath,
+        dateDecodingStrategy: impl.dateDecodingStrategy,
+        dataDecodingStrategy: impl.dataDecodingStrategy,
+        decimalDecodingStrategy: impl.decimalDecodingStrategy)
         as! T
     }
     if T.self == Data.self {
-      return try decodeData(from: json, with: impl.dataDecodingStrategy, codingPath: codingPath)
+      return try decodeData(
+        from: json, with: impl.dataDecodingStrategy, codingPath: codingPath,
+        dateDecodingStrategy: impl.dateDecodingStrategy,
+        dataDecodingStrategy: impl.dataDecodingStrategy,
+        decimalDecodingStrategy: impl.decimalDecodingStrategy)
         as! T
     }
     if T.self == URL.self {
-      return URL(string: try json.requireString()) as! T
+      return try decodeURL(from: json, codingPath: codingPath) as! T
     }
     if T.self == UUID.self {
-      return UUID(uuidString: try json.requireString()) as! T
+      return try decodeUUID(from: json, codingPath: codingPath) as! T
     }
     if T.self == Decimal.self {
       return try decodeDecimal(

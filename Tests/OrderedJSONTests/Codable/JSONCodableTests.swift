@@ -1135,3 +1135,158 @@ extension JSON {
   let back = try decoder.decode(Container.self, from: json)
   #expect(back.data == original)
 }
+
+// MARK: - Invalid input error handling
+
+@Test func invalidURLStringThrows() throws {
+  struct Container: Decodable {
+    let url: URL
+  }
+  let decoder = OrderedJSONDecoder()
+  // Empty string should throw dataCorrupted, not crash
+  let json = JSON.object(["url": .string("")])
+  #expect {
+    try decoder.decode(Container.self, from: json)
+  } throws: { error in
+    guard let decodingError = error as? DecodingError else { return false }
+    switch decodingError {
+    case .dataCorrupted(let ctx):
+      return ctx.debugDescription.contains("Invalid URL")
+    default: return false
+    }
+  }
+}
+
+@Test func invalidUUIDStringThrows() throws {
+  struct Container: Decodable {
+    let id: UUID
+  }
+  let decoder = OrderedJSONDecoder()
+  // Invalid UUID format should throw dataCorrupted, not crash
+  let json = JSON.object(["id": .string("not-a-uuid")])
+  #expect {
+    try decoder.decode(Container.self, from: json)
+  } throws: { error in
+    guard let decodingError = error as? DecodingError else { return false }
+    switch decodingError {
+    case .dataCorrupted(let ctx):
+      return ctx.debugDescription.contains("Invalid UUID")
+    default: return false
+    }
+  }
+}
+
+@Test func invalidDecimalStringThrows() throws {
+  struct Container: Decodable {
+    let amount: Decimal
+  }
+  let decoder = OrderedJSONDecoder()
+  // Non-numeric string should throw dataCorrupted, not return Decimal.nan
+  let json = JSON.object(["amount": .string("not-a-number")])
+  #expect {
+    try decoder.decode(Container.self, from: json)
+  } throws: { error in
+    guard let decodingError = error as? DecodingError else { return false }
+    switch decodingError {
+    case .dataCorrupted(let ctx):
+      return ctx.debugDescription.contains("Invalid Decimal")
+    default: return false
+    }
+  }
+}
+
+@Test func invalidDecimalAsNumberThrows() throws {
+  struct Container: Decodable {
+    let amount: Decimal
+  }
+  var decoder = OrderedJSONDecoder()
+  decoder.decimalDecodingStrategy = .asNumber
+  // Non-number value should throw typeMismatch, not return Decimal.nan
+  let json = JSON.object(["amount": .string("not-a-number")])
+  #expect {
+    try decoder.decode(Container.self, from: json)
+  } throws: { error in
+    guard let decodingError = error as? DecodingError else { return false }
+    switch decodingError {
+    case .typeMismatch:
+      return true
+    default: return false
+    }
+  }
+}
+
+// MARK: - Optional Date via decodeIfPresent
+
+@Test func foundationOptionalDatePresent() throws {
+  struct Container: Decodable {
+    let timestamp: Date?
+  }
+  let decoder = OrderedJSONDecoder()
+  let json = JSON.object(["timestamp": .number(.float(0))])
+  let back = try decoder.decode(Container.self, from: json)
+  #expect(back.timestamp != nil)
+}
+
+@Test func foundationOptionalDateMissing() throws {
+  struct Container: Decodable {
+    let timestamp: Date?
+  }
+  let decoder = OrderedJSONDecoder()
+  let json = JSON.object([:])
+  let back = try decoder.decode(Container.self, from: json)
+  #expect(back.timestamp == nil)
+}
+
+@Test func foundationOptionalDateExplicitNull() throws {
+  struct Container: Decodable {
+    let timestamp: Date?
+  }
+  let decoder = OrderedJSONDecoder()
+  let json = JSON.object(["timestamp": .null])
+  let back = try decoder.decode(Container.self, from: json)
+  #expect(back.timestamp == nil)
+}
+
+// MARK: - Strategy propagation through custom closures
+
+@Test func strategyPropagationInDeferredDate() throws {
+  // When .deferredToDate is used, a child impl is created internally.
+  // Verify that the child impl receives the configured strategies.
+  struct Outer: Codable {
+    let timestamp: Date
+    let config: Decimal
+  }
+
+  var encoder = OrderedJSONEncoder()
+  encoder.dateEncodingStrategy = .deferredToDate
+  encoder.decimalEncodingStrategy = .asString
+  let date = Date(timeIntervalSince1970: 100)
+  let decimal = Decimal(string: "2.71828")!
+  let json = try encoder.encode(Outer(timestamp: date, config: decimal))
+  // Date should use Date's own encoding (float), Decimal should be string
+  #expect(json["timestamp"]?.isFloat == true)
+  #expect(json["config"]?.isString == true)
+  #expect(json["config"]?.stringValue == "2.71828")
+
+  var decoder = OrderedJSONDecoder()
+  decoder.dateDecodingStrategy = .deferredToDate
+  decoder.decimalDecodingStrategy = .asString
+  let back = try decoder.decode(Outer.self, from: json)
+  #expect(back.timestamp.timeIntervalSinceReferenceDate == date.timeIntervalSinceReferenceDate)
+  #expect(back.config == decimal)
+}
+
+// MARK: - Date in nested unkeyed container
+
+@Test func foundationDateInUnkeyedContainer() throws {
+  struct Container: Decodable {
+    let dates: [Date]
+  }
+  var decoder = OrderedJSONDecoder()
+  decoder.dateDecodingStrategy = .secondsSince1970
+  let json = JSON.object(["dates": .array([.number(.float(1_000)), .number(.float(2_000))])])
+  let back = try decoder.decode(Container.self, from: json)
+  #expect(back.dates.count == 2)
+  #expect(back.dates[0].timeIntervalSince1970 == 1_000)
+  #expect(back.dates[1].timeIntervalSince1970 == 2_000)
+}

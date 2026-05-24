@@ -842,7 +842,7 @@ Available strategies:
 - `DateDecodingStrategy`: `.deferredToDate`, `.secondsSince1970`, `.millisecondsSince1970`, `.iso8601`, `.formatted(DateFormatter)`, `.custom((JSON, Decoder) throws -> Date)`
 
 > The `.iso8601` strategy uses `ISO8601DateFormatter` with `.withInternetDateTime | .withFractionalSeconds` options.
-> Dates always include fractional seconds (e.g. `
+> Dates always include fractional seconds (e.g. `2025-01-15T08:30:45.123Z`).
 
 #### Data Strategies
 

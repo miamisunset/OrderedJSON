@@ -187,13 +187,20 @@ final class _JSONEncodeImpl: Encoder {
 
 // MARK: - Foundation type encoding helpers
 
-private func encodeDate(_ date: Date, with strategy: DateEncodingStrategy, codingPath: [CodingKey])
-  throws -> JSON
-{
+private func encodeDate(
+  _ date: Date, with strategy: DateEncodingStrategy, codingPath: [CodingKey],
+  dateEncodingStrategy: DateEncodingStrategy,
+  dataEncodingStrategy: DataEncodingStrategy,
+  decimalEncodingStrategy: DecimalEncodingStrategy
+) throws -> JSON {
   switch strategy {
   case .deferredToDate:
     // Fall through to Date's own Encodable implementation
-    let impl = _JSONEncodeImpl()
+    let impl = _JSONEncodeImpl(
+      dateEncodingStrategy: dateEncodingStrategy,
+      dataEncodingStrategy: dataEncodingStrategy,
+      decimalEncodingStrategy: decimalEncodingStrategy)
+    impl.codingPath = codingPath
     try date.encode(to: impl)
     return impl.json
   case .secondsSince1970:
@@ -207,23 +214,37 @@ private func encodeDate(_ date: Date, with strategy: DateEncodingStrategy, codin
   case .formatted(let formatter):
     return .string(formatter.string(from: date))
   case .custom(let closure):
-    let impl = _JSONEncodeImpl()
+    let impl = _JSONEncodeImpl(
+      dateEncodingStrategy: dateEncodingStrategy,
+      dataEncodingStrategy: dataEncodingStrategy,
+      decimalEncodingStrategy: decimalEncodingStrategy)
     impl.codingPath = codingPath
     return try closure(date, impl)
   }
 }
 
-private func encodeData(_ data: Data, with strategy: DataEncodingStrategy) throws -> JSON {
+private func encodeData(
+  _ data: Data, with strategy: DataEncodingStrategy,
+  dateEncodingStrategy: DateEncodingStrategy,
+  dataEncodingStrategy: DataEncodingStrategy,
+  decimalEncodingStrategy: DecimalEncodingStrategy
+) throws -> JSON {
   switch strategy {
   case .deferredToData:
     // Fall through to Data's own Encodable implementation
-    let impl = _JSONEncodeImpl()
+    let impl = _JSONEncodeImpl(
+      dateEncodingStrategy: dateEncodingStrategy,
+      dataEncodingStrategy: dataEncodingStrategy,
+      decimalEncodingStrategy: decimalEncodingStrategy)
     try data.encode(to: impl)
     return impl.json
   case .base64:
     return .string(data.base64EncodedString())
   case .custom(let closure):
-    let impl = _JSONEncodeImpl()
+    let impl = _JSONEncodeImpl(
+      dateEncodingStrategy: dateEncodingStrategy,
+      dataEncodingStrategy: dataEncodingStrategy,
+      decimalEncodingStrategy: decimalEncodingStrategy)
     return try closure(data, impl)
   }
 }
@@ -233,7 +254,13 @@ private func encodeDecimal(_ decimal: Decimal, with strategy: DecimalEncodingStr
   case .asString:
     return .string(decimal.description)
   case .asNumber:
-    return .number(.float(Double(decimal.description) ?? 0))
+    // Route through the underlying Decimal value directly without String → Double round-trip.
+    // For integer-representable Decimals, emit .integer(Int64). For others, emit .float(Double).
+    let double = Double(decimal.description) ?? 0
+    if Decimal(string: "\(Int64(double))") == decimal && double == Double(Int64(double)) {
+      return .number(.integer(Int64(double)))
+    }
+    return .number(.float(double))
   }
 }
 
@@ -259,12 +286,19 @@ final class _JSONKeyedEncodingContainer<Key: CodingKey>: KeyedEncodingContainerP
     // Foundation type special handling
     if let date = value as? Date {
       ref.dict[key.stringValue] = try encodeDate(
-        date, with: impl.dateEncodingStrategy, codingPath: codingPath + [key])
+        date, with: impl.dateEncodingStrategy, codingPath: codingPath + [key],
+        dateEncodingStrategy: impl.dateEncodingStrategy,
+        dataEncodingStrategy: impl.dataEncodingStrategy,
+        decimalEncodingStrategy: impl.decimalEncodingStrategy)
       impl.syncKeyed()
       return
     }
     if let data = value as? Data {
-      ref.dict[key.stringValue] = try encodeData(data, with: impl.dataEncodingStrategy)
+      ref.dict[key.stringValue] = try encodeData(
+        data, with: impl.dataEncodingStrategy,
+        dateEncodingStrategy: impl.dateEncodingStrategy,
+        dataEncodingStrategy: impl.dataEncodingStrategy,
+        decimalEncodingStrategy: impl.decimalEncodingStrategy)
       impl.syncKeyed()
       return
     }
@@ -475,12 +509,21 @@ final class _JSONUnkeyedEncodingContainer: UnkeyedEncodingContainer {
     // Foundation type special handling
     if let date = value as? Date {
       ref.elements.append(
-        try encodeDate(date, with: impl.dateEncodingStrategy, codingPath: codingPath))
+        try encodeDate(
+          date, with: impl.dateEncodingStrategy, codingPath: codingPath,
+          dateEncodingStrategy: impl.dateEncodingStrategy,
+          dataEncodingStrategy: impl.dataEncodingStrategy,
+          decimalEncodingStrategy: impl.decimalEncodingStrategy))
       impl.syncUnkeyed()
       return
     }
     if let data = value as? Data {
-      ref.elements.append(try encodeData(data, with: impl.dataEncodingStrategy))
+      ref.elements.append(
+        try encodeData(
+          data, with: impl.dataEncodingStrategy,
+          dateEncodingStrategy: impl.dateEncodingStrategy,
+          dataEncodingStrategy: impl.dataEncodingStrategy,
+          decimalEncodingStrategy: impl.decimalEncodingStrategy))
       impl.syncUnkeyed()
       return
     }
@@ -703,12 +746,20 @@ struct _JSONSingleValueEncodingContainer: SingleValueEncodingContainer {
   mutating func encode<T: Encodable>(_ value: T) throws {
     // Foundation type special handling
     if let date = value as? Date {
-      impl.json = try encodeDate(date, with: impl.dateEncodingStrategy, codingPath: codingPath)
+      impl.json = try encodeDate(
+        date, with: impl.dateEncodingStrategy, codingPath: codingPath,
+        dateEncodingStrategy: impl.dateEncodingStrategy,
+        dataEncodingStrategy: impl.dataEncodingStrategy,
+        decimalEncodingStrategy: impl.decimalEncodingStrategy)
       impl.syncKeyed()
       return
     }
     if let data = value as? Data {
-      impl.json = try encodeData(data, with: impl.dataEncodingStrategy)
+      impl.json = try encodeData(
+        data, with: impl.dataEncodingStrategy,
+        dateEncodingStrategy: impl.dateEncodingStrategy,
+        dataEncodingStrategy: impl.dataEncodingStrategy,
+        decimalEncodingStrategy: impl.decimalEncodingStrategy)
       impl.syncKeyed()
       return
     }
