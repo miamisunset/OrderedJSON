@@ -211,3 +211,8 @@ All 403 tests pass. Build produces zero errors. CI pipeline passes (SwiftFormat 
 
 ### Next Steps
 1. Consider adding remaining minor gaps from feature parity table (e.g., `contains(element)` for arrays, `merge()` for objects, `is_number_unsigned`, `is_binary`, `is_discarded`, generic `get<T>()`, explicit iterator properties)
+
+## Release
+- Merged `codable-support` → `main` via squash-merge at `9cc89b2`
+- Tagged and released as **v2.1.0**
+- README updated with Codable documentation, performance section, throwing accessor table
