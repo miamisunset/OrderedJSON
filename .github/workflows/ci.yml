@@ -20,15 +20,13 @@ jobs:
         run: swift format format --recursive --parallel --in-place -p . && git diff --exit-code --stat
 
   test:
-    name: Build & Test
-    runs-on: macos-26
+    name: Build & Test (Linux)
+    runs-on: ubuntu-latest
+    container:
+      image: swift:6.3-jammy
     steps:
       - uses: actions/checkout@v4
-      - name: List available Xcode versions
-        run: ls /Applications/Xcode*.app 2>&1 || ls /Applications/Xcode*.app 2>&1
-      - name: Select Xcode 26.4.1
-        run: |
-          sudo xcode-select -s /Applications/Xcode_26.4.1.app
-          xcrun swift --version
-      - name: Build & Test
-        run: xcrun swift test
+      - name: Build
+        run: swift build
+      - name: Test
+        run: swift test --parallel
