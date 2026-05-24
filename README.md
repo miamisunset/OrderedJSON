@@ -789,9 +789,9 @@ Key features:
 - **Coding path propagation**: Every container threads the coding path, so decoding errors include meaningful paths (e.g., `["address", "zip"]`).
 - **Set `userInfo` before calling**: Mutations after `decode()` do not propagate to nested containers.
 
-### Convenience: JSON.decode(...)
+### Convenience: JSON.encode(_:)
 
-Combine parsing and decoding in a single call:
+Encode any `Codable` type directly into a `JSON` value — no need to manually instantiate `OrderedJSONEncoder`:
 
 ```swift
 struct Person: Codable {
@@ -799,19 +799,50 @@ struct Person: Codable {
   let age: Int
 }
 
+let json = try JSON.encode(Person(name: "Alice", age: 30))
+// json["name"] == "Alice", json["age"] == 30
+// Keys are in declaration order: ["name", "age"]
+```
+
+Works with any `Encodable` type — arrays, strings, and nested structures:
+
+```swift
+// Arrays
+let arr = try JSON.encode([1, 2, 3])     // [1, 2, 3]
+
+// Strings
+let str = try JSON.encode("hello")       // "hello"
+```
+
+This lives in `Sources/OrderedJSON/Codable/JSON+Encode.swift` and wraps `OrderedJSONEncoder`.
+
+### Convenience: JSON.decode(_:from:)
+
+Decode any `Codable` type from a `JSON` value, or combine parsing and decoding in a single call from strings/data:
+
+```swift
+struct Person: Codable {
+  let name: String
+  let age: Int
+}
+
+// From an existing JSON value (no re-parsing)
+let json = JSON.object(["name": .string("Alice"), "age": .number(.integer(30))])
+let p1 = try JSON.decode(Person.self, from: json)
+
 // From a JSON string
-let p1 = try JSON.decode(Person.self, from: "{\"name\": \"Alice\", \"age\": 30}")
+let p2 = try JSON.decode(Person.self, from: "{\"name\": \"Bob\", \"age\": 25}")
 
 // From raw data
-let data = Data(#"{"name": "Bob", "age": 25}"#.utf8)
-let p2 = try JSON.decode(Person.self, from: data)
+let data = Data(#"{"name": "Charlie", "age": 35}"#.utf8)
+let p3 = try JSON.decode(Person.self, from: data)
 
 // With parser options
 let opts = JSON.ParserOptions(allowTrailingCommas: true)
-let p3 = try JSON.decode(Person.self, from: "{\"name\": \"Charlie\", \"age\": 35,}", options: opts)
+let p4 = try JSON.decode(Person.self, from: "{\"name\": \"Dave\", \"age\": 45,}", options: opts)
 ```
 
-These live in `Sources/OrderedJSON/Codable/JSON+Decode.swift` — they depend on `OrderedJSONDecoder`.
+These live in `Sources/OrderedJSON/Codable/JSON+Decode.swift` and depend on `OrderedJSONDecoder`.
 
 ### JSONWithExtras<T>
 
