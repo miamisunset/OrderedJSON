@@ -9,9 +9,11 @@ on:
 jobs:
   lint:
     name: SwiftFormat Lint
-    runs-on: macos-latest
+    runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
+      - name: Install Swift 6.3
+        run: swiftly install 6.3.0
       - name: Install SwiftFormat
         run: brew install swiftformat
       - name: Run SwiftFormat lint
@@ -21,9 +23,11 @@ jobs:
 
   test:
     name: Build & Test
-    runs-on: macos-latest
+    runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
+      - name: Install Swift 6.3
+        run: swiftly install 6.3.0
       - name: Build
         run: swift build
       - name: Test
