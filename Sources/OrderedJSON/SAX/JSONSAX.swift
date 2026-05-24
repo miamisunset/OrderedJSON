@@ -298,7 +298,7 @@ extension JSON {
       guard ctx.pos < ctx.string.endIndex,
         ctx.string[ctx.pos] >= "0", ctx.string[ctx.pos] <= "9"
       else {
-        return ctx.emitError(.unexpectedToken(line: ctx.line, column: ctx.column))
+        return ctx.emitError(.invalidNumber(line: ctx.line, column: ctx.column))
       }
       while ctx.pos < ctx.string.endIndex,
         ctx.string[ctx.pos] >= "0", ctx.string[ctx.pos] <= "9"
@@ -372,26 +372,33 @@ extension JSON {
         switch ctx.string[ctx.pos] {
         case "\"":
           result += "\""
+          ctx.advance()
         case "\\":
           result += "\\"
+          ctx.advance()
         case "/":
           result += "/"
+          ctx.advance()
         case "n":
           result += "\n"
+          ctx.advance()
         case "r":
           result += "\r"
+          ctx.advance()
         case "t":
           result += "\t"
+          ctx.advance()
         case "b":
           result += "\u{8}"
+          ctx.advance()
         case "f":
-          result += "\u{12}"
+          result += "\u{0C}"
+          ctx.advance()
         case "u":
           result += parseUnicodeEscape(&ctx)
         default:
           return ""
         }
-        ctx.advance()
       } else {
         result.append(c)
         ctx.advance()
@@ -433,7 +440,7 @@ extension JSON {
 
       let highOffset = UInt32(scalar - 0xD800)
       let lowOffset = UInt32(low - 0xDC00)
-      let codePoint = 0x10000 + (highOffset << 10) | lowOffset
+      let codePoint = 0x10000 + (highOffset << 10) + lowOffset
       guard let unicodeScalar = UnicodeScalar(codePoint) else { return "" }
       return String(unicodeScalar)
     }

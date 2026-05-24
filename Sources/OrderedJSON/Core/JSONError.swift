@@ -98,7 +98,7 @@ public struct JSONParseError: Error, CustomStringConvertible, Hashable, Sendable
   }
 
   /// Creates a "depth exceeded" error at the given line and column.
-  public static func depthExceeded(line: Int, column: Int, depth: Int = 0, maxDepth: Int = 0)
+  public static func depthExceeded(line: Int, column: Int, depth: Int, maxDepth: Int)
     -> JSONParseError
   {
     JSONParseError(.depthExceeded(line: line, column: column, depth: depth, maxDepth: maxDepth))

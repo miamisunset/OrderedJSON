@@ -240,10 +240,10 @@ extension JSON {
       skipWhitespace(&ctx)
       guard ctx.pos < ctx.string.endIndex, ctx.string[ctx.pos] == "," else { break }
       ctx.advance()
-      // Check for trailing comma: if next token (after whitespace) is } or ], stop.
+      // Check for trailing comma: if next token (after whitespace) is }, stop.
       skipWhitespace(&ctx)
       if ctx.pos < ctx.string.endIndex,
-        ctx.string[ctx.pos] == "}" || ctx.string[ctx.pos] == "]",
+        ctx.string[ctx.pos] == "}",
         ctx.options.allowTrailingCommas
       {
         break
@@ -277,10 +277,10 @@ extension JSON {
       skipWhitespace(&ctx)
       guard ctx.pos < ctx.string.endIndex, ctx.string[ctx.pos] == "," else { break }
       ctx.advance()
-      // Check for trailing comma: if next token (after whitespace) is ] or }, stop.
+      // Check for trailing comma: if next token (after whitespace) is ], stop.
       skipWhitespace(&ctx)
       if ctx.pos < ctx.string.endIndex,
-        ctx.string[ctx.pos] == "]" || ctx.string[ctx.pos] == "}",
+        ctx.string[ctx.pos] == "]",
         ctx.options.allowTrailingCommas
       {
         break
@@ -341,7 +341,7 @@ extension JSON {
           result += "\u{8}"
           ctx.advance()
         case "f":
-          result += "\u{12}"
+          result += "\u{0C}"
           ctx.advance()
         case "u":
           result += try parseUnicodeEscape(&ctx)
@@ -387,7 +387,7 @@ extension JSON {
       // Combine high and low surrogates into a single Unicode scalar
       let highOffset = UInt32(scalar - 0xD800)
       let lowOffset = UInt32(low - 0xDC00)
-      let codePoint = 0x10000 + (highOffset << 10) | lowOffset
+      let codePoint = 0x10000 + (highOffset << 10) + lowOffset
       guard let unicodeScalar = UnicodeScalar(codePoint) else {
         throw error(at: ctx, kind: .invalidUnicodeEscape)
       }
