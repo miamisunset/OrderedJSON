@@ -296,3 +296,8 @@ All 403 tests pass. Build produces zero errors. CI pipeline passes (SwiftFormat 
 ### Audit
 - UBJSON/BSON/BJData confirmed safe — use `Int64(bitPattern:)`
 
+## PR #13 — Audit UBJSON/BSON/BJData overflow (merged to main)
+- Added 3 tests constructing raw binary documents with uint64 > Int64.max
+- All decoders confirmed safe: use `Int64(bitPattern:)` which doesn't overflow
+- Tests: `ubjsonUInt64OverflowBecomesFloat`, `bsonUInt64OverflowBecomesFloat`, `bjdataUInt64OverflowBecomesFloat`
+
