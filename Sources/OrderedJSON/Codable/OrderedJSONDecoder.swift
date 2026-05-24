@@ -2,56 +2,23 @@ import Foundation
 import OrderedCollections
 
 /// A JSON decoder that produces `JSON` values with preserved key order.
-///
-/// Unlike `JSONDecoder` from Foundation, `OrderedJSONDecoder` preserves the
-/// order of keys when decoding into `JSON` values. For standard `Codable`
-/// types like structs, key order is not preserved by the `Codable` protocol
-/// itself, but `JSON` values decoded via this decoder retain insertion order.
-///
-/// ## Example
-///
-/// ```swift
-/// let json = try OrderedJSONDecoder().decode(
-///   JSON.self,
-///   from: Data(#"{"z": 1, "a": 2}"#.utf8))
-/// // json is a JSON object with keys in order: ["z", "a"]
-/// ```
 public struct OrderedJSONDecoder {
-  /// Any user-provided contextual information.
   public var userInfo: [CodingUserInfoKey: Any]
 
   public init() {
     self.userInfo = [:]
   }
 
-  /// Decodes a `Decodable` value from JSON data, preserving key order.
-  ///
-  /// - Parameter type: The type to decode.
-  /// - Parameter data: UTF-8 encoded JSON data.
-  /// - Returns: A decoded value of the requested type.
-  /// - Throws: `JSONParseError` for invalid JSON, or decoding errors.
   public func decode<T: Decodable>(_ type: T.Type, from data: Data) throws -> T {
     let json = try JSON.parse(data)
     return try decode(type, from: json)
   }
 
-  /// Decodes a `Decodable` value from a JSON string, preserving key order.
-  ///
-  /// - Parameter type: The type to decode.
-  /// - Parameter string: A JSON string.
-  /// - Returns: A decoded value of the requested type.
-  /// - Throws: `JSONParseError` for invalid JSON, or decoding errors.
   public func decode<T: Decodable>(_ type: T.Type, from string: String) throws -> T {
     let json = try JSON.parse(string)
     return try decode(type, from: json)
   }
 
-  /// Decodes a `Decodable` value from a `JSON` value.
-  ///
-  /// - Parameter type: The type to decode.
-  /// - Parameter json: A `JSON` value.
-  /// - Returns: A decoded value of the requested type.
-  /// - Throws: Decoding errors.
   public func decode<T: Decodable>(_ type: T.Type, from json: JSON) throws -> T {
     let impl = _JSONDecodeImpl(json: json, userInfo: userInfo)
     return try T(from: impl)
@@ -60,22 +27,16 @@ public struct OrderedJSONDecoder {
 
 // MARK: - Internal decoder implementation
 
-/// The concrete `Decoder` implementation used by `OrderedJSONDecoder`.
 final class _JSONDecodeImpl: Decoder {
-  /// The JSON value being decoded.
   let json: JSON
-
-  /// The coding path from the root to the current decoding point.
-  let codingPath: [CodingKey] = []
-
-  /// User-provided contextual information.
+  let codingPath: [CodingKey]
   var userInfo: [CodingUserInfoKey: Any] { _userInfo }
-
   private let _userInfo: [CodingUserInfoKey: Any]
 
-  init(json: JSON, userInfo: [CodingUserInfoKey: Any] = [:]) {
+  init(json: JSON, userInfo: [CodingUserInfoKey: Any] = [:], codingPath: [CodingKey] = []) {
     self.json = json
     self._userInfo = userInfo
+    self.codingPath = codingPath
   }
 
   func container<Key: CodingKey>(keyedBy keyType: Key.Type) throws -> KeyedDecodingContainer<Key> {
@@ -86,8 +47,9 @@ final class _JSONDecodeImpl: Decoder {
           codingPath: codingPath,
           debugDescription: "Expected a JSON object"))
     }
-    let container = _JSONKeyedDecodingContainer<Key>(dictionary: dict, encoder: self)
-    return KeyedDecodingContainer(container)
+    return KeyedDecodingContainer(
+      _JSONKeyedDecodingContainer<Key>(
+        dictionary: dict, impl: self, pathPrefix: codingPath))
   }
 
   func unkeyedContainer() throws -> UnkeyedDecodingContainer {
@@ -98,26 +60,29 @@ final class _JSONDecodeImpl: Decoder {
           codingPath: codingPath,
           debugDescription: "Expected a JSON array"))
     }
-    return _JSONUnkeyedDecodingContainer(elements: elements, encoder: self)
+    return _JSONUnkeyedDecodingContainer(
+      elements: elements, impl: self, pathPrefix: codingPath)
   }
 
   func singleValueContainer() throws -> SingleValueDecodingContainer {
-    _JSONSingleValueDecodingContainer(json: json, encoder: self)
+    _JSONSingleValueDecodingContainer(json: json, impl: self, pathPrefix: codingPath)
   }
 }
 
 // MARK: - Keyed decoding container
 
 struct _JSONKeyedDecodingContainer<Key: CodingKey>: KeyedDecodingContainerProtocol {
-  let codingPath: [CodingKey] = []
+  let codingPath: [CodingKey]
   let allKeys: [Key]
 
   private let dictionary: OrderedDictionary<String, JSON>
-  private let encoder: _JSONDecodeImpl
+  private let impl: _JSONDecodeImpl
 
-  init(dictionary: OrderedDictionary<String, JSON>, encoder: _JSONDecodeImpl) {
+  init(dictionary: OrderedDictionary<String, JSON>, impl: _JSONDecodeImpl, pathPrefix: [CodingKey])
+  {
     self.dictionary = dictionary
-    self.encoder = encoder
+    self.impl = impl
+    self.codingPath = pathPrefix
     self.allKeys = dictionary.keys.compactMap { Key(stringValue: $0) }
   }
 
@@ -126,12 +91,10 @@ struct _JSONKeyedDecodingContainer<Key: CodingKey>: KeyedDecodingContainerProtoc
   }
 
   func decodeNil(forKey key: Key) throws -> Bool {
-    guard let value = dictionary[key.stringValue] else {
-      throw DecodingError.keyNotFound(
-        key,
-        DecodingError.Context(
-          codingPath: codingPath, debugDescription: "Key not found: \(key.stringValue)"))
-    }
+    // Per Foundation convention: return true for absent keys too.
+    // This allows decodeIfPresent to distinguish "missing" from "explicit null"
+    // via contains + decodeNil.
+    guard let value = dictionary[key.stringValue] else { return true }
     if case .null = value.storage { return true }
     return false
   }
@@ -160,14 +123,50 @@ struct _JSONKeyedDecodingContainer<Key: CodingKey>: KeyedDecodingContainerProtoc
     try valueForKey(key, { try $0.requireFloat() })
   }
 
+  // MARK: - Integer and unsigned widths
+
+  func decode(_ type: Int8.Type, forKey key: Key) throws -> Int8 {
+    try valueForKey(key, { try $0.requireInt8() })
+  }
+
+  func decode(_ type: Int16.Type, forKey key: Key) throws -> Int16 {
+    try valueForKey(key, { try $0.requireInt16() })
+  }
+
+  func decode(_ type: Int32.Type, forKey key: Key) throws -> Int32 {
+    try valueForKey(key, { try $0.requireInt32() })
+  }
+
+  func decode(_ type: UInt.Type, forKey key: Key) throws -> UInt {
+    try valueForKey(key, { try $0.requireUInt() })
+  }
+
+  func decode(_ type: UInt8.Type, forKey key: Key) throws -> UInt8 {
+    try valueForKey(key, { try $0.requireUInt8() })
+  }
+
+  func decode(_ type: UInt16.Type, forKey key: Key) throws -> UInt16 {
+    try valueForKey(key, { try $0.requireUInt16() })
+  }
+
+  func decode(_ type: UInt32.Type, forKey key: Key) throws -> UInt32 {
+    try valueForKey(key, { try $0.requireUInt32() })
+  }
+
+  func decode(_ type: UInt64.Type, forKey key: Key) throws -> UInt64 {
+    try valueForKey(key, { try $0.requireUInt64() })
+  }
+
   func decode<T: Decodable>(_ type: T.Type, forKey key: Key) throws -> T {
     guard let value = dictionary[key.stringValue] else {
       throw DecodingError.keyNotFound(
         key,
         DecodingError.Context(
-          codingPath: codingPath, debugDescription: "Key not found: \(key.stringValue)"))
+          codingPath: codingPath,
+          debugDescription: "Key not found: \(key.stringValue)"))
     }
-    let child = _JSONDecodeImpl(json: value, userInfo: encoder.userInfo)
+    let child = _JSONDecodeImpl(
+      json: value, userInfo: impl.userInfo, codingPath: codingPath + [key])
     return try T(from: child)
   }
 
@@ -179,9 +178,11 @@ struct _JSONKeyedDecodingContainer<Key: CodingKey>: KeyedDecodingContainerProtoc
       throw DecodingError.keyNotFound(
         key,
         DecodingError.Context(
-          codingPath: codingPath, debugDescription: "Key not found: \(key.stringValue)"))
+          codingPath: codingPath,
+          debugDescription: "Key not found: \(key.stringValue)"))
     }
-    let child = _JSONDecodeImpl(json: value, userInfo: encoder.userInfo)
+    let child = _JSONDecodeImpl(
+      json: value, userInfo: impl.userInfo, codingPath: codingPath + [key])
     return try child.container(keyedBy: keyType)
   }
 
@@ -190,9 +191,11 @@ struct _JSONKeyedDecodingContainer<Key: CodingKey>: KeyedDecodingContainerProtoc
       throw DecodingError.keyNotFound(
         key,
         DecodingError.Context(
-          codingPath: codingPath, debugDescription: "Key not found: \(key.stringValue)"))
+          codingPath: codingPath,
+          debugDescription: "Key not found: \(key.stringValue)"))
     }
-    let child = _JSONDecodeImpl(json: value, userInfo: encoder.userInfo)
+    let child = _JSONDecodeImpl(
+      json: value, userInfo: impl.userInfo, codingPath: codingPath + [key])
     return try child.unkeyedContainer()
   }
 
@@ -201,48 +204,44 @@ struct _JSONKeyedDecodingContainer<Key: CodingKey>: KeyedDecodingContainerProtoc
       throw DecodingError.keyNotFound(
         key,
         DecodingError.Context(
-          codingPath: codingPath, debugDescription: "Key not found: \(key.stringValue)"))
+          codingPath: codingPath,
+          debugDescription: "Key not found: \(key.stringValue)"))
     }
-    return _JSONDecodeImpl(json: value, userInfo: encoder.userInfo)
+    return _JSONDecodeImpl(json: value, userInfo: impl.userInfo, codingPath: codingPath + [key])
   }
 
   func superDecoder() throws -> Decoder {
-    // The super decoder for the entire container; not commonly used.
-    return _JSONDecodeImpl(json: .object(dictionary), userInfo: encoder.userInfo)
+    _JSONDecodeImpl(json: .object(dictionary), userInfo: impl.userInfo, codingPath: codingPath)
   }
 
   /// Helper: extract a typed value from the dictionary, with key-not-found handling.
-  private func valueForKey<T>(_ key: Key, _ extract: (JSON) throws -> T?) throws -> T {
+  private func valueForKey<T>(_ key: Key, _ extract: (JSON) throws -> T) throws -> T {
     guard let value = dictionary[key.stringValue] else {
       throw DecodingError.keyNotFound(
         key,
         DecodingError.Context(
-          codingPath: codingPath, debugDescription: "Key not found: \(key.stringValue)"))
+          codingPath: codingPath,
+          debugDescription: "Key not found: \(key.stringValue)"))
     }
-    guard let result = try extract(value) else {
-      throw DecodingError.typeMismatch(
-        T.self,
-        DecodingError.Context(
-          codingPath: codingPath, debugDescription: "Type mismatch for key \(key.stringValue)"))
-    }
-    return result
+    return try extract(value)
   }
 }
 
 // MARK: - Unkeyed decoding container
 
 struct _JSONUnkeyedDecodingContainer: UnkeyedDecodingContainer {
-  let codingPath: [CodingKey] = []
+  let codingPath: [CodingKey]
   let count: Int?
   var currentIndex: Int = 0
   var isAtEnd: Bool { currentIndex >= (elements.count) }
 
   private let elements: [JSON]
-  private let encoder: _JSONDecodeImpl
+  private let impl: _JSONDecodeImpl
 
-  init(elements: [JSON], encoder: _JSONDecodeImpl) {
+  init(elements: [JSON], impl: _JSONDecodeImpl, pathPrefix: [CodingKey]) {
     self.elements = elements
-    self.encoder = encoder
+    self.impl = impl
+    self.codingPath = pathPrefix
     self.count = elements.count
   }
 
@@ -276,9 +275,43 @@ struct _JSONUnkeyedDecodingContainer: UnkeyedDecodingContainer {
     try currentElement().requireFloat()
   }
 
+  // MARK: - Integer and unsigned widths
+
+  mutating func decode(_ type: Int8.Type) throws -> Int8 {
+    try currentElement().requireInt8()
+  }
+
+  mutating func decode(_ type: Int16.Type) throws -> Int16 {
+    try currentElement().requireInt16()
+  }
+
+  mutating func decode(_ type: Int32.Type) throws -> Int32 {
+    try currentElement().requireInt32()
+  }
+
+  mutating func decode(_ type: UInt.Type) throws -> UInt {
+    try currentElement().requireUInt()
+  }
+
+  mutating func decode(_ type: UInt8.Type) throws -> UInt8 {
+    try currentElement().requireUInt8()
+  }
+
+  mutating func decode(_ type: UInt16.Type) throws -> UInt16 {
+    try currentElement().requireUInt16()
+  }
+
+  mutating func decode(_ type: UInt32.Type) throws -> UInt32 {
+    try currentElement().requireUInt32()
+  }
+
+  mutating func decode(_ type: UInt64.Type) throws -> UInt64 {
+    try currentElement().requireUInt64()
+  }
+
   mutating func decode<T: Decodable>(_ type: T.Type) throws -> T {
     let value = try currentElement()
-    let child = _JSONDecodeImpl(json: value, userInfo: encoder.userInfo)
+    let child = _JSONDecodeImpl(json: value, userInfo: impl.userInfo, codingPath: codingPath)
     return try T(from: child)
   }
 
@@ -286,19 +319,19 @@ struct _JSONUnkeyedDecodingContainer: UnkeyedDecodingContainer {
     keyedBy keyType: NestedKey.Type
   ) throws -> KeyedDecodingContainer<NestedKey> {
     let value = try currentElement()
-    let child = _JSONDecodeImpl(json: value, userInfo: encoder.userInfo)
+    let child = _JSONDecodeImpl(json: value, userInfo: impl.userInfo, codingPath: codingPath)
     return try child.container(keyedBy: keyType)
   }
 
   mutating func nestedUnkeyedContainer() throws -> UnkeyedDecodingContainer {
     let value = try currentElement()
-    let child = _JSONDecodeImpl(json: value, userInfo: encoder.userInfo)
+    let child = _JSONDecodeImpl(json: value, userInfo: impl.userInfo, codingPath: codingPath)
     return try child.unkeyedContainer()
   }
 
   mutating func superDecoder() throws -> Decoder {
     let value = try currentElement()
-    return _JSONDecodeImpl(json: value, userInfo: encoder.userInfo)
+    return _JSONDecodeImpl(json: value, userInfo: impl.userInfo, codingPath: codingPath)
   }
 
   private mutating func currentElement() throws -> JSON {
@@ -316,14 +349,15 @@ struct _JSONUnkeyedDecodingContainer: UnkeyedDecodingContainer {
 // MARK: - Single-value decoding container
 
 struct _JSONSingleValueDecodingContainer: SingleValueDecodingContainer {
-  let codingPath: [CodingKey] = []
+  let codingPath: [CodingKey]
 
   private let json: JSON
-  private let encoder: _JSONDecodeImpl
+  private let impl: _JSONDecodeImpl
 
-  init(json: JSON, encoder: _JSONDecodeImpl) {
+  init(json: JSON, impl: _JSONDecodeImpl, pathPrefix: [CodingKey]) {
     self.json = json
-    self.encoder = encoder
+    self.impl = impl
+    self.codingPath = pathPrefix
   }
 
   func decodeNil() -> Bool {
@@ -355,8 +389,42 @@ struct _JSONSingleValueDecodingContainer: SingleValueDecodingContainer {
     try json.requireFloat()
   }
 
+  // MARK: - Integer and unsigned widths
+
+  func decode(_ type: Int8.Type) throws -> Int8 {
+    try json.requireInt8()
+  }
+
+  func decode(_ type: Int16.Type) throws -> Int16 {
+    try json.requireInt16()
+  }
+
+  func decode(_ type: Int32.Type) throws -> Int32 {
+    try json.requireInt32()
+  }
+
+  func decode(_ type: UInt.Type) throws -> UInt {
+    try json.requireUInt()
+  }
+
+  func decode(_ type: UInt8.Type) throws -> UInt8 {
+    try json.requireUInt8()
+  }
+
+  func decode(_ type: UInt16.Type) throws -> UInt16 {
+    try json.requireUInt16()
+  }
+
+  func decode(_ type: UInt32.Type) throws -> UInt32 {
+    try json.requireUInt32()
+  }
+
+  func decode(_ type: UInt64.Type) throws -> UInt64 {
+    try json.requireUInt64()
+  }
+
   func decode<T: Decodable>(_ type: T.Type) throws -> T {
-    let child = _JSONDecodeImpl(json: json, userInfo: encoder.userInfo)
+    let child = _JSONDecodeImpl(json: json, userInfo: impl.userInfo, codingPath: codingPath)
     return try T(from: child)
   }
 }

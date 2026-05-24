@@ -4,8 +4,7 @@ import OrderedCollections
 ///
 /// `JSONWithExtras` is useful when you want to decode a known set of fields
 /// into a strongly-typed struct while preserving any additional keys as a
-/// `JSON` object. This is similar to `#[serde(flatten)]` with
-/// `#[serde(skip_serializing_if = "Option::is_none")]` from serde.
+/// `JSON` object.
 ///
 /// ## Example
 ///
@@ -33,14 +32,12 @@ public struct JSONWithExtras<T: Decodable>: Decodable {
   /// Any unknown keys not part of `T`, captured as a JSON object.
   public let extras: JSON
 
-  /// Creates a `JSONWithExtras` with explicit value and extras.
   public init(value: T, extras: JSON) {
     self.value = value
     self.extras = extras
   }
 
-  /// Creates a `JSONWithExtras` by decoding known keys into `T` and
-  /// capturing unknown keys into `extras`.
+  /// Decodes known keys into `T` and captures unknown keys into `extras`.
   ///
   /// Uses a tracking decoder that records which keys `T` accesses,
   /// then treats unaccessed keys as extras.
@@ -58,7 +55,8 @@ public struct JSONWithExtras<T: Decodable>: Decodable {
     var usedKeys = Set<String>()
     let trackingDecoder = _TrackingDecoder(
       json: jsonObject,
-      onAccess: { usedKeys.insert($0) })
+      onAccess: { usedKeys.insert($0) },
+      codingPath: decoder.codingPath)
     value = try T(from: trackingDecoder)
 
     // Step 3: Remaining keys are extras
@@ -78,8 +76,14 @@ extension JSONWithExtras: Encodable where T: Encodable {
     // Encode known fields
     try value.encode(to: _ValueEncoder(container: container))
 
-    // Encode extras
-    guard case .object(let extrasDict) = extras.storage else { return }
+    // Encode extras — must be a JSON object
+    guard case .object(let extrasDict) = extras.storage else {
+      throw EncodingError.invalidValue(
+        extras,
+        EncodingError.Context(
+          codingPath: encoder.codingPath,
+          debugDescription: "Extras must be a JSON object, got \(extras.typeName)"))
+    }
     for (key, value) in extrasDict {
       try container.encode(value, forKey: _ExtrasKey(stringValue: key))
     }
@@ -88,7 +92,7 @@ extension JSONWithExtras: Encodable where T: Encodable {
 
 // MARK: - Internal helpers
 
-/// A `CodingKey` used for extras — maps any string key.
+/// A `CodingKey` that maps any string key.
 private struct _ExtrasKey: CodingKey {
   let stringValue: String
   let intValue: Int?
@@ -106,13 +110,18 @@ private struct _ExtrasKey: CodingKey {
 private struct _TrackingDecoder: Decoder {
   let json: JSON
   let onAccess: (String) -> Void
-  let codingPath: [CodingKey] = []
+  let codingPath: [CodingKey]
   let userInfo: [CodingUserInfoKey: Any] = [:]
 
+  init(json: JSON, onAccess: @escaping (String) -> Void, codingPath: [CodingKey] = []) {
+    self.json = json
+    self.onAccess = onAccess
+    self.codingPath = codingPath
+  }
+
   func container<Key: CodingKey>(keyedBy keyType: Key.Type) throws -> KeyedDecodingContainer<Key> {
-    let tracking = _TrackingKeyedDecodingContainer<Key>(
-      json: json, onAccess: onAccess)
-    return KeyedDecodingContainer(tracking)
+    return KeyedDecodingContainer(
+      _TrackingKeyedDecodingContainer<Key>(json: json, onAccess: onAccess, pathPrefix: codingPath))
   }
 
   func unkeyedContainer() throws -> UnkeyedDecodingContainer {
@@ -120,7 +129,8 @@ private struct _TrackingDecoder: Decoder {
       JSON.self,
       DecodingError.Context(
         codingPath: codingPath,
-        debugDescription: "Expected a JSON object for extras wrapper"))
+        debugDescription:
+          "Expected a JSON object for extras wrapper; unkeyed container is not supported"))
   }
 
   func singleValueContainer() throws -> SingleValueDecodingContainer {
@@ -128,7 +138,8 @@ private struct _TrackingDecoder: Decoder {
       JSON.self,
       DecodingError.Context(
         codingPath: codingPath,
-        debugDescription: "Expected a JSON object for extras wrapper"))
+        debugDescription:
+          "Expected a JSON object for extras wrapper; single-value container is not supported"))
   }
 }
 
@@ -136,13 +147,17 @@ private struct _TrackingDecoder: Decoder {
 private struct _TrackingKeyedDecodingContainer<Key: CodingKey>: KeyedDecodingContainerProtocol {
   let json: JSON
   let onAccess: (String) -> Void
-  let codingPath: [CodingKey] = []
+  let codingPath: [CodingKey]
+
+  init(json: JSON, onAccess: @escaping (String) -> Void, pathPrefix: [CodingKey]) {
+    self.json = json
+    self.onAccess = onAccess
+    self.codingPath = pathPrefix
+  }
 
   var allKeys: [Key] {
     guard case .object(let dict) = json.storage else { return [] }
-    return dict.keys.compactMap {
-      Key(stringValue: $0)
-    }
+    return dict.keys.compactMap { Key(stringValue: $0) }
   }
 
   func contains(_ key: Key) -> Bool {
@@ -159,73 +174,153 @@ private struct _TrackingKeyedDecodingContainer<Key: CodingKey>: KeyedDecodingCon
 
   func decode(_ type: Bool.Type, forKey key: Key) throws -> Bool {
     onAccess(key.stringValue)
-    return try json[key.stringValue]!.requireBool()
+    return try valueForKey(key) { try $0.requireBool() }
   }
 
   func decode(_ type: String.Type, forKey key: Key) throws -> String {
     onAccess(key.stringValue)
-    return try json[key.stringValue]!.requireString()
+    return try valueForKey(key) { try $0.requireString() }
   }
 
   func decode(_ type: Int64.Type, forKey key: Key) throws -> Int64 {
     onAccess(key.stringValue)
-    return try json[key.stringValue]!.requireInt64()
+    return try valueForKey(key) { try $0.requireInt64() }
   }
 
   func decode(_ type: Int.Type, forKey key: Key) throws -> Int {
     onAccess(key.stringValue)
-    return try json[key.stringValue]!.requireInt()
+    return try valueForKey(key) { try $0.requireInt() }
   }
 
   func decode(_ type: Double.Type, forKey key: Key) throws -> Double {
     onAccess(key.stringValue)
-    return try json[key.stringValue]!.requireDouble()
+    return try valueForKey(key) { try $0.requireDouble() }
   }
 
   func decode(_ type: Float.Type, forKey key: Key) throws -> Float {
     onAccess(key.stringValue)
-    return try json[key.stringValue]!.requireFloat()
+    return try valueForKey(key) { try $0.requireFloat() }
+  }
+
+  // MARK: - Integer and unsigned widths
+
+  func decode(_ type: Int8.Type, forKey key: Key) throws -> Int8 {
+    onAccess(key.stringValue)
+    return try valueForKey(key) { try $0.requireInt8() }
+  }
+
+  func decode(_ type: Int16.Type, forKey key: Key) throws -> Int16 {
+    onAccess(key.stringValue)
+    return try valueForKey(key) { try $0.requireInt16() }
+  }
+
+  func decode(_ type: Int32.Type, forKey key: Key) throws -> Int32 {
+    onAccess(key.stringValue)
+    return try valueForKey(key) { try $0.requireInt32() }
+  }
+
+  func decode(_ type: UInt.Type, forKey key: Key) throws -> UInt {
+    onAccess(key.stringValue)
+    return try valueForKey(key) { try $0.requireUInt() }
+  }
+
+  func decode(_ type: UInt8.Type, forKey key: Key) throws -> UInt8 {
+    onAccess(key.stringValue)
+    return try valueForKey(key) { try $0.requireUInt8() }
+  }
+
+  func decode(_ type: UInt16.Type, forKey key: Key) throws -> UInt16 {
+    onAccess(key.stringValue)
+    return try valueForKey(key) { try $0.requireUInt16() }
+  }
+
+  func decode(_ type: UInt32.Type, forKey key: Key) throws -> UInt32 {
+    onAccess(key.stringValue)
+    return try valueForKey(key) { try $0.requireUInt32() }
+  }
+
+  func decode(_ type: UInt64.Type, forKey key: Key) throws -> UInt64 {
+    onAccess(key.stringValue)
+    return try valueForKey(key) { try $0.requireUInt64() }
   }
 
   func decode<T: Decodable>(_ type: T.Type, forKey key: Key) throws -> T {
     onAccess(key.stringValue)
-    let val = json[key.stringValue]!
-    let decoder = OrderedJSONDecoder()
-    return try decoder.decode(type, from: val)
+    guard case .object(let dict) = json.storage, let val = dict[key.stringValue] else {
+      throw DecodingError.keyNotFound(
+        key,
+        DecodingError.Context(
+          codingPath: codingPath,
+          debugDescription: "Key '\(key.stringValue)' not found"))
+    }
+    let decoder = _JSONDecodeImpl(json: val, userInfo: [:], codingPath: codingPath + [key])
+    return try T(from: decoder)
   }
 
   func nestedContainer<NestedKey: CodingKey>(
     keyedBy keyType: NestedKey.Type, forKey key: Key
   ) throws -> KeyedDecodingContainer<NestedKey> {
     onAccess(key.stringValue)
-    let val = json[key.stringValue]!
-    let tracking = _TrackingKeyedDecodingContainer<NestedKey>(
-      json: val, onAccess: onAccess)
-    return KeyedDecodingContainer(tracking)
+    guard case .object(let dict) = json.storage, let val = dict[key.stringValue] else {
+      throw DecodingError.keyNotFound(
+        key,
+        DecodingError.Context(
+          codingPath: codingPath,
+          debugDescription: "Key '\(key.stringValue)' not found"))
+    }
+    return KeyedDecodingContainer(
+      _TrackingKeyedDecodingContainer<NestedKey>(
+        json: val, onAccess: onAccess, pathPrefix: codingPath + [key]))
   }
 
   func nestedUnkeyedContainer(forKey key: Key) throws -> UnkeyedDecodingContainer {
     onAccess(key.stringValue)
-    let val = json[key.stringValue]!
+    guard case .object(let dict) = json.storage, let val = dict[key.stringValue] else {
+      throw DecodingError.keyNotFound(
+        key,
+        DecodingError.Context(
+          codingPath: codingPath,
+          debugDescription: "Key '\(key.stringValue)' not found"))
+    }
     guard case .array(let elements) = val.storage else {
       throw DecodingError.typeMismatch(
         JSON.self,
         DecodingError.Context(
-          codingPath: codingPath,
+          codingPath: codingPath + [key],
           debugDescription: "Expected an array"))
     }
     return _JSONUnkeyedDecodingContainer(
-      elements: elements, encoder: _JSONDecodeImpl(json: val, userInfo: [:]))
+      elements: elements,
+      impl: _JSONDecodeImpl(json: val, userInfo: [:], codingPath: codingPath + [key]),
+      pathPrefix: codingPath + [key])
   }
 
   func superDecoder(forKey key: Key) throws -> Decoder {
     onAccess(key.stringValue)
-    let val = json[key.stringValue]!
-    return _TrackingDecoder(json: val, onAccess: onAccess)
+    guard case .object(let dict) = json.storage, let val = dict[key.stringValue] else {
+      throw DecodingError.keyNotFound(
+        key,
+        DecodingError.Context(
+          codingPath: codingPath,
+          debugDescription: "Key '\(key.stringValue)' not found"))
+    }
+    return _TrackingDecoder(json: val, onAccess: onAccess, codingPath: codingPath + [key])
   }
 
   func superDecoder() throws -> Decoder {
-    _TrackingDecoder(json: json, onAccess: onAccess)
+    _TrackingDecoder(json: json, onAccess: onAccess, codingPath: codingPath)
+  }
+
+  /// Helper: extract a value for a key, with key-not-found handling.
+  private func valueForKey<T>(_ key: Key, _ extract: (JSON) throws -> T) throws -> T {
+    guard case .object(let dict) = json.storage, let val = dict[key.stringValue] else {
+      throw DecodingError.keyNotFound(
+        key,
+        DecodingError.Context(
+          codingPath: codingPath,
+          debugDescription: "Key '\(key.stringValue)' not found"))
+    }
+    return try extract(val)
   }
 }
 
@@ -236,16 +331,16 @@ private struct _ValueEncoder: Encoder {
   let userInfo: [CodingUserInfoKey: Any] = [:]
 
   func container<Key: CodingKey>(keyedBy keyType: Key.Type) -> KeyedEncodingContainer<Key> {
-    let proxy = _FilteredKeyedEncodingContainer<Key>(container: container)
-    return KeyedEncodingContainer(proxy)
+    return KeyedEncodingContainer(
+      _FilteredKeyedEncodingContainer<Key>(container: container))
   }
 
   func unkeyedContainer() -> UnkeyedEncodingContainer {
-    fatalError("Not supported for extras wrapper encoding")
+    fatalError("Unkeyed container is not supported for extras wrapper encoding")
   }
 
   func singleValueContainer() -> SingleValueEncodingContainer {
-    fatalError("Not supported for extras wrapper encoding")
+    fatalError("Single-value container is not supported for extras wrapper encoding")
   }
 }
 

@@ -315,3 +315,482 @@ extension JSON {
   let decoded = try JSONDecoder().decode(JSON.self, from: data)
   #expect(decoded.isFloat)
 }
+
+// MARK: - Integer and unsigned width accessors
+
+@Test func requireInt8Success() throws {
+  let json = JSON.number(.integer(42))
+  #expect(try json.requireInt8() == 42)
+}
+
+@Test func requireInt8Overflow() throws {
+  let json = JSON.number(.integer(200))
+  #expect {
+    try json.requireInt8()
+  } throws: { error in
+    guard let jsonError = error as? JSONError else { return false }
+    return jsonError == JSONError.typeError(expected: "int8", actual: "number")
+  }
+}
+
+@Test func requireInt16Success() throws {
+  let json = JSON.number(.integer(300))
+  #expect(try json.requireInt16() == 300)
+}
+
+@Test func requireInt32Success() throws {
+  let json = JSON.number(.integer(100_000))
+  #expect(try json.requireInt32() == 100_000)
+}
+
+@Test func requireUIntSuccess() throws {
+  let json = JSON.number(.integer(42))
+  #expect(try json.requireUInt() == 42)
+}
+
+@Test func requireUIntNegativeThrows() throws {
+  let json = JSON.number(.integer(-1))
+  #expect {
+    try json.requireUInt()
+  } throws: { error in
+    guard let jsonError = error as? JSONError else { return false }
+    return jsonError == JSONError.typeError(expected: "uint", actual: "number")
+  }
+}
+
+@Test func requireUInt8Success() throws {
+  let json = JSON.number(.integer(255))
+  #expect(try json.requireUInt8() == 255)
+}
+
+@Test func requireUInt8Overflow() throws {
+  let json = JSON.number(.integer(256))
+  #expect {
+    try json.requireUInt8()
+  } throws: { error in
+    guard let jsonError = error as? JSONError else { return false }
+    return jsonError == JSONError.typeError(expected: "uint8", actual: "number")
+  }
+}
+
+@Test func requireUInt16Success() throws {
+  let json = JSON.number(.integer(42_000))
+  #expect(try json.requireUInt16() == 42_000)
+}
+
+@Test func requireUInt32Success() throws {
+  let json = JSON.number(.integer(2_000_000_000))
+  #expect(try json.requireUInt32() == 2_000_000_000)
+}
+
+@Test func requireUInt64Success() throws {
+  let json = JSON.number(.integer(42))
+  #expect(try json.requireUInt64() == 42)
+}
+
+@Test func requireUInt64NegativeThrows() throws {
+  let json = JSON.number(.integer(-1))
+  #expect {
+    try json.requireUInt64()
+  } throws: { error in
+    guard let jsonError = error as? JSONError else { return false }
+    return jsonError == JSONError.typeError(expected: "uint64", actual: "number")
+  }
+}
+
+// MARK: - requireDouble accepts integers
+
+@Test func requireDoubleFromInteger() throws {
+  let json = JSON.number(.integer(42))
+  #expect(try json.requireDouble() == 42.0)
+}
+
+@Test func requireDoubleFromFloat() throws {
+  let json = JSON.number(.float(3.14))
+  #expect(try json.requireDouble() == 3.14)
+}
+
+@Test func requireDoubleThrowsOnNonNumber() throws {
+  let json = JSON.string("hello")
+  #expect {
+    try json.requireDouble()
+  } throws: { error in
+    guard let jsonError = error as? JSONError else { return false }
+    return jsonError == JSONError.typeError(expected: "float", actual: "string")
+  }
+}
+
+@Test func requireInt64FromFloat() throws {
+  // Clean integer stored as .float should still work with requireInt64
+  let json = JSON.number(.float(42.0))
+  #expect(try json.requireInt64() == 42)
+}
+
+@Test func requireInt64FromFloatThrows() throws {
+  // Fractional float should throw
+  let json = JSON.number(.float(3.14))
+  #expect {
+    try json.requireInt64()
+  } throws: { error in
+    guard let jsonError = error as? JSONError else { return false }
+    return jsonError == JSONError.typeError(expected: "integer", actual: "number")
+  }
+}
+
+// MARK: - Integer and unsigned width encoding/decoding
+
+@Test func encodeDecodeInt8() throws {
+  struct Value: Codable {
+    let x: Int8
+  }
+  let encoder = OrderedJSONEncoder()
+  let json = try encoder.encode(Value(x: 42))
+  #expect(json["x"] == .number(.integer(42)))
+
+  let decoder = OrderedJSONDecoder()
+  let back = try decoder.decode(Value.self, from: json)
+  #expect(back.x == 42)
+}
+
+@Test func encodeDecodeInt16() throws {
+  struct Value: Codable {
+    let x: Int16
+  }
+  let encoder = OrderedJSONEncoder()
+  let json = try encoder.encode(Value(x: 42))
+  #expect(json["x"] == .number(.integer(42)))
+
+  let decoder = OrderedJSONDecoder()
+  let back = try decoder.decode(Value.self, from: json)
+  #expect(back.x == 42)
+}
+
+@Test func encodeDecodeInt32() throws {
+  struct Value: Codable {
+    let x: Int32
+  }
+  let encoder = OrderedJSONEncoder()
+  let json = try encoder.encode(Value(x: 42))
+  #expect(json["x"] == .number(.integer(42)))
+
+  let decoder = OrderedJSONDecoder()
+  let back = try decoder.decode(Value.self, from: json)
+  #expect(back.x == 42)
+}
+
+@Test func encodeDecodeUInt() throws {
+  struct Value: Codable {
+    let x: UInt
+  }
+  let encoder = OrderedJSONEncoder()
+  let json = try encoder.encode(Value(x: 42))
+  #expect(json["x"] == .number(.integer(42)))
+
+  let decoder = OrderedJSONDecoder()
+  let back = try decoder.decode(Value.self, from: json)
+  #expect(back.x == 42)
+}
+
+@Test func encodeDecodeUInt8() throws {
+  struct Value: Codable {
+    let x: UInt8
+  }
+  let encoder = OrderedJSONEncoder()
+  let json = try encoder.encode(Value(x: 255))
+  #expect(json["x"] == .number(.integer(255)))
+
+  let decoder = OrderedJSONDecoder()
+  let back = try decoder.decode(Value.self, from: json)
+  #expect(back.x == 255)
+}
+
+@Test func encodeDecodeUInt16() throws {
+  struct Value: Codable {
+    let x: UInt16
+  }
+  let encoder = OrderedJSONEncoder()
+  let json = try encoder.encode(Value(x: 42_000))
+  #expect(json["x"] == .number(.integer(42_000)))
+
+  let decoder = OrderedJSONDecoder()
+  let back = try decoder.decode(Value.self, from: json)
+  #expect(back.x == 42_000)
+}
+
+@Test func encodeDecodeUInt32() throws {
+  struct Value: Codable {
+    let x: UInt32
+  }
+  let encoder = OrderedJSONEncoder()
+  let json = try encoder.encode(Value(x: 2_000_000_000))
+  #expect(json["x"] == .number(.integer(2_000_000_000)))
+
+  let decoder = OrderedJSONDecoder()
+  let back = try decoder.decode(Value.self, from: json)
+  #expect(back.x == 2_000_000_000)
+}
+
+@Test func encodeDecodeUInt64() throws {
+  struct Value: Codable {
+    let x: UInt64
+  }
+  let encoder = OrderedJSONEncoder()
+  let json = try encoder.encode(Value(x: 42))
+  #expect(json["x"] == .number(.integer(42)))
+
+  let decoder = OrderedJSONDecoder()
+  let back = try decoder.decode(Value.self, from: json)
+  #expect(back.x == 42)
+}
+
+@Test func encodeUInt64OverflowThrows() throws {
+  struct Value: Encodable {
+    let x: UInt64
+  }
+  let encoder = OrderedJSONEncoder()
+  // UInt64.max > Int64.max, so encoding should throw
+  #expect {
+    try encoder.encode(Value(x: UInt64.max))
+  } throws: { error in
+    guard let encodingError = error as? EncodingError else { return false }
+    switch encodingError {
+    case .invalidValue(_, let ctx):
+      return ctx.debugDescription.contains("overflows Int64")
+    default: return false
+    }
+  }
+}
+
+// MARK: - Optional / decodeIfPresent
+
+@Test func decodeIfPresentPresent() throws {
+  struct Person: Decodable {
+    let name: String
+    let age: Int?
+  }
+  let json = #"{"name": "Alice", "age": 30}"#
+  let decoder = OrderedJSONDecoder()
+  let person = try decoder.decode(Person.self, from: json)
+  #expect(person.name == "Alice")
+  #expect(person.age == 30)
+}
+
+@Test func decodeIfPresentMissing() throws {
+  struct Person: Decodable {
+    let name: String
+    let age: Int?
+  }
+  let json = #"{"name": "Alice"}"#
+  let decoder = OrderedJSONDecoder()
+  let person = try decoder.decode(Person.self, from: json)
+  #expect(person.name == "Alice")
+  #expect(person.age == nil)
+}
+
+@Test func decodeIfPresentExplicitNull() throws {
+  struct Person: Decodable {
+    let name: String
+    let age: Int?
+  }
+  let json = #"{"name": "Alice", "age": null}"#
+  let decoder = OrderedJSONDecoder()
+  let person = try decoder.decode(Person.self, from: json)
+  #expect(person.name == "Alice")
+  #expect(person.age == nil)
+}
+
+@Test func decodeIfPresentMissingWithExtras() throws {
+  struct Person: Decodable {
+    let name: String
+    let age: Int?
+  }
+  let json = #"{"name": "Alice", "color": "blue"}"#
+  let decoder = OrderedJSONDecoder()
+  let wrapped = try decoder.decode(JSONWithExtras<Person>.self, from: json)
+  #expect(wrapped.value.name == "Alice")
+  #expect(wrapped.value.age == nil)
+  #expect(wrapped.extras["color"] == .string("blue"))
+}
+
+// MARK: - Round-trip via OrderedJSONEncoder → dump → parse → OrderedJSONDecoder
+
+@Test func orderedJSONEncoderDecoderRoundTrip() throws {
+  struct Person: Codable {
+    let name: String
+    let age: Int
+  }
+  let original = Person(name: "Alice", age: 30)
+  let encoder = OrderedJSONEncoder()
+  let json = try encoder.encode(original)
+  let jsonString = json.dump(indent: -1)
+  let parsed = try JSON.parse(jsonString)
+  let decoder = OrderedJSONDecoder()
+  let roundTripped = try decoder.decode(Person.self, from: parsed)
+  #expect(roundTripped.name == "Alice")
+  #expect(roundTripped.age == 30)
+}
+
+@Test func orderedJSONEncoderDecoderArrayRoundTrip() throws {
+  let encoder = OrderedJSONEncoder()
+  let json = try encoder.encode([1, 2, 3])
+  let jsonString = json.dump(indent: -1)
+  let parsed = try JSON.parse(jsonString)
+  let decoder = OrderedJSONDecoder()
+  let arr = try decoder.decode([Int].self, from: parsed)
+  #expect(arr == [1, 2, 3])
+}
+
+@Test func orderedJSONEncoderDecoderNestedRoundTrip() throws {
+  struct Address: Codable {
+    let city: String
+    let zip: String
+  }
+  struct Person: Codable {
+    let name: String
+    let address: Address
+  }
+  let original = Person(
+    name: "Alice",
+    address: Address(city: "NYC", zip: "10001"))
+  let encoder = OrderedJSONEncoder()
+  let json = try encoder.encode(original)
+  let jsonString = json.dump(indent: -1)
+  let parsed = try JSON.parse(jsonString)
+  let decoder = OrderedJSONDecoder()
+  let roundTripped = try decoder.decode(Person.self, from: parsed)
+  #expect(roundTripped.name == "Alice")
+  #expect(roundTripped.address.city == "NYC")
+  #expect(roundTripped.address.zip == "10001")
+}
+
+// MARK: - Nested container via explicit nestedContainer(keyedBy:forKey:)
+
+@Test func explicitNestedContainerEncode() throws {
+  struct Inner: Encodable {
+    let x: Int
+  }
+  struct Outer: Encodable {
+    let inner: Inner
+
+    func encode(to encoder: Encoder) throws {
+      var container = encoder.container(keyedBy: CodingKeys.self)
+      var nested = container.nestedContainer(
+        keyedBy: InnerKeys.self, forKey: .inner)
+      try nested.encode(inner.x, forKey: .x)
+    }
+
+    enum CodingKeys: CodingKey {
+      case inner
+    }
+
+    enum InnerKeys: CodingKey {
+      case x
+    }
+  }
+  let encoder = OrderedJSONEncoder()
+  let json = try encoder.encode(Outer(inner: Inner(x: 42)))
+  // The inner object should be populated, not empty/null
+  #expect(json["inner"]?.isObject == true)
+  #expect(json["inner"]?["x"] == .number(.integer(42)))
+}
+
+@Test func explicitNestedUnkeyedContainerEncode() throws {
+  struct Wrapper: Encodable {
+    let items: [Int]
+
+    func encode(to encoder: Encoder) throws {
+      var container = encoder.container(keyedBy: CodingKeys.self)
+      var nested = container.nestedUnkeyedContainer(forKey: .items)
+      try nested.encode(1)
+      try nested.encode(2)
+      try nested.encode(3)
+    }
+
+    enum CodingKeys: CodingKey {
+      case items
+    }
+  }
+  let encoder = OrderedJSONEncoder()
+  let json = try encoder.encode(Wrapper(items: []))
+  // The array should be populated, not empty
+  #expect(json["items"]?.isArray == true)
+  #expect(json["items"]?.count == 3)
+  #expect(json["items"]?[0] == .number(.integer(1)))
+  #expect(json["items"]?[1] == .number(.integer(2)))
+  #expect(json["items"]?[2] == .number(.integer(3)))
+}
+
+// MARK: - Key order preservation through OrderedJSONDecoder
+
+@Test func orderedDecoderKeyOrderForStruct() throws {
+  struct Ordered: Decodable {
+    let z: String
+    let a: String
+    let m: String
+
+    init(from decoder: Decoder) throws {
+      let container = try decoder.container(keyedBy: CodingKeys.self)
+      // Record the order of allKeys
+      let keys = container.allKeys.map { $0.stringValue }
+      // allKeys should be in insertion order: z, a, m
+      #expect(keys == ["z", "a", "m"])
+      z = try container.decode(String.self, forKey: .z)
+      a = try container.decode(String.self, forKey: .a)
+      m = try container.decode(String.self, forKey: .m)
+    }
+
+    enum CodingKeys: CodingKey {
+      case z, a, m
+    }
+  }
+  let jsonString = #"{"z": "1", "a": "2", "m": "3"}"#
+  let decoder = OrderedJSONDecoder()
+  let _ = try decoder.decode(Ordered.self, from: jsonString)
+}
+
+// MARK: - JSONWithExtras: extras must be object
+
+@Test func jsonWithExtrasNonObjectExtrasThrowsOnEncode() throws {
+  struct Person: Codable {
+    let name: String
+  }
+  let wrapped = JSONWithExtras(
+    value: Person(name: "Alice"),
+    extras: .null)
+  let encoder = JSONEncoder()
+  #expect {
+    try encoder.encode(wrapped)
+  } throws: { error in
+    guard let encodingError = error as? EncodingError else { return false }
+    switch encodingError {
+    case .invalidValue(_, let ctx):
+      return ctx.debugDescription.contains("Extras must be a JSON object")
+    default: return false
+    }
+  }
+}
+
+// MARK: - Coding path propagation
+
+@Test func codingPathIncludesKeys() throws {
+  struct Inner: Decodable {
+    let x: Int
+  }
+  struct Outer: Decodable {
+    let inner: Inner
+  }
+  // Missing "x" key in inner should produce path ["inner", "x"]
+  let json = #"{"inner": {}}"#
+  let decoder = OrderedJSONDecoder()
+  #expect {
+    try decoder.decode(Outer.self, from: json)
+  } throws: { error in
+    guard let decodingError = error as? DecodingError else { return false }
+    switch decodingError {
+    case .keyNotFound(let key, let ctx):
+      // key should be "x" and path should include "inner"
+      return key.stringValue == "x" && ctx.codingPath.count >= 1
+    default: return false
+    }
+  }
+}
