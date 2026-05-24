@@ -1290,3 +1290,47 @@ extension JSON {
   #expect(back.dates[0].timeIntervalSince1970 == 1_000)
   #expect(back.dates[1].timeIntervalSince1970 == 2_000)
 }
+
+// MARK: - Decodable overflow protection
+
+@Test func decodeDoubleNearInt64Max() throws {
+  // Double(Int64.max) rounds up beyond Int64.max — must not crash
+  let json = JSON.number(.float(Double(Int64.max)))
+  let encoder = JSONEncoder()
+  let data = try encoder.encode(json)
+  // Round-trip through JSONSerialization to simulate a decoder
+  // that produces a double near Int64.max
+  let decoder = JSONDecoder()
+  let decoded = try decoder.decode(JSON.self, from: data)
+  // Should decode as float, not crash with overflow
+  #expect(decoded.isFloat || decoded.isInteger)
+}
+
+@Test func decodeLargeDoubleStaysFloat() throws {
+  // A double value that exceeds Int64.max should remain float
+  let value = Double(Int64.max) * 2  // way beyond Int64.max
+  let json = JSON.number(.float(value))
+  let encoder = JSONEncoder()
+  let data = try encoder.encode(json)
+  let decoder = JSONDecoder()
+  let decoded = try decoder.decode(JSON.self, from: data)
+  #expect(decoded.isFloat)
+  if case .number(.float(let d)) = decoded.storage {
+    #expect(d == value)
+  }
+}
+
+@Test func decodeNegativeDoubleNearInt64Min() throws {
+  // Double(Int64.min) is exactly representable — must not overflow
+  let value = Double(Int64.min)
+  let json = JSON.number(.float(value))
+  let encoder = JSONEncoder()
+  let data = try encoder.encode(json)
+  let decoder = JSONDecoder()
+  let decoded = try decoder.decode(JSON.self, from: data)
+  // Should normalize to integer since it's exact
+  #expect(decoded.isInteger)
+  if case .number(.integer(let i)) = decoded.storage {
+    #expect(i == Int64.min)
+  }
+}

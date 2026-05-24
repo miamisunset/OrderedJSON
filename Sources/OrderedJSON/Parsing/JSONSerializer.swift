@@ -127,7 +127,12 @@ extension JSON {
     case .integer(let i):
       string += "\(i)"
     case .float(let d):
-      string += "\(d)"
+      // NaN and Infinity are not valid JSON — serialize as null
+      if d.isNaN || d.isInfinite {
+        string += "null"
+      } else {
+        string += "\(d)"
+      }
     }
   }
 

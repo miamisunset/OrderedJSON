@@ -867,3 +867,134 @@ import Testing
   let decoded = try JSON.fromCBOR(data)
   #expect(decoded == json)
 }
+
+// MARK: - Overflow protection (uint64 > Int64.max)
+
+@Test func msgPackUInt64OverflowBecomesFloat() throws {
+  // Encode a uint64 value that exceeds Int64.max (2^63)
+  // MessagePack marker 0xCF followed by 8 bytes big-endian
+  // Value: 2^63 + 1 = 9223372036854775808, which is > Int64.max
+  var bytes: [UInt8] = [0xCF]
+  let large = UInt64(Int64.max) + 1  // 2^63
+  withUnsafeBytes(of: large.bigEndian) { ptr in
+    for i in 0..<8 {
+      bytes.append(ptr.baseAddress!.assumingMemoryBound(to: UInt8.self)[i])
+    }
+  }
+  let data = Data(bytes)
+  let decoded = try JSON.fromMsgPack(data)
+  // Should decode as float since value exceeds Int64.max
+  #expect(decoded.isFloat)
+  if case .number(.float(let d)) = decoded.storage {
+    #expect(d == Double(large))
+  } else {
+    Issue.record("Expected float, got \(decoded.storage)")
+  }
+}
+
+@Test func cborUInt64OverflowBecomesFloat() throws {
+  // CBOR major type 0 (unsigned integer) with 8-byte argument
+  // Value: 2^63 + 1 = 9223372036854775808, which is > Int64.max
+  var bytes: [UInt8] = [0x1B]  // major=0, additional=27 (8 bytes)
+  let large = UInt64(Int64.max) + 1
+  withUnsafeBytes(of: large.bigEndian) { ptr in
+    for i in 0..<8 {
+      bytes.append(ptr.baseAddress!.assumingMemoryBound(to: UInt8.self)[i])
+    }
+  }
+  let data = Data(bytes)
+  let decoded = try JSON.fromCBOR(data)
+  // Should decode as float since value exceeds Int64.max
+  #expect(decoded.isFloat)
+  if case .number(.float(let d)) = decoded.storage {
+    #expect(d == Double(large))
+  } else {
+    Issue.record("Expected float, got \(decoded.storage)")
+  }
+}
+
+@Test func cborNegativeIntOverflowBecomesFloat() throws {
+  // CBOR major type 1 (negative integer) with 8-byte argument
+  // Value: -1 - 2^64 = overflow case
+  // Encode argument = UInt64.max, so result = -1 - UInt64.max which overflows Int64
+  var bytes: [UInt8] = [0x3B]  // major=1, additional=27 (8 bytes)
+  let large = UInt64.max
+  withUnsafeBytes(of: large.bigEndian) { ptr in
+    for i in 0..<8 {
+      bytes.append(ptr.baseAddress!.assumingMemoryBound(to: UInt8.self)[i])
+    }
+  }
+  let data = Data(bytes)
+  let decoded = try JSON.fromCBOR(data)
+  // Should decode as float since negative value exceeds Int64 range
+  #expect(decoded.isFloat)
+}
+
+@Test func cborNegativeIntNearOverflow() throws {
+  // CBOR major type 1 with argument = Int64.max
+  // Value: -1 - Int64.max = Int64.min (exactly representable as Int64)
+  var bytes: [UInt8] = [0x3B]  // major=1, additional=27
+  let arg = UInt64(Int64.max)
+  withUnsafeBytes(of: arg.bigEndian) { ptr in
+    for i in 0..<8 {
+      bytes.append(ptr.baseAddress!.assumingMemoryBound(to: UInt8.self)[i])
+    }
+  }
+  let data = Data(bytes)
+  let decoded = try JSON.fromCBOR(data)
+  #expect(decoded.isInteger)
+  if case .number(.integer(let i)) = decoded.storage {
+    #expect(i == Int64.min)
+  } else {
+    Issue.record("Expected integer, got \(decoded.storage)")
+  }
+}
+
+// MARK: - NaN/Infinity serialization
+
+@Test func nanFloatSerializesAsNull() throws {
+  let json = JSON.number(.float(Double.nan))
+  let dumped = json.dump(indent: -1)
+  #expect(dumped == "null")
+}
+
+@Test func infinityFloatSerializesAsNull() throws {
+  let json = JSON.number(.float(Double.infinity))
+  let dumped = json.dump(indent: -1)
+  #expect(dumped == "null")
+}
+
+@Test func negativeInfinityFloatSerializesAsNull() throws {
+  let json = JSON.number(.float(-Double.infinity))
+  let dumped = json.dump(indent: -1)
+  #expect(dumped == "null")
+}
+
+@Test func nanInObjectSerializesCorrectly() throws {
+  let json = JSON.object(["a": JSON.number(.float(Double.nan)), "b": JSON.number(.integer(1))])
+  let dumped = json.dump(indent: -1)
+  // NaN should serialize as null, not crash
+  #expect(dumped == "{\"a\":null,\"b\":1}" || dumped == "{\"b\":1,\"a\":null}")
+}
+
+@Test func nanRoundTripThroughCBOR() throws {
+  // NaN is valid in CBOR binary format — decode should preserve it
+  var bytes: [UInt8] = [0xFB]
+  let bits = Double.nan.bitPattern
+  withUnsafeBytes(of: bits.bigEndian) { ptr in
+    for i in 0..<8 {
+      bytes.append(ptr.baseAddress!.assumingMemoryBound(to: UInt8.self)[i])
+    }
+  }
+  let data = Data(bytes)
+  let decoded = try JSON.fromCBOR(data)
+  #expect(decoded.isFloat)
+  if case .number(.float(let d)) = decoded.storage {
+    #expect(d.isNaN)
+  } else {
+    Issue.record("Expected float, got \(decoded.storage)")
+  }
+  // Serialize to JSON string — should produce null
+  let dumped = decoded.dump(indent: -1)
+  #expect(dumped == "null")
+}

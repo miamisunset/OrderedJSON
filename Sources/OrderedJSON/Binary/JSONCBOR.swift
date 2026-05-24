@@ -61,12 +61,20 @@ private func decodeCBOR(_ data: Data, _ pos: inout Int) throws -> JSON {
 
   switch majorType {
   case 0:  // Unsigned integer (positive)
-    return JSON.number(.integer(Int64(argument)))
+    if argument <= UInt64(Int64.max) {
+      return JSON.number(.integer(Int64(argument)))
+    } else {
+      return JSON.number(.float(Double(argument)))
+    }
 
   case 1:  // Negative integer
     // -1 - argument (negative integers are encoded as -1-n)
-    let value = -1 - Int64(argument)
-    return JSON.number(.integer(value))
+    if argument <= UInt64(Int64.max) {
+      let value = -1 - Int64(argument)
+      return JSON.number(.integer(value))
+    } else {
+      return JSON.number(.float(Double(-1) - Double(argument)))
+    }
 
   case 2:  // Byte string
     let len = Int(argument)
