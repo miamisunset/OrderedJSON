@@ -37,9 +37,14 @@ extension JSON {
   ///
   /// - Invariant: `build()` may be called multiple times; each call returns a
   ///   snapshot of the current state.
-  /// - Thread safety: This is a reference type used for single-threaded fluent
-  ///   construction. It is not safe to share across concurrency boundaries.
-  ///   (Marked `@unchecked Sendable` to allow storage in `Sendable` types.)
+  /// - Thread safety: Classes enable fluent chaining without copy-on-write overhead
+  ///   on every chained call. This builder is designed for single-threaded use;
+  ///   it is not safe to share across concurrency boundaries. Marked
+  ///   `@unchecked Sendable` to allow storage in `Sendable` types.
+  /// - Optional overloads: `setIfPresent(_:_:)` and `setNull(_:)` use Optional
+  ///   parameters. Because Swift cannot resolve overloads for `nil` literals,
+  ///   callers must disambiguate with `as Type?` or a typed `let` binding:
+  ///   `setIfPresent("key", nil as String?)` or `let v: String?; setIfPresent("key", v)`.
   public final class ObjectBuilder: @unchecked Sendable {
     private var dict: OrderedDictionary<String, JSON> = [:]
 
@@ -209,6 +214,63 @@ extension JSON {
       return self
     }
 
+    /// Sets the value for `key` to `value` (`UInt`) if non-nil; otherwise does nothing.
+    /// Values exceeding `Int64.max` are stored as float with possible precision loss.
+    /// - Returns: `self` for chaining.
+    @discardableResult
+    public func setIfPresent(_ key: String, _ value: UInt?) -> Self {
+      if let v = value {
+        dict[key] = v <= UInt(Int64.max) ? .number(.integer(Int64(v))) : .number(.float(Double(v)))
+      }
+      return self
+    }
+
+    /// Sets the value for `key` to `value` (`UInt64`) if non-nil; otherwise does nothing.
+    /// Values exceeding `Int64.max` are stored as float with possible precision loss.
+    /// - Returns: `self` for chaining.
+    @discardableResult
+    public func setIfPresent(_ key: String, _ value: UInt64?) -> Self {
+      if let v = value {
+        dict[key] =
+          v <= UInt64(Int64.max) ? .number(.integer(Int64(v))) : .number(.float(Double(v)))
+      }
+      return self
+    }
+
+    /// Sets the value for `key` to `value` (`JSON`) if non-nil; otherwise does nothing.
+    /// - Returns: `self` for chaining.
+    @discardableResult
+    public func setIfPresent(_ key: String, _ value: JSON?) -> Self {
+      if let v = value { dict[key] = v }
+      return self
+    }
+
+    /// Sets the value for `key` to `value` (`[JSON]`) if non-nil; otherwise does nothing.
+    /// - Returns: `self` for chaining.
+    @discardableResult
+    public func setIfPresent(_ key: String, _ value: [JSON]?) -> Self {
+      if let v = value { dict[key] = .array(v) }
+      return self
+    }
+
+    /// Sets the value for `key` to a JSON object built from `builder` if non-nil; otherwise does nothing.
+    /// The builder is consumed immediately — no need to call `.build()` separately.
+    /// - Returns: `self` for chaining.
+    @discardableResult
+    public func setIfPresent(_ key: String, _ value: JSON.ObjectBuilder?) -> Self {
+      if let v = value { dict[key] = v.build() }
+      return self
+    }
+
+    /// Sets the value for `key` to a JSON array built from `builder` if non-nil; otherwise does nothing.
+    /// The builder is consumed immediately — no need to call `.build()` separately.
+    /// - Returns: `self` for chaining.
+    @discardableResult
+    public func setIfPresent(_ key: String, _ value: JSON.ArrayBuilder?) -> Self {
+      if let v = value { dict[key] = v.build() }
+      return self
+    }
+
     /// Removes the value for `key` from the builder.
     /// If `key` does not exist, this is a no-op.
     /// - Returns: `self` for chaining.
@@ -277,9 +339,14 @@ extension JSON {
   ///
   /// - Invariant: `build()` may be called multiple times; each call returns a
   ///   snapshot of the current state.
-  /// - Thread safety: This is a reference type used for single-threaded fluent
-  ///   construction. It is not safe to share across concurrency boundaries.
-  ///   (Marked `@unchecked Sendable` to allow storage in `Sendable` types.)
+  /// - Thread safety: Classes enable fluent chaining without copy-on-write overhead
+  ///   on every chained call. This builder is designed for single-threaded use;
+  ///   it is not safe to share across concurrency boundaries. Marked
+  ///   `@unchecked Sendable` to allow storage in `Sendable` types.
+  /// - Optional overloads: `addIfPresent(_:)` and `addNull()` use Optional
+  ///   parameters. Because Swift cannot resolve overloads for `nil` literals,
+  ///   callers must disambiguate with `as Type?` or a typed `let` binding:
+  ///   `addIfPresent(nil as String?)` or `let v: String?; addIfPresent(v)`.
   public final class ArrayBuilder: @unchecked Sendable {
     private var elements: [JSON] = []
 
@@ -398,6 +465,112 @@ extension JSON {
     @discardableResult
     public func addNull() -> Self {
       elements.append(.null)
+      return self
+    }
+
+    /// Appends `value` if non-nil; otherwise does nothing.
+    /// - Returns: `self` for chaining.
+    @discardableResult
+    public func addIfPresent(_ value: String?) -> Self {
+      if let v = value { elements.append(.string(v)) }
+      return self
+    }
+
+    /// Appends `value` if non-nil; otherwise does nothing.
+    /// - Returns: `self` for chaining.
+    @discardableResult
+    public func addIfPresent(_ value: Bool?) -> Self {
+      if let v = value { elements.append(.boolean(v)) }
+      return self
+    }
+
+    /// Appends `value` if non-nil; otherwise does nothing.
+    /// - Returns: `self` for chaining.
+    @discardableResult
+    public func addIfPresent(_ value: Int?) -> Self {
+      if let v = value { elements.append(.number(.integer(Int64(v)))) }
+      return self
+    }
+
+    /// Appends `value` if non-nil; otherwise does nothing.
+    /// - Returns: `self` for chaining.
+    @discardableResult
+    public func addIfPresent(_ value: Int64?) -> Self {
+      if let v = value { elements.append(.number(.integer(v))) }
+      return self
+    }
+
+    /// Appends `value` if non-nil; otherwise does nothing.
+    /// Values exceeding `Int64.max` are stored as float with possible precision loss.
+    /// - Returns: `self` for chaining.
+    @discardableResult
+    public func addIfPresent(_ value: UInt?) -> Self {
+      if let v = value {
+        elements.append(
+          v <= UInt(Int64.max) ? .number(.integer(Int64(v))) : .number(.float(Double(v))))
+      }
+      return self
+    }
+
+    /// Appends `value` if non-nil; otherwise does nothing.
+    /// Values exceeding `Int64.max` are stored as float with possible precision loss.
+    /// - Returns: `self` for chaining.
+    @discardableResult
+    public func addIfPresent(_ value: UInt64?) -> Self {
+      if let v = value {
+        elements.append(
+          v <= UInt64(Int64.max) ? .number(.integer(Int64(v))) : .number(.float(Double(v))))
+      }
+      return self
+    }
+
+    /// Appends `value` if non-nil; otherwise does nothing.
+    /// - Returns: `self` for chaining.
+    @discardableResult
+    public func addIfPresent(_ value: Double?) -> Self {
+      if let v = value { elements.append(.number(.float(v))) }
+      return self
+    }
+
+    /// Appends `value` if non-nil; otherwise does nothing.
+    /// - Returns: `self` for chaining.
+    @discardableResult
+    public func addIfPresent(_ value: Float?) -> Self {
+      if let v = value { elements.append(.number(.float(Double(v)))) }
+      return self
+    }
+
+    /// Appends `value` if non-nil; otherwise does nothing.
+    /// - Returns: `self` for chaining.
+    @discardableResult
+    public func addIfPresent(_ value: JSON?) -> Self {
+      if let v = value { elements.append(v) }
+      return self
+    }
+
+    /// Appends `value` if non-nil; otherwise does nothing.
+    /// - Returns: `self` for chaining.
+    @discardableResult
+    public func addIfPresent(_ value: [JSON]?) -> Self {
+      if let v = value { elements.append(.array(v)) }
+      return self
+    }
+
+    /// Appends a JSON object built from `builder` if non-nil; otherwise does nothing.
+    /// The builder is consumed immediately — no need to call `.build()` separately.
+    /// - Returns: `self` for chaining.
+    @discardableResult
+    public func addIfPresent(_ value: JSON.ObjectBuilder?) -> Self {
+      if let v = value { elements.append(v.build()) }
+      return self
+    }
+
+    /// Appends a JSON array built from `builder` if non-nil; otherwise does nothing.
+    /// The builder is consumed immediately — no need to call `.build()` separately.
+    /// - Returns: `self` for chaining.
+    @discardableResult
+    public func addIfPresent(_ value: JSON.ArrayBuilder?) -> Self {
+      if let v = value { elements.append(v.build()) }
       return self
     }
 

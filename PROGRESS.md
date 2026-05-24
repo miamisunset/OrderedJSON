@@ -231,6 +231,12 @@ All 403 tests pass. Build produces zero errors. CI pipeline passes (SwiftFormat 
 - **UInt/UInt64 overflow**: Values ≤ `Int64.max` stored as `.integer(Int64)`, larger values stored as `.float(Double)` with documented precision loss.
 - **No `@resultBuilder`**: Kept simple with method chaining to avoid `@escaping` closure boilerplate and result builder infrastructure.
 
+### PR #10 — Extended setIfPresent/addIfPresent matrix; tightened Sendable doc
+- Added `setIfPresent` overloads for `UInt?`, `UInt64?`, `JSON?`, `[JSON]?`, `ObjectBuilder?`, `ArrayBuilder?`
+- Added `addIfPresent` full matrix on `ArrayBuilder` (12 Optional types)
+- Tightened `@unchecked Sendable` doc comment to cite COW-avoidance (accurate)
+- 50 tests total (all passing)
+
 ## Release
 - Merged `codable-support` → `main` via squash-merge at `9cc89b2`
 - Tagged and released as **v2.1.0**
