@@ -53,6 +53,10 @@ extension JSON: Decodable {
   /// container's keys in their natural order. For `OrderedJSONDecoder`,
   /// keys are returned in insertion order.
   public init(from decoder: Decoder) throws {
+    // Track the first shape-specific error for better fallback diagnostics.
+    var lastKeyedError: DecodingError?
+    var lastArrayError: DecodingError?
+
     // First try keyed container (JSON object)
     do {
       let container = try decoder.container(keyedBy: JSONCodingKey.self)
@@ -66,10 +70,7 @@ extension JSON: Decodable {
       self = .object(dict)
       return
     } catch let keyedError as DecodingError {
-      // Keyed container failed — fall through to unkeyed/array
-      // Keep keyedError for potential underlying context
-      // but continue to try other shapes.
-      _ = keyedError
+      lastKeyedError = keyedError
     } catch {
       throw error
     }
@@ -88,8 +89,7 @@ extension JSON: Decodable {
       self = .array(elements)
       return
     } catch let arrayError as DecodingError {
-      // Array failed — fall through to single-value
-      _ = arrayError
+      lastArrayError = arrayError
     } catch {
       throw error
     }
@@ -112,11 +112,12 @@ extension JSON: Decodable {
     } else if let b = try? container.decode(Bool.self) {
       self = .boolean(b)
     } else {
-      throw DecodingError.dataCorrupted(
-        DecodingError.Context(
-          codingPath: decoder.codingPath,
-          debugDescription:
-            "Unsupported JSON value type: expected string, number, boolean, or null"))
+      let ctx = DecodingError.Context(
+        codingPath: decoder.codingPath,
+        debugDescription:
+          "Unsupported JSON value type: expected string, number, boolean, or null",
+        underlyingError: lastKeyedError ?? lastArrayError)
+      throw DecodingError.dataCorrupted(ctx)
     }
   }
 }

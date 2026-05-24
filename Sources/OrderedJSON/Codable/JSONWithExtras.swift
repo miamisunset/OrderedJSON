@@ -25,6 +25,23 @@ import OrderedCollections
 /// // wrapped.extras["color"] == "blue"
 /// // wrapped.extras["city"] == "NYC"
 /// ```
+///
+/// ## Known Limitations
+///
+/// - **Tracking granularity**: Only `decode(...)` and `decodeNil(forKey:)` calls
+///   mark keys as "accessed". `contains(_:)` does **not** mark keys, so a `T`
+///   that checks `container.contains("x")` without later decoding `"x"` will
+///   leak `"x"` into `extras`. Use `decodeIfPresent` instead.
+/// - **Optional fields**: `decodeNil(forKey:)` marks the key as accessed even
+///   when the key is absent in JSON. This means an absent optional field is
+///   correctly excluded from extras.
+/// - **Keyed-object only**: `T` must encode/decode as a keyed object.
+///   Single-value and unkeyed containers are not supported.
+/// - **Extras must be a JSON object**: When encoding, `extras` must be a JSON
+///   object; encoding non-object extras throws `EncodingError.invalidValue`.
+/// - **Set `userInfo` before calling**: The encoder/decoder copies `userInfo`
+///   at construction time; mutations after calling `encode`/`decode` do not
+///   propagate to nested containers.
 public struct JSONWithExtras<T: Decodable>: Decodable {
   /// The decoded value of known fields.
   public let value: T

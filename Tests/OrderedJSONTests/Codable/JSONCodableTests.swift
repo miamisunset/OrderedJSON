@@ -420,6 +420,23 @@ extension JSON {
   }
 }
 
+@Test func requireFloatRejectsLossyDouble() throws {
+  // 0.1 is not exactly representable as Float
+  let json = JSON.number(.float(0.1))
+  #expect {
+    try json.requireFloat()
+  } throws: { error in
+    guard let jsonError = error as? JSONError else { return false }
+    return jsonError == JSONError.typeError(expected: "float", actual: "number")
+  }
+}
+
+@Test func requireFloatFromInteger() throws {
+  // Clean integers are exactly representable as Float
+  let json = JSON.number(.integer(42))
+  #expect(try json.requireFloat() == 42.0)
+}
+
 @Test func requireInt64FromFloat() throws {
   // Clean integer stored as .float should still work with requireInt64
   let json = JSON.number(.float(42.0))
@@ -793,4 +810,43 @@ extension JSON {
     default: return false
     }
   }
+}
+
+// MARK: - Super encoder
+
+@Test func superEncoderWritesUnderSuperKey() throws {
+  class Base: Encodable {
+    let baseValue: Int = 42
+    func encode(to encoder: Encoder) throws {
+      var container = encoder.container(keyedBy: CodingKeys.self)
+      try container.encode(baseValue, forKey: .baseValue)
+    }
+    enum CodingKeys: CodingKey {
+      case baseValue
+    }
+  }
+
+  class Derived: Base {
+    let derivedValue: String = "hello"
+
+    override func encode(to encoder: Encoder) throws {
+      var container = encoder.container(keyedBy: CodingKeys.self)
+      try container.encode(derivedValue, forKey: .derivedValue)
+
+      // Super encoder for the parent class — writes under "super" key
+      let superEncoder = container.superEncoder()
+      try super.encode(to: superEncoder)
+    }
+
+    enum CodingKeys: CodingKey {
+      case derivedValue
+    }
+  }
+
+  let encoder = OrderedJSONEncoder()
+  let json = try encoder.encode(Derived())
+  // The "super" key should contain the base class's encoded value
+  #expect(json["derivedValue"] == .string("hello"))
+  #expect(json["super"]?.isObject == true)
+  #expect(json["super"]?["baseValue"] == .number(.integer(42)))
 }

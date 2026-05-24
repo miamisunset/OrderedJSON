@@ -1,6 +1,9 @@
 import OrderedCollections
 
 /// A JSON encoder that produces `JSON` values with preserved key order.
+///
+/// - Important: Set `userInfo` before calling `encode`/`encodeToString`;
+///   mutations after the call do not propagate to nested containers.
 public struct OrderedJSONEncoder {
   public var userInfo: [CodingUserInfoKey: Any]
 
@@ -276,10 +279,13 @@ final class _JSONKeyedEncodingContainer<Key: CodingKey>: KeyedEncodingContainerP
   }
 
   func superEncoder() -> Encoder {
+    // Per Foundation convention, whole-object super encodes under key "super".
     let childImpl = _JSONEncodeImpl(userInfo: impl.userInfo)
     childImpl.parentRef = ref
-    childImpl.parentKey = nil  // Whole-object super
+    childImpl.parentKey = "super"
     childImpl.parentImpl = impl
+    ref.dict["super"] = .null
+    impl.syncKeyed()
     return childImpl
   }
 }
@@ -412,8 +418,11 @@ final class _JSONUnkeyedEncodingContainer: UnkeyedEncodingContainer {
     let childRef = _ArrayReference()
     let childImpl = _JSONEncodeImpl(userInfo: impl.userInfo)
     childImpl.arrayRef = childRef
-    childImpl.parentArrayRef = ref
+    // Capture index *before* appending the placeholder, so the child
+    // always writes to the correct slot even if more elements are appended
+    // to the outer array after the child is created.
     childImpl.parentArrayIndex = ref.elements.count
+    childImpl.parentArrayRef = ref
     childImpl.parentImpl = impl
     ref.elements.append(.array(childRef.elements))
     impl.syncUnkeyed()

@@ -133,8 +133,11 @@ extension JSON {
 
   /// Returns the float value as `Float`, or throws `JSONError.typeError`.
   ///
-  /// Accepts both `.float` and `.integer` (widening). Checks for overflow:
-  /// if the value exceeds `Float.greatestFiniteMagnitude`, throws an error.
+  /// Accepts both `.float` and `.integer` (widening). Uses lossless
+  /// conversion via `Float(exactly:)` — rejects values that are not
+  /// exactly representable as `Float` (e.g., `0.1`). For Foundation-compatible
+  /// lossy narrowing, use `requireDouble()` and cast manually.
+  /// Rejects `.infinity` and subnormal values.
   package func requireFloat() throws -> Float {
     let d = try requireDouble()
     guard let result = Float(exactly: d), result.isFinite else {

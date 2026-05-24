@@ -2,6 +2,9 @@ import Foundation
 import OrderedCollections
 
 /// A JSON decoder that produces `JSON` values with preserved key order.
+///
+/// - Important: Set `userInfo` before calling `decode`;
+///   mutations after the call do not propagate to nested containers.
 public struct OrderedJSONDecoder {
   public var userInfo: [CodingUserInfoKey: Any]
 
