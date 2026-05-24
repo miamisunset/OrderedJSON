@@ -9,7 +9,7 @@ on:
 jobs:
   lint:
     name: SwiftFormat Lint
-    runs-on: macos-26
+    runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
       - name: Install SwiftFormat
@@ -21,12 +21,14 @@ jobs:
 
   test:
     name: Build & Test
-    runs-on: macos-26
+    runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Build
-        run: swift build
-      - name: Run tests (list then filter)
+      - name: Install Swift 6.3 via swiftly
         run: |
-          swift test --list-tests 2>/dev/null | head -5
-          swift test --parallel --filter ".*" 2>&1
+          curl -Ls https://swiftly.swift.org/install.sh | bash
+          swiftly install 6.3.0
+      - name: Build
+        run: swiftly run swift build
+      - name: Test
+        run: swiftly run swift test
