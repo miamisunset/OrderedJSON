@@ -320,3 +320,20 @@ final class SAXCollector: JSONSAXEventHandler {
 @Test func saxAcceptMissingColon() {
   #expect(JSON.accept("{\"a\" 1}") == false)
 }
+
+@Test func saxParseUnicodeEscapeFollowedByChar() throws {
+  // Regression: SAX used to over-advance after \uXXXX, consuming the next character.
+  // "\u0041X" should parse as "AX", not just "A".
+  var collector = SAXCollector()
+  let jsonString = "{\"key\\u0041X\": 1}"
+  let ok = JSON.saxParse(jsonString, handler: collector)
+  #expect(ok)
+  // The key should be "keyAX", not "keyA"
+  let expectedKey = "keyAX"
+  #expect(collector.events.count >= 2)
+  if collector.events.count >= 2 {
+    let (event, value) = collector.events[1]
+    #expect(event == "key")
+    #expect(value == expectedKey)
+  }
+}

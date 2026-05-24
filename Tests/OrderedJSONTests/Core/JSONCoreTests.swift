@@ -255,14 +255,16 @@ import Testing
 @Test func jsonParseErrorDescriptions() {
   let errors: [JSONParseError] = [
     .unexpectedEnd(),
-    .unexpectedToken(5),
-    .expectedString(10),
-    .expectedColon(15),
-    .expectedCloseBrace(20),
-    .expectedCloseBracket(25),
-    .invalidEscape(30),
-    .invalidUnicodeEscape(35),
-    .invalidNumber(40),
+    .unexpectedToken(line: 1, column: 5),
+    .expectedString(line: 1, column: 10),
+    .expectedColon(line: 1, column: 15),
+    .expectedCloseBrace(line: 1, column: 20),
+    .expectedCloseBracket(line: 1, column: 25),
+    .invalidEscape(line: 1, column: 30),
+    .invalidUnicodeEscape(line: 1, column: 35),
+    .invalidNumber(line: 1, column: 40),
+    .invalidEncoding(),
+    .depthExceeded(line: 1, column: 42, depth: 0, maxDepth: 0),
   ]
   for err in errors {
     #expect(!err.description.isEmpty)

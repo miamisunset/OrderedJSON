@@ -1,3 +1,4 @@
+import Foundation
 import OrderedCollections
 import Testing
 
@@ -45,6 +46,16 @@ import Testing
   #expect(result == JSON.number(.float(0.01)))
 }
 
+@Test func parseFloatWithPositiveExponent() throws {
+  let result = try JSON.parse("6.02e+23")
+  #expect(result == JSON.number(.float(6.02e23)))
+}
+
+@Test func parseLargeExponent() throws {
+  let result = try JSON.parse("-3.14E+10")
+  #expect(result == JSON.number(.float(-3.14E+10)))
+}
+
 @Test func parseString() throws {
   let result = try JSON.parse("\"hello\"")
   #expect(result == JSON.string("hello"))
@@ -60,6 +71,11 @@ import Testing
   #expect(result == JSON.string("A"))
 }
 
+@Test func parseStringWithSurrogatePair() throws {
+  let result = try JSON.parse("\"\\uD83D\\uDE00\"")
+  #expect(result == JSON.string("😀"))
+}
+
 @Test func parseStringWithSlash() throws {
   let result = try JSON.parse("\"a\\/b\"")
   #expect(result == JSON.string("a/b"))
@@ -67,7 +83,7 @@ import Testing
 
 @Test func parseStringWithBackspaceFormfeed() throws {
   let result = try JSON.parse("\"a\\b\\fb\"")
-  #expect(result == JSON.string("a\u{8}\u{12}b"))
+  #expect(result == JSON.string("a\u{8}\u{0C}b"))
 }
 
 @Test func parseEmptyArray() throws {
@@ -143,67 +159,201 @@ import Testing
 @Test func parseErrorUnexpectedEnd() throws {
   #expect(throws: JSONParseError.unexpectedEnd()) { try JSON.parse("") }
   #expect(throws: JSONParseError.unexpectedEnd()) { try JSON.parse("\"hello") }
-  #expect(throws: JSONParseError.expectedString(1)) { try JSON.parse("{") }
+  #expect(throws: JSONParseError.expectedString(line: 1, column: 2)) { try JSON.parse("{") }
   #expect(throws: JSONParseError.unexpectedEnd()) { try JSON.parse("[") }
 }
 
 @Test func parseErrorUnexpectedToken() throws {
-  #expect(throws: JSONParseError.unexpectedToken(0)) { try JSON.parse("}") }
-  #expect(throws: JSONParseError.unexpectedToken(0)) { try JSON.parse("x") }
-  #expect(throws: JSONParseError.unexpectedToken(4)) { try JSON.parse("truex") }
+  #expect(throws: JSONParseError.unexpectedToken(line: 1, column: 1)) { try JSON.parse("}") }
+  #expect(throws: JSONParseError.unexpectedToken(line: 1, column: 1)) { try JSON.parse("x") }
+  #expect(throws: JSONParseError.unexpectedToken(line: 1, column: 5)) { try JSON.parse("truex") }
 }
 
 @Test func parseErrorExpectedColon() throws {
-  #expect(throws: JSONParseError.expectedColon(5)) { try JSON.parse("{\"a\" 1}") }
+  #expect(throws: JSONParseError.expectedColon(line: 1, column: 6)) { try JSON.parse("{\"a\" 1}") }
 }
 
 @Test func parseErrorExpectedCloseBrace() throws {
-  #expect(throws: JSONParseError.expectedCloseBrace(7)) { try JSON.parse("{\"a\": 1") }
+  #expect(throws: JSONParseError.expectedCloseBrace(line: 1, column: 8)) {
+    try JSON.parse("{\"a\": 1")
+  }
 }
 
 @Test func parseErrorExpectedCloseBracket() throws {
-  #expect(throws: JSONParseError.expectedCloseBracket(2)) { try JSON.parse("[1") }
+  #expect(throws: JSONParseError.expectedCloseBracket(line: 1, column: 3)) { try JSON.parse("[1") }
 }
 
 @Test func parseErrorExpectedString() throws {
-  #expect(throws: JSONParseError.expectedString(1)) { try JSON.parse("{a: 1}") }
+  #expect(throws: JSONParseError.expectedString(line: 1, column: 2)) { try JSON.parse("{a: 1}") }
 }
 
 @Test func parseErrorInvalidEscape() throws {
-  #expect(throws: JSONParseError.invalidEscape(2)) { try JSON.parse("\"\\x\"") }
+  #expect(throws: JSONParseError.invalidEscape(line: 1, column: 3)) { try JSON.parse("\"\\x\"") }
 }
 
 @Test func parseErrorInvalidUnicodeEscape() throws {
-  #expect(throws: JSONParseError.invalidUnicodeEscape(3)) { try JSON.parse("\"\\u\"") }
-  #expect(throws: JSONParseError.invalidUnicodeEscape(3)) { try JSON.parse("\"\\uQQQQ\"") }
+  #expect(throws: JSONParseError.invalidUnicodeEscape(line: 1, column: 4)) {
+    try JSON.parse("\"\\u\"")
+  }
+  #expect(throws: JSONParseError.invalidUnicodeEscape(line: 1, column: 4)) {
+    try JSON.parse("\"\\uQQQQ\"")
+  }
 }
 
 @Test func parseErrorInvalidNumber() throws {
-  #expect(throws: JSONParseError.invalidNumber(1)) { try JSON.parse("-") }
+  #expect(throws: JSONParseError.invalidNumber(line: 1, column: 2)) { try JSON.parse("-") }
   #expect(throws: JSONParseError.unexpectedEnd()) { try JSON.parse("0.") }
 }
 
 @Test func parseErrorTrailingBackslash() throws {
-  // Line 110: backslash at end of string
   #expect(throws: JSONParseError.unexpectedEnd()) { try JSON.parse("\"\\") }
 }
 
-@Test func parseErrorInvalidDouble() throws {
-  // Line 215: Double(s) returns nil for incomplete exponent
-  #expect(throws: JSONParseError.invalidNumber(0)) { try JSON.parse("1.0e+") }
+@Test func parseErrorInvalidExponent() throws {
+  #expect(throws: JSONParseError.unexpectedEnd()) { try JSON.parse("1.0e+") }
 }
 
 @Test func parseErrorTrailingGarbage() throws {
-  #expect(throws: JSONParseError.unexpectedToken(3)) { try JSON.parse("[1]x") }
+  #expect(throws: JSONParseError.unexpectedToken(line: 1, column: 4)) { try JSON.parse("[1]x") }
 }
 
 @Test func parseErrorBooleanIncomplete() throws {
-  #expect(throws: JSONParseError.unexpectedToken(0)) { try JSON.parse("tr") }
-  #expect(throws: JSONParseError.unexpectedToken(0)) { try JSON.parse("f") }
+  #expect(throws: JSONParseError.unexpectedToken(line: 1, column: 1)) { try JSON.parse("tr") }
+  #expect(throws: JSONParseError.unexpectedToken(line: 1, column: 1)) { try JSON.parse("f") }
 }
 
 @Test func parseErrorNullIncomplete() throws {
-  #expect(throws: JSONParseError.unexpectedToken(0)) { try JSON.parse("nu") }
+  #expect(throws: JSONParseError.unexpectedToken(line: 1, column: 1)) { try JSON.parse("nu") }
+}
+
+// MARK: - ParserOptions Tests
+
+@Test func parseWithTrailingComma() throws {
+  let opts = JSON.ParserOptions(allowTrailingCommas: true)
+  let result = try JSON.parse("[1, 2,]", options: opts)
+  #expect(result.isArray)
+  #expect(result.count == 2)
+  #expect(result[0] == JSON.number(.integer(1)))
+  #expect(result[1] == JSON.number(.integer(2)))
+}
+
+@Test func parseWithTrailingCommaObject() throws {
+  let opts = JSON.ParserOptions(allowTrailingCommas: true)
+  let result = try JSON.parse("{\"a\": 1, \"b\": 2,}", options: opts)
+  #expect(result.isObject)
+  #expect(result.count == 2)
+  #expect(result["a"] == JSON.number(.integer(1)))
+  #expect(result["b"] == JSON.number(.integer(2)))
+}
+
+@Test func parseWithoutTrailingCommaFails() throws {
+  #expect(throws: JSONParseError.unexpectedToken(line: 1, column: 7)) {
+    try JSON.parse("[1, 2,]")
+  }
+}
+
+@Test func parseDepthExceeded() throws {
+  let opts = JSON.ParserOptions(maxDepth: 3)
+  let deepJSON = "{\"a\": {\"b\": {\"c\": {\"d\": 1}}}"
+  #expect(throws: JSONParseError.depthExceeded(line: 1, column: 20, depth: 4, maxDepth: 3)) {
+    try JSON.parse(deepJSON, options: opts)
+  }
+}
+
+@Test func parseDepthExceedsLimitByOne() throws {
+  let opts = JSON.ParserOptions(maxDepth: 3)
+  let deepJSON = "{\"a\": {\"b\": {\"c\": {\"d\": 1}}}}"
+  #expect(throws: JSONParseError.depthExceeded(line: 1, column: 20, depth: 4, maxDepth: 3)) {
+    try JSON.parse(deepJSON, options: opts)
+  }
+}
+
+// MARK: - Data Parsing Tests
+
+@Test func parseFromData() throws {
+  let data = Data(#"{"a": 1}"#.utf8)
+  let result = try JSON.parse(data)
+  #expect(result.isObject)
+  #expect(result["a"] == JSON.number(.integer(1)))
+}
+
+@Test func parseFromDataWithOptions() throws {
+  let opts = JSON.ParserOptions(allowTrailingCommas: true)
+  let data = Data("[1, 2,]".utf8)
+  let result = try JSON.parse(data, options: opts)
+  #expect(result.isArray)
+  #expect(result.count == 2)
+}
+
+@Test func parseFromInvalidEncoding() throws {
+  // Invalid UTF-8 bytes
+  let invalidData = Data([0xFF, 0xFE, 0x00, 0x00])
+  #expect(throws: JSONParseError.invalidEncoding()) {
+    try JSON.parse(invalidData)
+  }
+}
+
+// MARK: - Surrogate Pair Edge Cases
+
+@Test func parseHighSurrogateWithoutLow() throws {
+  #expect(throws: JSONParseError.invalidUnicodeEscape(line: 1, column: 8)) {
+    try JSON.parse("\"\\uD800\"")
+  }
+}
+
+@Test func parseHighSurrogateWithInvalidLow() throws {
+  #expect(throws: JSONParseError.invalidUnicodeEscape(line: 1, column: 14)) {
+    try JSON.parse("\"\\uD800\\u0041\"")
+  }
+}
+
+@Test func parseSurrogatePairEmoji() throws {
+  let result = try JSON.parse("\"\\uD83D\\uDE06\"")
+  #expect(result == JSON.string("😆"))
+}
+
+@Test func parseSurrogatePairSkull() throws {
+  let result = try JSON.parse("\"\\uD83D\\uDC80\"")
+  #expect(result == JSON.string("💀"))
+}
+
+@Test func parseLoneLowSurrogate() throws {
+  #expect(throws: JSONParseError.invalidUnicodeEscape(line: 1, column: 8)) {
+    try JSON.parse("\"\\uDC00\"")
+  }
+}
+
+@Test func parseHighSurrogateNotFollowedByBackslash() throws {
+  #expect(throws: JSONParseError.invalidUnicodeEscape(line: 1, column: 13)) {
+    try JSON.parse("\"\\uD800X\"")
+  }
+}
+
+@Test func parseUnicodeEscapeFollowedByChar() throws {
+  let result = try JSON.parse("\"\\u0041X\"")
+  #expect(result == JSON.string("AX"))
+}
+
+@Test func parseDepthAtLimit() throws {
+  let opts = JSON.ParserOptions(maxDepth: 3)
+  let nested = "{\"a\": {\"b\": {\"c\": 1}}}"
+  let result = try JSON.parse(nested, options: opts)
+  #expect(result["a"]?["b"]?["c"] == JSON.number(.integer(1)))
+}
+
+// MARK: - Large JSON Performance (smoke test)
+
+@Test func parseLargeArray() throws {
+  let count = 10_000
+  var elements: [String] = []
+  elements.reserveCapacity(count)
+  for i in 0..<count {
+    elements.append("\(i)")
+  }
+  let jsonString = "[" + elements.joined(separator: ",") + "]"
+  let result = try JSON.parse(jsonString)
+  #expect(result.isArray)
+  #expect(result.count == count)
 }
 
 // MARK: - Standard Encoding Tests
