@@ -175,5 +175,22 @@ All 403 tests pass. Build produces zero errors. CI pipeline passes (SwiftFormat 
 - [x] CI workflow merged to `main` — uses `macos-26` runner, Xcode 26.4.1, `swift test --parallel | tee /dev/null` workaround for `swiftpm-testing-helper` SIGTRAP bug
 - [x] GitHub repo ruleset updated — `required_approving_review_count` set to 0, `require_code_owner_review` disabled for solo development
 
+## Phase 10 — Parser Performance & Robustness Improvements (complete)
+
+### What shipped
+- **Performance**: Removed `[Character]` array allocation. Parser now works directly on `String` with `String.Index` traversal, avoiding the O(n) memory overhead of converting the entire input to a character array.
+- **Unicode Surrogate Pairs**: `parseUnicodeEscape` now properly handles surrogate pairs (`\uD800\\uDC00` → single Unicode scalar). High surrogates (U+D800..U+DBFF) expect a following low surrogate (U+DC00..U+DFFF) and combine them into the correct code point.
+- **Error Reporting**: All `JSONParseError` cases now include `line` and `column` numbers (1-based) instead of raw character positions. Added `invalidEncoding` and `depthExceeded` error types.
+- **Parser Options**: Added `JSON.ParserOptions` struct with `allowTrailingCommas` (default `false`) and `maxDepth` (default 1024) configuration.
+- **Data Parsing**: Added `JSON.parse(_ data: Data)` overloads that decode UTF-8 data before parsing, with proper `invalidEncoding` error handling.
+- **SAX Parser**: Updated to use direct `String` iteration with line/column tracking and surrogate pair support.
+
+### Key decisions
+- `JSONParseError.Kind` cases changed from `unexpectedToken(Int)` to `unexpectedToken(line: Int, column: Int)` — breaking change for code matching on error kinds.
+- `ParseContext` struct tracks `line` and `column` as the parser advances, ensuring accurate position reporting.
+- Trailing comma support uses lookahead: after a comma, skip whitespace and check if the next token is a closing bracket/brace before continuing.
+- Depth tracking increments on `{`/`[` entry and decrements on exit, checked against `options.maxDepth`.
+- `Data` parsing uses `String(data:encoding:.utf8)` which validates UTF-8 correctness.
+
 ### Next Steps
 1. Consider adding remaining minor gaps from feature parity table (e.g., `contains(element)` for arrays, `merge()` for objects, `is_number_unsigned`, `is_binary`, `is_discarded`, generic `get<T>()`, explicit iterator properties)

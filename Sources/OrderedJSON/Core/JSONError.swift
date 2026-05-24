@@ -5,7 +5,8 @@ import OrderedCollections
 ///
 /// `JSONParseError` provides detailed error information including the
 /// position at which the error occurred. The `CustomStringConvertible`
-/// conformance gives human-readable descriptions.
+/// conformance gives human-readable descriptions with line and column
+/// numbers.
 ///
 /// ## Example
 ///
@@ -13,7 +14,7 @@ import OrderedCollections
 /// do {
 ///   let json = try JSON.parse("invalid")
 /// } catch let error as JSONParseError {
-///   print(error)  // "Unexpected token at position 0"
+///   print(error)  // "Unexpected token at line 1, column 1"
 /// }
 /// ```
 public struct JSONParseError: Error, CustomStringConvertible, Hashable, Sendable {
@@ -25,72 +26,107 @@ public struct JSONParseError: Error, CustomStringConvertible, Hashable, Sendable
     /// The JSON input ended unexpectedly.
     case unexpectedEnd
     /// An unexpected token was encountered at the given position.
-    case unexpectedToken(Int)
+    case unexpectedToken(line: Int, column: Int)
     /// Expected a string value at the given position.
-    case expectedString(Int)
+    case expectedString(line: Int, column: Int)
     /// Expected a colon (`:`) at the given position.
-    case expectedColon(Int)
+    case expectedColon(line: Int, column: Int)
     /// Expected a closing brace (`}`) at the given position.
-    case expectedCloseBrace(Int)
+    case expectedCloseBrace(line: Int, column: Int)
     /// Expected a closing bracket (`]`) at the given position.
-    case expectedCloseBracket(Int)
+    case expectedCloseBracket(line: Int, column: Int)
     /// An invalid escape sequence was found at the given position.
-    case invalidEscape(Int)
+    case invalidEscape(line: Int, column: Int)
     /// An invalid Unicode escape (`\\u` followed by non-hex) was found.
-    case invalidUnicodeEscape(Int)
+    case invalidUnicodeEscape(line: Int, column: Int)
     /// An invalid number literal was found at the given position.
-    case invalidNumber(Int)
+    case invalidNumber(line: Int, column: Int)
+    /// The JSON input contains invalid UTF-8 encoding.
+    case invalidEncoding
+    /// The nesting depth exceeded the maximum allowed.
+    case depthExceeded(line: Int, column: Int)
   }
 
   public init(_ kind: Kind) { self.kind = kind }
 
   /// Creates an "unexpected end" error.
   public static func unexpectedEnd() -> JSONParseError { JSONParseError(.unexpectedEnd) }
-  /// Creates an "unexpected token" error at the given position.
-  public static func unexpectedToken(_ pos: Int) -> JSONParseError {
-    JSONParseError(.unexpectedToken(pos))
+
+  /// Creates an "unexpected token" error at the given line and column.
+  public static func unexpectedToken(line: Int, column: Int) -> JSONParseError {
+    JSONParseError(.unexpectedToken(line: line, column: column))
   }
-  /// Creates an "expected string" error at the given position.
-  public static func expectedString(_ pos: Int) -> JSONParseError {
-    JSONParseError(.expectedString(pos))
+
+  /// Creates an "expected string" error at the given line and column.
+  public static func expectedString(line: Int, column: Int) -> JSONParseError {
+    JSONParseError(.expectedString(line: line, column: column))
   }
-  /// Creates an "expected colon" error at the given position.
-  public static func expectedColon(_ pos: Int) -> JSONParseError {
-    JSONParseError(.expectedColon(pos))
+
+  /// Creates an "expected colon" error at the given line and column.
+  public static func expectedColon(line: Int, column: Int) -> JSONParseError {
+    JSONParseError(.expectedColon(line: line, column: column))
   }
-  /// Creates an "expected close brace" error at the given position.
-  public static func expectedCloseBrace(_ pos: Int) -> JSONParseError {
-    JSONParseError(.expectedCloseBrace(pos))
+
+  /// Creates an "expected close brace" error at the given line and column.
+  public static func expectedCloseBrace(line: Int, column: Int) -> JSONParseError {
+    JSONParseError(.expectedCloseBrace(line: line, column: column))
   }
-  /// Creates an "expected close bracket" error at the given position.
-  public static func expectedCloseBracket(_ pos: Int) -> JSONParseError {
-    JSONParseError(.expectedCloseBracket(pos))
+
+  /// Creates an "expected close bracket" error at the given line and column.
+  public static func expectedCloseBracket(line: Int, column: Int) -> JSONParseError {
+    JSONParseError(.expectedCloseBracket(line: line, column: column))
   }
-  /// Creates an "invalid escape" error at the given position.
-  public static func invalidEscape(_ pos: Int) -> JSONParseError {
-    JSONParseError(.invalidEscape(pos))
+
+  /// Creates an "invalid escape" error at the given line and column.
+  public static func invalidEscape(line: Int, column: Int) -> JSONParseError {
+    JSONParseError(.invalidEscape(line: line, column: column))
   }
-  /// Creates an "invalid unicode escape" error at the given position.
-  public static func invalidUnicodeEscape(_ pos: Int) -> JSONParseError {
-    JSONParseError(.invalidUnicodeEscape(pos))
+
+  /// Creates an "invalid unicode escape" error at the given line and column.
+  public static func invalidUnicodeEscape(line: Int, column: Int) -> JSONParseError {
+    JSONParseError(.invalidUnicodeEscape(line: line, column: column))
   }
-  /// Creates an "invalid number" error at the given position.
-  public static func invalidNumber(_ pos: Int) -> JSONParseError {
-    JSONParseError(.invalidNumber(pos))
+
+  /// Creates an "invalid number" error at the given line and column.
+  public static func invalidNumber(line: Int, column: Int) -> JSONParseError {
+    JSONParseError(.invalidNumber(line: line, column: column))
+  }
+
+  /// Creates an "invalid encoding" error.
+  public static func invalidEncoding() -> JSONParseError {
+    JSONParseError(.invalidEncoding)
+  }
+
+  /// Creates a "depth exceeded" error at the given line and column.
+  public static func depthExceeded(line: Int, column: Int) -> JSONParseError {
+    JSONParseError(.depthExceeded(line: line, column: column))
   }
 
   /// A human-readable description of this parse error.
   public var description: String {
     switch kind {
-    case .unexpectedEnd: return "Unexpected end of JSON input"
-    case .unexpectedToken(let pos): return "Unexpected token at position \(pos)"
-    case .expectedString(let pos): return "Expected a string at position \(pos)"
-    case .expectedColon(let pos): return "Expected ':' at position \(pos)"
-    case .expectedCloseBrace(let pos): return "Expected '}' at position \(pos)"
-    case .expectedCloseBracket(let pos): return "Expected ']' at position \(pos)"
-    case .invalidEscape(let pos): return "Invalid escape sequence at position \(pos)"
-    case .invalidUnicodeEscape(let pos): return "Invalid Unicode escape at position \(pos)"
-    case .invalidNumber(let pos): return "Invalid number at position \(pos)"
+    case .unexpectedEnd:
+      return "Unexpected end of JSON input"
+    case .unexpectedToken(let line, let column):
+      return "Unexpected token at line \(line), column \(column)"
+    case .expectedString(let line, let column):
+      return "Expected a string at line \(line), column \(column)"
+    case .expectedColon(let line, let column):
+      return "Expected ':' at line \(line), column \(column)"
+    case .expectedCloseBrace(let line, let column):
+      return "Expected '}' at line \(line), column \(column)"
+    case .expectedCloseBracket(let line, let column):
+      return "Expected ']' at line \(line), column \(column)"
+    case .invalidEscape(let line, let column):
+      return "Invalid escape sequence at line \(line), column \(column)"
+    case .invalidUnicodeEscape(let line, let column):
+      return "Invalid Unicode escape at line \(line), column \(column)"
+    case .invalidNumber(let line, let column):
+      return "Invalid number at line \(line), column \(column)"
+    case .invalidEncoding:
+      return "Invalid UTF-8 encoding in JSON input"
+    case .depthExceeded(let line, let column):
+      return "Maximum nesting depth exceeded at line \(line), column \(column)"
     }
   }
 }
