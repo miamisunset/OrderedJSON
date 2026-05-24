@@ -17,7 +17,7 @@ Swift library that preserves JSON key order with a rich method-based API mirrori
 - Minimal platforms: iOS 26 / macOS 26 / tvOS 26 / watchOS 26 (Swift 6.3, language mode v6)
 - `StrictConcurrency` enabled — all public APIs must be `Sendable`-aware
 - Core type: `JSON` struct wrapping a `Storage` enum (6 cases: object/array/string/number/boolean/null)
-- Source organized by concern in `Sources/OrderedJSON/{Core,Parsing,Access,Modifiers,Flatten,Patch,SAX,Binary,Operators}/`
+- Source organized by concern in `Sources/OrderedJSON/{Core,Parsing,Access,Modifiers,Flatten,Patch,SAX,Binary,Operators,Builder,Codable}/`
 - Tests mirror the same structure in `Tests/OrderedJSONTests/`
 
 ## Key goals

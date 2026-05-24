@@ -69,4 +69,15 @@ extension JSON {
     case .null, .boolean, .number, .string: return nil
     }
   }
+
+  // MARK: - Keys
+
+  /// Returns the keys of an object value in insertion order, or `nil` for non-objects.
+  ///
+  /// For objects, returns the ordered key array.
+  /// For arrays and primitives, returns `nil`.
+  public var objectKeys: [String]? {
+    guard case .object(let dict) = storage else { return nil }
+    return Array(dict.keys)
+  }
 }
