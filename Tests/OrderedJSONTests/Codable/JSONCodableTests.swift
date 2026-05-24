@@ -927,3 +927,366 @@ extension JSON {
   #expect(keys?[1] == "a")
   #expect(keys?[2] == "m")
 }
+
+// MARK: - Foundation type interop
+
+@Test func foundationDateDefault() throws {
+  struct Container: Codable {
+    let timestamp: Date
+  }
+  let date = Date(timeIntervalSince1970: 1_234_567_890)
+  let encoder = OrderedJSONEncoder()
+  let json = try encoder.encode(Container(timestamp: date))
+  // Default strategy (.deferredToDate) uses Date's own encoding (timeIntervalSinceReferenceDate)
+  #expect(json.isObject)
+  #expect(json["timestamp"]?.isFloat == true)
+
+  // Round-trip
+  let decoder = OrderedJSONDecoder()
+  let back = try decoder.decode(Container.self, from: json)
+  #expect(back.timestamp.timeIntervalSinceReferenceDate == date.timeIntervalSinceReferenceDate)
+}
+
+@Test func foundationDateSecondsSince1970() throws {
+  struct Container: Codable {
+    let timestamp: Date
+  }
+  let date = Date(timeIntervalSince1970: 1_234_567_890)
+  var encoder = OrderedJSONEncoder()
+  encoder.dateEncodingStrategy = .secondsSince1970
+  let json = try encoder.encode(Container(timestamp: date))
+  #expect(json["timestamp"] == .number(.float(1_234_567_890)))
+
+  var decoder = OrderedJSONDecoder()
+  decoder.dateDecodingStrategy = .secondsSince1970
+  let back = try decoder.decode(Container.self, from: json)
+  #expect(back.timestamp.timeIntervalSince1970 == 1_234_567_890)
+}
+
+@Test func foundationDateMillisecondsSince1970() throws {
+  struct Container: Codable {
+    let timestamp: Date
+  }
+  let date = Date(timeIntervalSince1970: 1_234_567_890)
+  var encoder = OrderedJSONEncoder()
+  encoder.dateEncodingStrategy = .millisecondsSince1970
+  let json = try encoder.encode(Container(timestamp: date))
+  #expect(json["timestamp"] == .number(.float(1_234_567_890_000)))
+
+  var decoder = OrderedJSONDecoder()
+  decoder.dateDecodingStrategy = .millisecondsSince1970
+  let back = try decoder.decode(Container.self, from: json)
+  #expect(back.timestamp.timeIntervalSince1970 == 1_234_567_890)
+}
+
+@Test func foundationDateISO8601() throws {
+  struct Container: Codable {
+    let timestamp: Date
+  }
+  let formatter = ISO8601DateFormatter()
+  formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+  let date = Date(timeIntervalSince1970: 1_234_567_890)
+  let dateString = formatter.string(from: date)
+
+  var encoder = OrderedJSONEncoder()
+  encoder.dateEncodingStrategy = .iso8601
+  let json = try encoder.encode(Container(timestamp: date))
+  #expect(json["timestamp"] == .string(dateString))
+
+  var decoder = OrderedJSONDecoder()
+  decoder.dateDecodingStrategy = .iso8601
+  let back = try decoder.decode(Container.self, from: json)
+  #expect(formatter.string(from: back.timestamp) == dateString)
+}
+
+@Test func foundationDateFormatted() throws {
+  struct Container: Codable {
+    let timestamp: Date
+  }
+  let formatter = DateFormatter()
+  formatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss"
+  let date = Date(timeIntervalSince1970: 1_234_567_890)
+  let dateString = formatter.string(from: date)
+
+  var encoder = OrderedJSONEncoder()
+  encoder.dateEncodingStrategy = .formatted(formatter)
+  let json = try encoder.encode(Container(timestamp: date))
+  #expect(json["timestamp"] == .string(dateString))
+
+  var decoder = OrderedJSONDecoder()
+  decoder.dateDecodingStrategy = .formatted(formatter)
+  let back = try decoder.decode(Container.self, from: json)
+  #expect(formatter.string(from: back.timestamp) == dateString)
+}
+
+@Test func foundationDataBase64() throws {
+  struct Container: Codable {
+    let data: Data
+  }
+  let original = Data([0xDE, 0xAD, 0xBE, 0xEF])
+  let b64 = original.base64EncodedString()
+
+  var encoder = OrderedJSONEncoder()
+  encoder.dataEncodingStrategy = .base64
+  let json = try encoder.encode(Container(data: original))
+  #expect(json["data"] == .string(b64))
+
+  var decoder = OrderedJSONDecoder()
+  decoder.dataDecodingStrategy = .base64
+  let back = try decoder.decode(Container.self, from: json)
+  #expect(back.data == original)
+}
+
+@Test func foundationURL() throws {
+  struct Container: Codable {
+    let url: URL
+  }
+  let url = URL(string: "https://example.com/path")!
+  let encoder = OrderedJSONEncoder()
+  let json = try encoder.encode(Container(url: url))
+  #expect(json["url"] == .string(url.absoluteString))
+
+  let decoder = OrderedJSONDecoder()
+  let back = try decoder.decode(Container.self, from: json)
+  #expect(back.url == url)
+}
+
+@Test func foundationUUID() throws {
+  struct Container: Codable {
+    let id: UUID
+  }
+  let uuid = UUID()
+  let encoder = OrderedJSONEncoder()
+  let json = try encoder.encode(Container(id: uuid))
+  #expect(json["id"] == .string(uuid.uuidString))
+
+  let decoder = OrderedJSONDecoder()
+  let back = try decoder.decode(Container.self, from: json)
+  #expect(back.id == uuid)
+}
+
+@Test func foundationDecimal() throws {
+  struct Container: Codable {
+    let amount: Decimal
+  }
+  let decimal = Decimal(string: "3.14159")!
+  let encoder = OrderedJSONEncoder()
+  let json = try encoder.encode(Container(amount: decimal))
+  #expect(json["amount"]?.isString == true)
+  #expect(json["amount"]?.stringValue == "3.14159")
+
+  let decoder = OrderedJSONDecoder()
+  let back = try decoder.decode(Container.self, from: json)
+  #expect(back.amount == decimal)
+}
+
+@Test func foundationDecimalAsNumber() throws {
+  struct Container: Codable {
+    let amount: Decimal
+  }
+  let decimal = Decimal(string: "3.14159")!
+  var encoder = OrderedJSONEncoder()
+  encoder.decimalEncodingStrategy = .asNumber
+  let json = try encoder.encode(Container(amount: decimal))
+  #expect(json["amount"]?.isNumber == true)
+  var decoder = OrderedJSONDecoder()
+  decoder.decimalDecodingStrategy = .asNumber
+  let back = try decoder.decode(Container.self, from: json)
+  #expect(back.amount == decimal)
+}
+
+@Test func foundationDateCustomStrategy() throws {
+  struct Container: Codable {
+    let timestamp: Date
+  }
+  let date = Date(timeIntervalSince1970: 42)
+  var encoder = OrderedJSONEncoder()
+  encoder.dateEncodingStrategy = .custom { d, _ in
+    return .object(["epoch": .number(.integer(Int64(d.timeIntervalSince1970)))])
+  }
+  let json = try encoder.encode(Container(timestamp: date))
+  #expect(json["timestamp"]?.isObject == true)
+  #expect(json["timestamp"]?["epoch"] == .number(.integer(42)))
+
+  var decoder = OrderedJSONDecoder()
+  decoder.dateDecodingStrategy = .custom { json, _ in
+    return Date(timeIntervalSince1970: try json["epoch"]!.requireDouble())
+  }
+  let back = try decoder.decode(Container.self, from: json)
+  #expect(back.timestamp.timeIntervalSince1970 == 42)
+}
+
+@Test func foundationDataCustomStrategy() throws {
+  struct Container: Codable {
+    let data: Data
+  }
+  let original = Data([0x01, 0x02])
+  var encoder = OrderedJSONEncoder()
+  encoder.dataEncodingStrategy = .custom { d, _ in
+    return .number(.integer(Int64(d.count)))
+  }
+  let json = try encoder.encode(Container(data: original))
+  #expect(json["data"] == .number(.integer(2)))
+
+  var decoder = OrderedJSONDecoder()
+  decoder.dataDecodingStrategy = .custom { json, _ in
+    return Data([0x01, 0x02])
+  }
+  let back = try decoder.decode(Container.self, from: json)
+  #expect(back.data == original)
+}
+
+// MARK: - Invalid input error handling
+
+@Test func invalidURLStringThrows() throws {
+  struct Container: Decodable {
+    let url: URL
+  }
+  let decoder = OrderedJSONDecoder()
+  // Empty string should throw dataCorrupted, not crash
+  let json = JSON.object(["url": .string("")])
+  #expect {
+    try decoder.decode(Container.self, from: json)
+  } throws: { error in
+    guard let decodingError = error as? DecodingError else { return false }
+    switch decodingError {
+    case .dataCorrupted(let ctx):
+      return ctx.debugDescription.contains("Invalid URL")
+    default: return false
+    }
+  }
+}
+
+@Test func invalidUUIDStringThrows() throws {
+  struct Container: Decodable {
+    let id: UUID
+  }
+  let decoder = OrderedJSONDecoder()
+  // Invalid UUID format should throw dataCorrupted, not crash
+  let json = JSON.object(["id": .string("not-a-uuid")])
+  #expect {
+    try decoder.decode(Container.self, from: json)
+  } throws: { error in
+    guard let decodingError = error as? DecodingError else { return false }
+    switch decodingError {
+    case .dataCorrupted(let ctx):
+      return ctx.debugDescription.contains("Invalid UUID")
+    default: return false
+    }
+  }
+}
+
+@Test func invalidDecimalStringThrows() throws {
+  struct Container: Decodable {
+    let amount: Decimal
+  }
+  let decoder = OrderedJSONDecoder()
+  // Non-numeric string should throw dataCorrupted, not return Decimal.nan
+  let json = JSON.object(["amount": .string("not-a-number")])
+  #expect {
+    try decoder.decode(Container.self, from: json)
+  } throws: { error in
+    guard let decodingError = error as? DecodingError else { return false }
+    switch decodingError {
+    case .dataCorrupted(let ctx):
+      return ctx.debugDescription.contains("Invalid Decimal")
+    default: return false
+    }
+  }
+}
+
+@Test func invalidDecimalAsNumberThrows() throws {
+  struct Container: Decodable {
+    let amount: Decimal
+  }
+  var decoder = OrderedJSONDecoder()
+  decoder.decimalDecodingStrategy = .asNumber
+  // Non-number value should throw typeMismatch, not return Decimal.nan
+  let json = JSON.object(["amount": .string("not-a-number")])
+  #expect {
+    try decoder.decode(Container.self, from: json)
+  } throws: { error in
+    guard let decodingError = error as? DecodingError else { return false }
+    switch decodingError {
+    case .typeMismatch:
+      return true
+    default: return false
+    }
+  }
+}
+
+// MARK: - Optional Date via decodeIfPresent
+
+@Test func foundationOptionalDatePresent() throws {
+  struct Container: Decodable {
+    let timestamp: Date?
+  }
+  let decoder = OrderedJSONDecoder()
+  let json = JSON.object(["timestamp": .number(.float(0))])
+  let back = try decoder.decode(Container.self, from: json)
+  #expect(back.timestamp != nil)
+}
+
+@Test func foundationOptionalDateMissing() throws {
+  struct Container: Decodable {
+    let timestamp: Date?
+  }
+  let decoder = OrderedJSONDecoder()
+  let json = JSON.object([:])
+  let back = try decoder.decode(Container.self, from: json)
+  #expect(back.timestamp == nil)
+}
+
+@Test func foundationOptionalDateExplicitNull() throws {
+  struct Container: Decodable {
+    let timestamp: Date?
+  }
+  let decoder = OrderedJSONDecoder()
+  let json = JSON.object(["timestamp": .null])
+  let back = try decoder.decode(Container.self, from: json)
+  #expect(back.timestamp == nil)
+}
+
+// MARK: - Strategy propagation through custom closures
+
+@Test func strategyPropagationInDeferredDate() throws {
+  // When .deferredToDate is used, a child impl is created internally.
+  // Verify that the child impl receives the configured strategies.
+  struct Outer: Codable {
+    let timestamp: Date
+    let config: Decimal
+  }
+
+  var encoder = OrderedJSONEncoder()
+  encoder.dateEncodingStrategy = .deferredToDate
+  encoder.decimalEncodingStrategy = .asString
+  let date = Date(timeIntervalSince1970: 100)
+  let decimal = Decimal(string: "2.71828")!
+  let json = try encoder.encode(Outer(timestamp: date, config: decimal))
+  // Date should use Date's own encoding (float), Decimal should be string
+  #expect(json["timestamp"]?.isFloat == true)
+  #expect(json["config"]?.isString == true)
+  #expect(json["config"]?.stringValue == "2.71828")
+
+  var decoder = OrderedJSONDecoder()
+  decoder.dateDecodingStrategy = .deferredToDate
+  decoder.decimalDecodingStrategy = .asString
+  let back = try decoder.decode(Outer.self, from: json)
+  #expect(back.timestamp.timeIntervalSinceReferenceDate == date.timeIntervalSinceReferenceDate)
+  #expect(back.config == decimal)
+}
+
+// MARK: - Date in nested unkeyed container
+
+@Test func foundationDateInUnkeyedContainer() throws {
+  struct Container: Decodable {
+    let dates: [Date]
+  }
+  var decoder = OrderedJSONDecoder()
+  decoder.dateDecodingStrategy = .secondsSince1970
+  let json = JSON.object(["dates": .array([.number(.float(1_000)), .number(.float(2_000))])])
+  let back = try decoder.decode(Container.self, from: json)
+  #expect(back.dates.count == 2)
+  #expect(back.dates[0].timeIntervalSince1970 == 1_000)
+  #expect(back.dates[1].timeIntervalSince1970 == 2_000)
+}

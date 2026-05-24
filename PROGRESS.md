@@ -216,3 +216,31 @@ All 403 tests pass. Build produces zero errors. CI pipeline passes (SwiftFormat 
 - Merged `codable-support` → `main` via squash-merge at `9cc89b2`
 - Tagged and released as **v2.1.0**
 - README updated with Codable documentation, performance section, throwing accessor table
+
+## Review Fixes Applied (PR #8)
+
+### Issues Addressed
+1. **Decimal precision**: Changed default from `.asNumber` (JSON number via `Double`) to `.asString` (JSON string preserving precision). Added `DecimalEncodingStrategy`/`DecimalDecodingStrategy` enums.
+2. **ISO8601 fractional seconds**: Both encoder and decoder now use `ISO8601DateFormatter` with `.withInternetDateTime | .withFractionalSeconds`.
+3. **Default data strategy**: Changed from `.deferredToData` to `.base64` (matching Foundation's `JSONEncoder` default).
+4. **Strategy propagation**: `decimalEncodingStrategy`/`decimalDecodingStrategy` propagate to all nested containers and super encoders.
+5. **Tests updated**: `foundationDecimal` expects string, added `foundationDecimalAsNumber` test, updated `foundationDateISO8601` for fractional seconds.
+6. **README updated**: Decimal section now notes `.asString` default, Data section notes `.base64` default, ISO8601 section documents `.withFractionalSeconds`.
+
+### Bug Fixes (Round 2)
+1. **URL/UUID crash (🔴)**: Replaced `URL(string:) as! T` / `UUID(uuidString:) as! T` force-unwraps with proper `decodeURL`/`decodeUUID` helpers that throw `DecodingError.dataCorrupted` on invalid input. Applied to all 3 container types (keyed, unkeyed, single-value).
+2. **Decimal NaN silent failure (🔴)**: `decodeDecimal` now throws `DecodingError.dataCorrupted` / `DecodingError.typeMismatch` instead of returning `Decimal.nan`. `.asNumber` now routes through `JSONNumber` directly (`integer`/`float`) instead of `Double` → `String` → `Decimal` round-trip, preserving precision.
+3. **Strategy propagation in deferred/custom paths (🔴)**: `decodeDate` `.deferredToDate`/`.custom`, `decodeData` `.deferredToData`/`.custom`, `encodeDate` `.deferredToDate`/`.custom`, and `encodeData` `.deferredToData`/`.custom` now pass the configured strategies to child `_JSONDecodeImpl`/`_JSONEncodeImpl` instances instead of using defaults.
+4. **Decimal encode `.asNumber` precision**: Now emits `.integer(Int64)` when the Decimal value is exactly representable as an integer, falling back to `.float(Double)` only when fractional.
+5. **`encodeDate` `.deferredToDate` codingPath**: Now sets `codingPath` on the child impl, matching the `.custom` branch behavior.
+
+### New Tests
+- `invalidURLStringThrows` — empty URL string → `DecodingError.dataCorrupted`
+- `invalidUUIDStringThrows` — malformed UUID → `DecodingError.dataCorrupted`
+- `invalidDecimalStringThrows` — non-numeric string → `DecodingError.dataCorrupted`
+- `invalidDecimalAsNumberThrows` — string with `.asNumber` strategy → `DecodingError.typeMismatch`
+- `foundationOptionalDatePresent` — `Date?` with value
+- `foundationOptionalDateMissing` — `Date?` with absent key
+- `foundationOptionalDateExplicitNull` — `Date?` with explicit null
+- `strategyPropagationInDeferredDate` — verifies `.deferredToDate` passes configured strategies to child impl
+- `foundationDateInUnkeyedContainer` — `[Date]` array via unkeyed container

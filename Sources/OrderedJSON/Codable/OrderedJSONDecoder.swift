@@ -9,6 +9,15 @@ public struct OrderedJSONDecoder {
   /// The user info dictionary for the decoder, propagated to all nested decoders.
   public var userInfo: [CodingUserInfoKey: Any]
 
+  /// The strategy to use for decoding `Date` values.
+  public var dateDecodingStrategy: DateDecodingStrategy = .deferredToDate
+
+  /// The strategy to use for decoding `Data` values.
+  public var dataDecodingStrategy: DataDecodingStrategy = .base64
+
+  /// The strategy to use for decoding `Decimal` values.
+  public var decimalDecodingStrategy: DecimalDecodingStrategy = .asString
+
   /// Creates a new decoder with default options.
   public init() {
     self.userInfo = [:]
@@ -25,9 +34,50 @@ public struct OrderedJSONDecoder {
   }
 
   public func decode<T: Decodable>(_ type: T.Type, from json: JSON) throws -> T {
-    let impl = _JSONDecodeImpl(json: json, userInfo: userInfo)
+    let impl = _JSONDecodeImpl(
+      json: json,
+      userInfo: userInfo,
+      dateDecodingStrategy: dateDecodingStrategy,
+      dataDecodingStrategy: dataDecodingStrategy,
+      decimalDecodingStrategy: decimalDecodingStrategy)
     return try T(from: impl)
   }
+}
+
+// MARK: - Decoding strategies
+
+/// Strategy for decoding `Date` values.
+public enum DateDecodingStrategy {
+  /// Decode the `Date` using its `Decodable` implementation (default).
+  case deferredToDate
+  /// Decode as a Double representing seconds since 1970-01-01.
+  case secondsSince1970
+  /// Decode as a Double representing milliseconds since 1970-01-01.
+  case millisecondsSince1970
+  /// Decode as an ISO-8601 string using `ISO8601DateFormatter`.
+  case iso8601
+  /// Decode using a `DateFormatter`.
+  case formatted(DateFormatter)
+  /// Decode using a custom closure.
+  case custom((JSON, Decoder) throws -> Date)
+}
+
+/// Strategy for decoding `Data` values.
+public enum DataDecodingStrategy {
+  /// Decode the `Data` using its `Decodable` implementation.
+  case deferredToData
+  /// Decode as a Base64-encoded string (default).
+  case base64
+  /// Decode using a custom closure.
+  case custom((JSON, Decoder) throws -> Data)
+}
+
+/// Strategy for decoding `Decimal` values.
+public enum DecimalDecodingStrategy {
+  /// Decode the `Decimal` from a JSON string (default, preserves precision).
+  case asString
+  /// Decode the `Decimal` from a JSON number.
+  case asNumber
 }
 
 // MARK: - Internal decoder implementation
@@ -38,10 +88,25 @@ final class _JSONDecodeImpl: Decoder {
   var userInfo: [CodingUserInfoKey: Any] { _userInfo }
   private let _userInfo: [CodingUserInfoKey: Any]
 
-  init(json: JSON, userInfo: [CodingUserInfoKey: Any] = [:], codingPath: [CodingKey] = []) {
+  /// Strategies propagated from `OrderedJSONDecoder`.
+  let dateDecodingStrategy: DateDecodingStrategy
+  let dataDecodingStrategy: DataDecodingStrategy
+  let decimalDecodingStrategy: DecimalDecodingStrategy
+
+  init(
+    json: JSON,
+    userInfo: [CodingUserInfoKey: Any] = [:],
+    codingPath: [CodingKey] = [],
+    dateDecodingStrategy: DateDecodingStrategy = .deferredToDate,
+    dataDecodingStrategy: DataDecodingStrategy = .base64,
+    decimalDecodingStrategy: DecimalDecodingStrategy = .asString
+  ) {
     self.json = json
     self._userInfo = userInfo
     self.codingPath = codingPath
+    self.dateDecodingStrategy = dateDecodingStrategy
+    self.dataDecodingStrategy = dataDecodingStrategy
+    self.decimalDecodingStrategy = decimalDecodingStrategy
   }
 
   func container<Key: CodingKey>(keyedBy keyType: Key.Type) throws -> KeyedDecodingContainer<Key> {
@@ -72,6 +137,146 @@ final class _JSONDecodeImpl: Decoder {
   func singleValueContainer() throws -> SingleValueDecodingContainer {
     _JSONSingleValueDecodingContainer(json: json, impl: self, pathPrefix: codingPath)
   }
+}
+
+// MARK: - Foundation type decoding helpers
+
+private func decodeDate(
+  from json: JSON, with strategy: DateDecodingStrategy, codingPath: [CodingKey],
+  dateDecodingStrategy: DateDecodingStrategy,
+  dataDecodingStrategy: DataDecodingStrategy,
+  decimalDecodingStrategy: DecimalDecodingStrategy
+) throws -> Date {
+  switch strategy {
+  case .deferredToDate:
+    // Fall through to Date's own Decodable implementation
+    let impl = _JSONDecodeImpl(
+      json: json, codingPath: codingPath,
+      dateDecodingStrategy: dateDecodingStrategy,
+      dataDecodingStrategy: dataDecodingStrategy,
+      decimalDecodingStrategy: decimalDecodingStrategy)
+    return try Date(from: impl)
+  case .secondsSince1970:
+    return Date(timeIntervalSince1970: try json.requireDouble())
+  case .millisecondsSince1970:
+    return Date(timeIntervalSince1970: try json.requireDouble() / 1000.0)
+  case .iso8601:
+    let string = try json.requireString()
+    let formatter = ISO8601DateFormatter()
+    formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+    guard let date = formatter.date(from: string) else {
+      throw DecodingError.dataCorrupted(
+        DecodingError.Context(
+          codingPath: codingPath,
+          debugDescription: "Invalid ISO8601 date: \(string)"))
+    }
+    return date
+  case .formatted(let formatter):
+    let string = try json.requireString()
+    guard let date = formatter.date(from: string) else {
+      throw DecodingError.dataCorrupted(
+        DecodingError.Context(
+          codingPath: codingPath,
+          debugDescription: "Invalid date format: \(string)"))
+    }
+    return date
+  case .custom(let closure):
+    let impl = _JSONDecodeImpl(
+      json: json, codingPath: codingPath,
+      dateDecodingStrategy: dateDecodingStrategy,
+      dataDecodingStrategy: dataDecodingStrategy,
+      decimalDecodingStrategy: decimalDecodingStrategy)
+    return try closure(json, impl)
+  }
+}
+
+private func decodeData(
+  from json: JSON, with strategy: DataDecodingStrategy, codingPath: [CodingKey],
+  dateDecodingStrategy: DateDecodingStrategy,
+  dataDecodingStrategy: DataDecodingStrategy,
+  decimalDecodingStrategy: DecimalDecodingStrategy
+) throws -> Data {
+  switch strategy {
+  case .deferredToData:
+    // Fall through to Data's own Decodable implementation
+    let impl = _JSONDecodeImpl(
+      json: json, codingPath: codingPath,
+      dateDecodingStrategy: dateDecodingStrategy,
+      dataDecodingStrategy: dataDecodingStrategy,
+      decimalDecodingStrategy: decimalDecodingStrategy)
+    return try Data(from: impl)
+  case .base64:
+    let string = try json.requireString()
+    guard let data = Data(base64Encoded: string) else {
+      throw DecodingError.dataCorrupted(
+        DecodingError.Context(
+          codingPath: codingPath,
+          debugDescription: "Invalid base64 data"))
+    }
+    return data
+  case .custom(let closure):
+    let impl = _JSONDecodeImpl(
+      json: json, codingPath: codingPath,
+      dateDecodingStrategy: dateDecodingStrategy,
+      dataDecodingStrategy: dataDecodingStrategy,
+      decimalDecodingStrategy: decimalDecodingStrategy)
+    return try closure(json, impl)
+  }
+}
+
+private func decodeDecimal(
+  from json: JSON, with strategy: DecimalDecodingStrategy, codingPath: [CodingKey]
+) throws -> Decimal {
+  switch strategy {
+  case .asString:
+    let string = try json.requireString()
+    guard let decimal = Decimal(string: string) else {
+      throw DecodingError.dataCorrupted(
+        DecodingError.Context(
+          codingPath: codingPath,
+          debugDescription: "Invalid Decimal string: \(string)"))
+    }
+    return decimal
+  case .asNumber:
+    switch json.storage {
+    case .number(.integer(let i)):
+      return Decimal(i)
+    case .number(.float(let d)):
+      return Decimal(Double(d))
+    default:
+      throw DecodingError.typeMismatch(
+        Decimal.self,
+        DecodingError.Context(
+          codingPath: codingPath,
+          debugDescription: "Expected a JSON number for Decimal decoding"))
+    }
+  }
+}
+
+private func decodeURL(
+  from json: JSON, codingPath: [CodingKey]
+) throws -> URL {
+  let string = try json.requireString()
+  guard let url = URL(string: string) else {
+    throw DecodingError.dataCorrupted(
+      DecodingError.Context(
+        codingPath: codingPath,
+        debugDescription: "Invalid URL string: \(string)"))
+  }
+  return url
+}
+
+private func decodeUUID(
+  from json: JSON, codingPath: [CodingKey]
+) throws -> UUID {
+  let string = try json.requireString()
+  guard let uuid = UUID(uuidString: string) else {
+    throw DecodingError.dataCorrupted(
+      DecodingError.Context(
+        codingPath: codingPath,
+        debugDescription: "Invalid UUID string: \(string)"))
+  }
+  return uuid
 }
 
 // MARK: - Keyed decoding container
@@ -170,8 +375,39 @@ struct _JSONKeyedDecodingContainer<Key: CodingKey>: KeyedDecodingContainerProtoc
           codingPath: codingPath,
           debugDescription: "Key not found: \(key.stringValue)"))
     }
+    // Foundation type special handling
+    if T.self == Date.self {
+      return try decodeDate(
+        from: value, with: impl.dateDecodingStrategy, codingPath: codingPath + [key],
+        dateDecodingStrategy: impl.dateDecodingStrategy,
+        dataDecodingStrategy: impl.dataDecodingStrategy,
+        decimalDecodingStrategy: impl.decimalDecodingStrategy) as! T
+    }
+    if T.self == Data.self {
+      return try decodeData(
+        from: value, with: impl.dataDecodingStrategy, codingPath: codingPath + [key],
+        dateDecodingStrategy: impl.dateDecodingStrategy,
+        dataDecodingStrategy: impl.dataDecodingStrategy,
+        decimalDecodingStrategy: impl.decimalDecodingStrategy) as! T
+    }
+    if T.self == URL.self {
+      return try decodeURL(from: value, codingPath: codingPath + [key]) as! T
+    }
+    if T.self == UUID.self {
+      return try decodeUUID(from: value, codingPath: codingPath + [key]) as! T
+    }
+    if T.self == Decimal.self {
+      return try decodeDecimal(
+        from: value, with: impl.decimalDecodingStrategy, codingPath: codingPath + [key]) as! T
+    }
+    // Default path
     let child = _JSONDecodeImpl(
-      json: value, userInfo: impl.userInfo, codingPath: codingPath + [key])
+      json: value,
+      userInfo: impl.userInfo,
+      codingPath: codingPath + [key],
+      dateDecodingStrategy: impl.dateDecodingStrategy,
+      dataDecodingStrategy: impl.dataDecodingStrategy,
+      decimalDecodingStrategy: impl.decimalDecodingStrategy)
     return try T(from: child)
   }
 
@@ -187,7 +423,12 @@ struct _JSONKeyedDecodingContainer<Key: CodingKey>: KeyedDecodingContainerProtoc
           debugDescription: "Key not found: \(key.stringValue)"))
     }
     let child = _JSONDecodeImpl(
-      json: value, userInfo: impl.userInfo, codingPath: codingPath + [key])
+      json: value,
+      userInfo: impl.userInfo,
+      codingPath: codingPath + [key],
+      dateDecodingStrategy: impl.dateDecodingStrategy,
+      dataDecodingStrategy: impl.dataDecodingStrategy,
+      decimalDecodingStrategy: impl.decimalDecodingStrategy)
     return try child.container(keyedBy: keyType)
   }
 
@@ -200,7 +441,12 @@ struct _JSONKeyedDecodingContainer<Key: CodingKey>: KeyedDecodingContainerProtoc
           debugDescription: "Key not found: \(key.stringValue)"))
     }
     let child = _JSONDecodeImpl(
-      json: value, userInfo: impl.userInfo, codingPath: codingPath + [key])
+      json: value,
+      userInfo: impl.userInfo,
+      codingPath: codingPath + [key],
+      dateDecodingStrategy: impl.dateDecodingStrategy,
+      dataDecodingStrategy: impl.dataDecodingStrategy,
+      decimalDecodingStrategy: impl.decimalDecodingStrategy)
     return try child.unkeyedContainer()
   }
 
@@ -212,11 +458,23 @@ struct _JSONKeyedDecodingContainer<Key: CodingKey>: KeyedDecodingContainerProtoc
           codingPath: codingPath,
           debugDescription: "Key not found: \(key.stringValue)"))
     }
-    return _JSONDecodeImpl(json: value, userInfo: impl.userInfo, codingPath: codingPath + [key])
+    return _JSONDecodeImpl(
+      json: value,
+      userInfo: impl.userInfo,
+      codingPath: codingPath + [key],
+      dateDecodingStrategy: impl.dateDecodingStrategy,
+      dataDecodingStrategy: impl.dataDecodingStrategy,
+      decimalDecodingStrategy: impl.decimalDecodingStrategy)
   }
 
   func superDecoder() throws -> Decoder {
-    _JSONDecodeImpl(json: .object(dictionary), userInfo: impl.userInfo, codingPath: codingPath)
+    _JSONDecodeImpl(
+      json: .object(dictionary),
+      userInfo: impl.userInfo,
+      codingPath: codingPath,
+      dateDecodingStrategy: impl.dateDecodingStrategy,
+      dataDecodingStrategy: impl.dataDecodingStrategy,
+      decimalDecodingStrategy: impl.decimalDecodingStrategy)
   }
 
   /// Helper: extract a typed value from the dictionary, with key-not-found handling.
@@ -316,7 +574,41 @@ struct _JSONUnkeyedDecodingContainer: UnkeyedDecodingContainer {
 
   mutating func decode<T: Decodable>(_ type: T.Type) throws -> T {
     let value = try currentElement()
-    let child = _JSONDecodeImpl(json: value, userInfo: impl.userInfo, codingPath: codingPath)
+    // Foundation type special handling
+    if T.self == Date.self {
+      return try decodeDate(
+        from: value, with: impl.dateDecodingStrategy, codingPath: codingPath,
+        dateDecodingStrategy: impl.dateDecodingStrategy,
+        dataDecodingStrategy: impl.dataDecodingStrategy,
+        decimalDecodingStrategy: impl.decimalDecodingStrategy)
+        as! T
+    }
+    if T.self == Data.self {
+      return try decodeData(
+        from: value, with: impl.dataDecodingStrategy, codingPath: codingPath,
+        dateDecodingStrategy: impl.dateDecodingStrategy,
+        dataDecodingStrategy: impl.dataDecodingStrategy,
+        decimalDecodingStrategy: impl.decimalDecodingStrategy)
+        as! T
+    }
+    if T.self == URL.self {
+      return try decodeURL(from: value, codingPath: codingPath) as! T
+    }
+    if T.self == UUID.self {
+      return try decodeUUID(from: value, codingPath: codingPath) as! T
+    }
+    if T.self == Decimal.self {
+      return try decodeDecimal(
+        from: value, with: impl.decimalDecodingStrategy, codingPath: codingPath) as! T
+    }
+    // Default path
+    let child = _JSONDecodeImpl(
+      json: value,
+      userInfo: impl.userInfo,
+      codingPath: codingPath,
+      dateDecodingStrategy: impl.dateDecodingStrategy,
+      dataDecodingStrategy: impl.dataDecodingStrategy,
+      decimalDecodingStrategy: impl.decimalDecodingStrategy)
     return try T(from: child)
   }
 
@@ -324,19 +616,37 @@ struct _JSONUnkeyedDecodingContainer: UnkeyedDecodingContainer {
     keyedBy keyType: NestedKey.Type
   ) throws -> KeyedDecodingContainer<NestedKey> {
     let value = try currentElement()
-    let child = _JSONDecodeImpl(json: value, userInfo: impl.userInfo, codingPath: codingPath)
+    let child = _JSONDecodeImpl(
+      json: value,
+      userInfo: impl.userInfo,
+      codingPath: codingPath,
+      dateDecodingStrategy: impl.dateDecodingStrategy,
+      dataDecodingStrategy: impl.dataDecodingStrategy,
+      decimalDecodingStrategy: impl.decimalDecodingStrategy)
     return try child.container(keyedBy: keyType)
   }
 
   mutating func nestedUnkeyedContainer() throws -> UnkeyedDecodingContainer {
     let value = try currentElement()
-    let child = _JSONDecodeImpl(json: value, userInfo: impl.userInfo, codingPath: codingPath)
+    let child = _JSONDecodeImpl(
+      json: value,
+      userInfo: impl.userInfo,
+      codingPath: codingPath,
+      dateDecodingStrategy: impl.dateDecodingStrategy,
+      dataDecodingStrategy: impl.dataDecodingStrategy,
+      decimalDecodingStrategy: impl.decimalDecodingStrategy)
     return try child.unkeyedContainer()
   }
 
   mutating func superDecoder() throws -> Decoder {
     let value = try currentElement()
-    return _JSONDecodeImpl(json: value, userInfo: impl.userInfo, codingPath: codingPath)
+    return _JSONDecodeImpl(
+      json: value,
+      userInfo: impl.userInfo,
+      codingPath: codingPath,
+      dateDecodingStrategy: impl.dateDecodingStrategy,
+      dataDecodingStrategy: impl.dataDecodingStrategy,
+      decimalDecodingStrategy: impl.decimalDecodingStrategy)
   }
 
   private mutating func currentElement() throws -> JSON {
@@ -429,7 +739,41 @@ struct _JSONSingleValueDecodingContainer: SingleValueDecodingContainer {
   }
 
   func decode<T: Decodable>(_ type: T.Type) throws -> T {
-    let child = _JSONDecodeImpl(json: json, userInfo: impl.userInfo, codingPath: codingPath)
+    // Foundation type special handling
+    if T.self == Date.self {
+      return try decodeDate(
+        from: json, with: impl.dateDecodingStrategy, codingPath: codingPath,
+        dateDecodingStrategy: impl.dateDecodingStrategy,
+        dataDecodingStrategy: impl.dataDecodingStrategy,
+        decimalDecodingStrategy: impl.decimalDecodingStrategy)
+        as! T
+    }
+    if T.self == Data.self {
+      return try decodeData(
+        from: json, with: impl.dataDecodingStrategy, codingPath: codingPath,
+        dateDecodingStrategy: impl.dateDecodingStrategy,
+        dataDecodingStrategy: impl.dataDecodingStrategy,
+        decimalDecodingStrategy: impl.decimalDecodingStrategy)
+        as! T
+    }
+    if T.self == URL.self {
+      return try decodeURL(from: json, codingPath: codingPath) as! T
+    }
+    if T.self == UUID.self {
+      return try decodeUUID(from: json, codingPath: codingPath) as! T
+    }
+    if T.self == Decimal.self {
+      return try decodeDecimal(
+        from: json, with: impl.decimalDecodingStrategy, codingPath: codingPath) as! T
+    }
+    // Default path
+    let child = _JSONDecodeImpl(
+      json: json,
+      userInfo: impl.userInfo,
+      codingPath: codingPath,
+      dateDecodingStrategy: impl.dateDecodingStrategy,
+      dataDecodingStrategy: impl.dataDecodingStrategy,
+      decimalDecodingStrategy: impl.decimalDecodingStrategy)
     return try T(from: child)
   }
 }

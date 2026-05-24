@@ -789,6 +789,107 @@ Key features:
 - **Coding path propagation**: Every container threads the coding path, so decoding errors include meaningful paths (e.g., `["address", "zip"]`).
 - **Set `userInfo` before calling**: Mutations after `decode()` do not propagate to nested containers.
 
+### Foundation Type Support
+
+`OrderedJSONEncoder` and `OrderedJSONDecoder` provide built-in support for Foundation types — `Date`, `URL`, `UUID`, `Decimal`, and `Data` — with configurable strategies that mirror Foundation's `JSONEncoder`/`JSONDecoder`.
+
+#### Date Strategies
+
+Control how dates are encoded/decoded:
+
+```swift
+struct Event: Codable {
+  let timestamp: Date
+}
+
+let event = Event(timestamp: Date(timeIntervalSince1970: 1_234_567_890))
+
+// Seconds since 1970
+var encoder = OrderedJSONEncoder()
+encoder.dateEncodingStrategy = .secondsSince1970
+let json = try encoder.encode(event)   // {"timestamp": 1234567890.0}
+
+var decoder = OrderedJSONDecoder()
+decoder.dateDecodingStrategy = .secondsSince1970
+let back = try decoder.decode(Event.self, from: json)
+
+// ISO 8601 strings
+encoder.dateEncodingStrategy = .iso8601
+decoder.dateDecodingStrategy = .iso8601
+
+// Custom date formatter
+let formatter = DateFormatter()
+formatter.dateFormat = "yyyy-MM-dd"
+encoder.dateEncodingStrategy = .formatted(formatter)
+decoder.dateDecodingStrategy = .formatted(formatter)
+
+// Milliseconds since 1970
+encoder.dateEncodingStrategy = .millisecondsSince1970
+decoder.dateDecodingStrategy = .millisecondsSince1970
+
+// Custom closure
+encoder.dateEncodingStrategy = .custom { date, encoder in
+  // Return any JSON value
+  return .object(["epoch": .number(.integer(Int64(date.timeIntervalSince1970)))])
+}
+decoder.dateDecodingStrategy = .custom { json, decoder in
+  return Date(timeIntervalSince1970: try json["epoch"].requireDouble())
+}
+```
+
+Available strategies:
+- `DateEncodingStrategy`: `.deferredToDate`, `.secondsSince1970`, `.millisecondsSince1970`, `.iso8601`, `.formatted(DateFormatter)`, `.custom((Date, Encoder) throws -> JSON)`
+- `DateDecodingStrategy`: `.deferredToDate`, `.secondsSince1970`, `.millisecondsSince1970`, `.iso8601`, `.formatted(DateFormatter)`, `.custom((JSON, Decoder) throws -> Date)`
+
+> The `.iso8601` strategy uses `ISO8601DateFormatter` with `.withInternetDateTime | .withFractionalSeconds` options.
+> Dates always include fractional seconds (e.g. `2025-01-15T08:30:45.123Z`).
+
+#### Data Strategies
+
+```swift
+let raw = Data([0xDE, 0xAD, 0xBE, 0xEF])
+
+var encoder = OrderedJSONEncoder()
+encoder.dataEncodingStrategy = .base64
+let json = try encoder.encode(Container(data: raw))  // {"data": "3q2+7w=="}
+
+var decoder = OrderedJSONDecoder()
+decoder.dataDecodingStrategy = .base64
+let back = try decoder.decode(Container.self, from: json)  // Data([0xDE, 0xAD, 0xBE, 0xEF])
+```
+
+Available strategies (default: `.base64`):
+- `DataEncodingStrategy`: `.deferredToData`, `.base64`, `.custom((Data, Encoder) throws -> JSON)`
+- `DataDecodingStrategy`: `.deferredToData`, `.base64`, `.custom((JSON, Decoder) throws -> Data)`
+
+#### URL, UUID, Decimal
+
+These types encode/decode automatically without needing strategy configuration:
+
+```swift
+struct Document: Codable {
+  let url: URL
+  let id: UUID
+  let price: Decimal
+}
+
+let doc = Document(
+  url: URL(string: "https://example.com")!,
+  id: UUID(),
+  price: Decimal(string: "19.99")!)
+
+let encoder = OrderedJSONEncoder()
+let json = try encoder.encode(doc)
+// URL → absolute string, UUID → uuid string, Decimal → JSON string (preserves precision)
+
+let decoder = OrderedJSONDecoder()
+let back = try decoder.decode(Document.self, from: json)
+```
+
+> **Decimal strategies**: By default `Decimal` encodes as a JSON string (preserving full precision).
+> Use `encoder.decimalEncodingStrategy = .asNumber` / `decoder.decimalDecodingStrategy = .asNumber`
+> to match Foundation's `JSONEncoder` behavior (JSON number).
+
 ### Convenience: JSON.encode(_:)
 
 Encode any `Codable` type directly into a `JSON` value — no need to manually instantiate `OrderedJSONEncoder`:
