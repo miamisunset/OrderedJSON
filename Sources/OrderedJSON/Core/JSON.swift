@@ -1,4 +1,3 @@
-import Foundation
 import OrderedCollections
 
 /// The core JSON type — a value type wrapping an internal Storage enum.

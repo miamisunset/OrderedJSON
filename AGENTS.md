@@ -26,7 +26,14 @@ Swift library that preserves JSON key order with a rich method-based API mirrori
 2. **Rich API** — mirror nlohmann/json: subscript, type checks, modifiers, capacity, lookup, comparison, sequence, flatten/unflatten, patch/diff/merge, SAX parsing, binary formats
 3. **Flatten** — `flatten()` produces JSON Pointer keys (`/a/b/c`), `unflatten()` reconstructs
 4. **Binary formats** — CBOR, MessagePack, UBJSON, BSON, BJData support
-5. **No Codable** — `parse()` / `dump()` replace it
+5. **Codable support** — `JSON` conforms to `Encodable`/`Decodable` for Foundation interop; `OrderedJSONEncoder`/`OrderedJSONDecoder` preserve key order; `JSONWithExtras<T>` captures unknown keys
+
+## Key goals (Codable)
+
+6. **OrderedJSONEncoder** — encodes `Codable` types into `JSON` with key declaration order preserved
+7. **OrderedJSONDecoder** — decodes `JSON`/`Data`/`String` into `Codable` types, preserving key order
+8. **JSONWithExtras<T>** — serde-flatten style wrapper capturing unknown keys
+9. **Full Codable surface** — all integer/unsigned widths, `decodeIfPresent`, `superEncoder`/`superDecoder`, coding path propagation
 
 ## Conventions
 

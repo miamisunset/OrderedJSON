@@ -192,5 +192,22 @@ All 403 tests pass. Build produces zero errors. CI pipeline passes (SwiftFormat 
 - Depth tracking increments on `{`/`[` entry and decrements on exit, checked against `options.maxDepth`.
 - `Data` parsing uses `String(data:encoding:.utf8)` which validates UTF-8 correctness.
 
+## Phase 11 — Codable Support (complete)
+
+### What shipped
+- **JSONCodable.swift**: `JSON` conforms to `Encodable`/`Decodable` for use with Foundation's `JSONEncoder`/`JSONDecoder`. Encoding maps each `Storage` case to the appropriate coding value; decoding reconstructs `JSON` from keyed/unkeyed/single-value containers.
+- **JSONCodingKey.swift**: A reusable `CodingKey` implementation that wraps arbitrary string/int keys — used internally by encoder and decoder.
+- **OrderedJSONEncoder.swift**: Custom encoder that produces `JSON` values directly, preserving key declaration order. Uses class-based containers so nested structs/arrays share state correctly. Supports `encodeToString(_:)` for compact JSON strings.
+- **OrderedJSONDecoder.swift**: Custom decoder that reads from `JSON` values or JSON strings/data, preserving key order. Supports decoding from `JSON`, `Data`, and `String` inputs.
+- **JSONWithExtras.swift**: A wrapper that captures unknown JSON keys during decoding — similar to serde's `#[serde(flatten)]`. Uses a two-pass tracking decoder: first decodes all values as JSON, then decodes `T` while recording accessed keys, treating unaccessed keys as extras. Supports round-trip encode/decode.
+- **JSONAccessors.swift**: Throwing typed accessor methods (`requireString()`, `requireBool()`, `requireInt64()`, `requireInt()`, `requireDouble()`, `requireFloat()`) that throw `JSONError.typeError` on type mismatch.
+- **Tests**: 20+ tests covering encoder/decoder round-trip, key order preservation, nested structs, arrays, JSONWithExtras decode/encode/no-extras, throwing accessors.
+
+### Key decisions
+- `JSON`'s `Decodable` conformance uses `init(from decoder:)` — Foundation's `JSONDecoder` can decode `JSON` values from raw JSON text.
+- `OrderedJSONEncoder` uses class-based containers (`_JSONKeyedEncodingContainer`, `_JSONUnkeyedEncodingContainer`) so nested container mutations are visible to parents — struct-based containers couldn't share state.
+- `JSONWithExtras` uses a tracking decoder approach: it records which keys `T`'s decoder accesses via a closure, then subtracts those from all keys to find extras. This works with any `Decodable` type without requiring `CodingKeys` reflection.
+- Throwing accessors are methods (not computed properties) to avoid name conflicts with existing optional accessors like `stringValue: String?`.
+
 ### Next Steps
 1. Consider adding remaining minor gaps from feature parity table (e.g., `contains(element)` for arrays, `merge()` for objects, `is_number_unsigned`, `is_binary`, `is_discarded`, generic `get<T>()`, explicit iterator properties)
