@@ -35,6 +35,19 @@ import Testing
   #expect(ptr.segments == ["a~b"])
 }
 
+@Test func pointerTildeThenSlashEscaping() throws {
+  // RFC 6901 §4: ~01 must decode as ~0→~ then ~1→/ → "/"
+  let ptr = try JSONPointer("/foo~01bar")
+  #expect(ptr.segments == ["foo/bar"])
+}
+
+@Test func pointerTildeThenTildeEscaping() throws {
+  // ~00 decodes as ~0→~ then literal 0 → "~0"
+  // (RFC 6901's "~00 represents ~~" refers to escaping, not unescaping)
+  let ptr = try JSONPointer("/foo~00bar")
+  #expect(ptr.segments == ["foo~0bar"])
+}
+
 @Test func pointerNoLeadingSlash() throws {
   #expect(throws: JSONError.invalidString) { try JSONPointer("foo") }
 }

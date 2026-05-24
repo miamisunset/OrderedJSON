@@ -35,8 +35,11 @@ public struct JSONPointer: Hashable, Sendable {
       segments = []
       return
     }
+    // RFC 6901 §4: decode ~0 (tilde) first, then ~1 (slash).
+    // Order matters: ~01 must decode as ~0→~ then ~1→/ → "/"
+    // Uses sequential iteration to handle overlapping ~00 (double tilde).
     segments = path.dropFirst().split(separator: "/", omittingEmptySubsequences: false).map {
-      String($0).replacingOccurrences(of: "~1", with: "/").replacingOccurrences(of: "~0", with: "~")
+      unescapeJSONPointerSegment(String($0))
     }
   }
 
@@ -147,4 +150,39 @@ extension JSON {
       }
     }
   }
+}
+
+/// Decodes RFC 6901 escape sequences (~0 → ~, ~1 → /) in a single segment.
+/// Uses sequential iteration to handle overlapping sequences like ~00.
+internal func unescapeJSONPointerSegment(_ segment: String) -> String {
+  // First pass: decode ~0 to ~, leave ~1 untouched
+  var decoded = ""
+  var i = segment.startIndex
+  while i < segment.endIndex {
+    let remaining = segment[i...]
+    if remaining.hasPrefix("~0") {
+      decoded.append("~")
+      segment.formIndex(&i, offsetBy: 2)
+    } else if remaining.hasPrefix("~1") {
+      decoded.append("~1")
+      segment.formIndex(&i, offsetBy: 2)
+    } else {
+      decoded.append(segment[i])
+      segment.formIndex(&i, offsetBy: 1)
+    }
+  }
+  // Second pass: decode ~1 to /
+  i = decoded.startIndex
+  var result = ""
+  while i < decoded.endIndex {
+    let remaining = decoded[i...]
+    if remaining.hasPrefix("~1") {
+      result.append("/")
+      decoded.formIndex(&i, offsetBy: 2)
+    } else {
+      result.append(decoded[i])
+      decoded.formIndex(&i, offsetBy: 1)
+    }
+  }
+  return result
 }
