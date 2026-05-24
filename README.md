@@ -187,6 +187,7 @@ let nested = JSON.ObjectBuilder()
 
 Additional methods:
 - `.remove(key)` — removes a key from the builder
+- `.merge(_ other: ObjectBuilder)` — merges all key-value pairs from another builder (existing keys are overwritten)
 - `.count` — returns the current number of key-value pairs
 - `.buildString(indent:)` — builds and serializes directly to a JSON string
 
@@ -218,6 +219,12 @@ let mixed = JSON.ArrayBuilder()
     .build())
   .build()
 ```
+
+Additional methods:
+- `.count` — returns the current number of elements
+- `.append(contentsOf other: ArrayBuilder)` — appends all elements from another builder
+- `.append(contentsOf other: [JSON])` — appends elements from a JSON array
+- `.buildString(indent:)` — builds and serializes directly to a JSON string
 
 ### When to use builders
 
