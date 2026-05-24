@@ -27,11 +27,4 @@ jobs:
       - name: Build
         run: swift build
       - name: Test
-        run: swift test --enable-code-coverage
-      - name: Generate coverage report
-        run: |
-          xcrun llvm-cov show \
-            .build/debug/OrderedJSONPackageTests.xctest/Contents/MacOS/OrderedJSONPackageTests \
-            -instr-prof \
-            -ignore-filename-regex="Tests/.*" \
-            -Xcode 2>&1 | head -20
+        run: swift test
