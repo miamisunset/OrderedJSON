@@ -264,7 +264,7 @@ import Testing
     .invalidUnicodeEscape(line: 1, column: 35),
     .invalidNumber(line: 1, column: 40),
     .invalidEncoding(),
-    .depthExceeded(line: 1, column: 42),
+    .depthExceeded(line: 1, column: 42, depth: 0, maxDepth: 0),
   ]
   for err in errors {
     #expect(!err.description.isEmpty)

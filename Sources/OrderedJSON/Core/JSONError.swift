@@ -44,7 +44,7 @@ public struct JSONParseError: Error, CustomStringConvertible, Hashable, Sendable
     /// The JSON input contains invalid UTF-8 encoding.
     case invalidEncoding
     /// The nesting depth exceeded the maximum allowed.
-    case depthExceeded(line: Int, column: Int)
+    case depthExceeded(line: Int, column: Int, depth: Int, maxDepth: Int)
   }
 
   public init(_ kind: Kind) { self.kind = kind }
@@ -98,8 +98,10 @@ public struct JSONParseError: Error, CustomStringConvertible, Hashable, Sendable
   }
 
   /// Creates a "depth exceeded" error at the given line and column.
-  public static func depthExceeded(line: Int, column: Int) -> JSONParseError {
-    JSONParseError(.depthExceeded(line: line, column: column))
+  public static func depthExceeded(line: Int, column: Int, depth: Int = 0, maxDepth: Int = 0)
+    -> JSONParseError
+  {
+    JSONParseError(.depthExceeded(line: line, column: column, depth: depth, maxDepth: maxDepth))
   }
 
   /// A human-readable description of this parse error.
@@ -125,8 +127,9 @@ public struct JSONParseError: Error, CustomStringConvertible, Hashable, Sendable
       return "Invalid number at line \(line), column \(column)"
     case .invalidEncoding:
       return "Invalid UTF-8 encoding in JSON input"
-    case .depthExceeded(let line, let column):
-      return "Maximum nesting depth exceeded at line \(line), column \(column)"
+    case .depthExceeded(let line, let column, let depth, let maxDepth):
+      return
+        "Maximum nesting depth exceeded at line \(line), column \(column) (depth \(depth) > max \(maxDepth))"
     }
   }
 }

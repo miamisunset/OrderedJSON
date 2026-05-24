@@ -194,7 +194,7 @@ Error kinds:
 - `invalidUnicodeEscape(line:column:)` — invalid `\\u` escape
 - `invalidNumber(line:column:)` — malformed number literal
 - `invalidEncoding` — non-UTF-8 input data
-- `depthExceeded(line:column:)` — nesting exceeded `maxDepth`
+- `depthExceeded(line:column:depth:maxDepth:)` — nesting exceeded `maxDepth`
 
 Always wrap untrusted input in `do {} catch {}`.
 

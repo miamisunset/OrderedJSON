@@ -255,7 +255,7 @@ import Testing
 @Test func parseDepthExceeded() throws {
   let opts = JSON.ParserOptions(maxDepth: 3)
   let deepJSON = "{\"a\": {\"b\": {\"c\": {\"d\": 1}}}"
-  #expect(throws: JSONParseError.depthExceeded(line: 1, column: 20)) {
+  #expect(throws: JSONParseError.depthExceeded(line: 1, column: 20, depth: 4, maxDepth: 3)) {
     try JSON.parse(deepJSON, options: opts)
   }
 }

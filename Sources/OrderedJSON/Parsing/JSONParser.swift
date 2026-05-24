@@ -135,9 +135,9 @@ extension JSON {
     /// Parser options.
     let options: ParserOptions
     /// Current line number (1-based).
-    var line: Int
+    private(set) var line: Int
     /// Current column number (1-based).
-    var column: Int
+    private(set) var column: Int
     /// Current nesting depth (0 = root).
     var depth: Int
 
@@ -174,7 +174,9 @@ extension JSON {
     case .invalidNumber:
       return JSONParseError.invalidNumber(line: ctx.line, column: ctx.column)
     case .depthExceeded:
-      return JSONParseError.depthExceeded(line: ctx.line, column: ctx.column)
+      return JSONParseError.depthExceeded(
+        line: ctx.line, column: ctx.column,
+        depth: ctx.depth, maxDepth: ctx.options.maxDepth)
     }
   }
 
