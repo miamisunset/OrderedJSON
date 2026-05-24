@@ -29,13 +29,10 @@ jobs:
           curl -O https://download.swift.org/swiftly/darwin/swiftly.pkg
           installer -pkg swiftly.pkg -target CurrentUserHomeDirectory
           export SWIFTLY_PATH="$HOME/.swiftly/bin"
-          "$SWIFTLY_PATH/swiftly" init --accept-license
+          echo "SWIFTLY_PATH=$SWIFTLY_PATH" >> $GITHUB_ENV
+          "$SWIFTLY_PATH/swiftly" init --assume-yes
           "$SWIFTLY_PATH/swiftly" install 6.3.0
       - name: Build
-        run: |
-          export SWIFTLY_PATH="$HOME/.swiftly/bin"
-          "$SWIFTLY_PATH/swiftly" run swift build
+        run: swiftly run swift build
       - name: Test
-        run: |
-          export SWIFTLY_PATH="$HOME/.swiftly/bin"
-          "$SWIFTLY_PATH/swiftly" run swift test
+        run: swiftly run swift test
