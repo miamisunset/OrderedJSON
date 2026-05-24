@@ -324,7 +324,7 @@ final class SAXCollector: JSONSAXEventHandler {
 @Test func saxParseUnicodeEscapeFollowedByChar() throws {
   // Regression: SAX used to over-advance after \uXXXX, consuming the next character.
   // "\u0041X" should parse as "AX", not just "A".
-  var collector = SAXCollector()
+  let collector = SAXCollector()
   let jsonString = "{\"key\\u0041X\": 1}"
   let ok = JSON.saxParse(jsonString, handler: collector)
   #expect(ok)
