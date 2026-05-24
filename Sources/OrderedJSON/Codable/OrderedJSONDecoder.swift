@@ -6,8 +6,10 @@ import OrderedCollections
 /// - Important: Set `userInfo` before calling `decode`;
 ///   mutations after the call do not propagate to nested containers.
 public struct OrderedJSONDecoder {
+  /// The user info dictionary for the decoder, propagated to all nested decoders.
   public var userInfo: [CodingUserInfoKey: Any]
 
+  /// Creates a new decoder with default options.
   public init() {
     self.userInfo = [:]
   }
