@@ -212,6 +212,25 @@ All 403 tests pass. Build produces zero errors. CI pipeline passes (SwiftFormat 
 ### Next Steps
 1. Consider adding remaining minor gaps from feature parity table (e.g., `contains(element)` for arrays, `merge()` for objects, `is_number_unsigned`, `is_binary`, `is_discarded`, generic `get<T>()`, explicit iterator properties)
 
+## Phase 12 — JSONBuilder fluent construction API (PR #9)
+
+### What shipped
+- `JSON.ObjectBuilder` — fluent builder for ordered objects with `.set(key, value)` chaining
+- `JSON.ArrayBuilder` — fluent builder for ordered arrays with `.add(value)` chaining
+- Overloaded setters/adders for `String`, `Bool`, `Int`, `Int64`, `UInt`, `UInt64`, `Double`, `Float`, `[JSON]`, `ObjectBuilder`, `ArrayBuilder`, and raw `JSON`
+- `setNull(_:)` / `addNull()` for explicit null insertion
+- `setIfPresent(_:_:)` overloads for `String?`, `Bool?`, `Int?`, `Int64?`, `Double?`, `Float?` — conditional set only when non-nil
+- `remove(_:)` on ObjectBuilder, `merge(_:)` for combining builders, `append(contentsOf:)` on ArrayBuilder for builder and array sources
+- `count` on both, `build()` → JSON, `buildString(indent:)` → String
+- `objectKeys` property on `JSON` for ordered key access
+- 40 tests covering all code paths including edge cases
+
+### Key decisions
+- **Classes with `@unchecked Sendable`** (not structs): Fluent chaining via `@discardableResult` requires reference semantics — `mutating` struct methods cannot chain because each call returns an immutable copy. `@unchecked Sendable` is the standard escape hatch for single-threaded builders, documenting the concurrency contract in code.
+- **`buildString(indent: Int? = nil)`** instead of sentinel `-1`: The underlying `dump(indent:)` uses `-1` as compact sentinel, but the public builder surface uses `Int?` with `nil` for compact — cleaner API.
+- **UInt/UInt64 overflow**: Values ≤ `Int64.max` stored as `.integer(Int64)`, larger values stored as `.float(Double)` with documented precision loss.
+- **No `@resultBuilder`**: Kept simple with method chaining to avoid `@escaping` closure boilerplate and result builder infrastructure.
+
 ## Release
 - Merged `codable-support` → `main` via squash-merge at `9cc89b2`
 - Tagged and released as **v2.1.0**
