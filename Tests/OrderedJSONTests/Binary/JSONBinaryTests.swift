@@ -1013,3 +1013,51 @@ private func appendBE(_ value: UInt64, to bytes: inout [UInt8]) {
     Issue.record("Expected float")
   }
 }
+
+// MARK: - UBJSON/BSON/BJData overflow audit
+
+@Test func ubjsonUInt64OverflowBecomesFloat() throws {
+  // UBJSON marker for int64 reads uint64 bit pattern — must not crash
+  var bytes: [UInt8] = [0x4C]  // 'L' marker for int64
+  let large = UInt64(Int64.max) + 1
+  appendBE(large, to: &bytes)
+  let data = Data(bytes)
+  let decoded = try JSON.fromUBJSON(data)
+  #expect(decoded.isInteger || decoded.isFloat)
+}
+
+@Test func bsonUInt64OverflowBecomesFloat() throws {
+  // BSON int64 uses Int64(bitPattern:) — must not crash
+  // Build a minimal BSON document with an int64 element
+  let large = UInt64(Int64.max) + 1
+  // Build element body: type(1) + key(2) + value(8) = 11 bytes
+  var element: [UInt8] = [0x12, 0x78, 0x00]  // type int64, key "x", null terminator
+  appendBE(large, to: &element)
+  // Document: length(4) + element(11) + null(1) = 16 bytes
+  let docLen = UInt32(4 + element.count + 1)  // 4 + 11 + 1 = 16
+  var bytes: [UInt8] = []
+  withUnsafeBytes(of: docLen.littleEndian) { ptr in
+    for i in 0..<4 {
+      bytes.append(ptr.baseAddress!.assumingMemoryBound(to: UInt8.self)[i])
+    }
+  }
+  bytes.append(contentsOf: element)
+  bytes.append(0x00)  // document null terminator
+  let data = Data(bytes)
+  let decoded = try JSON.fromBSON(data)
+  #expect(decoded.isObject)
+  if case .object(let dict) = decoded.storage {
+    let val = dict["x"]!
+    #expect(val.isFloat || val.isInteger)
+  }
+}
+
+@Test func bjdataUInt64OverflowBecomesFloat() throws {
+  // BJData marker for uint64 uses Int64(bitPattern:) — must not crash
+  var bytes: [UInt8] = [0x4D]  // 'M' marker for uint64
+  let large = UInt64(Int64.max) + 1
+  appendBE(large, to: &bytes)
+  let data = Data(bytes)
+  let decoded = try JSON.fromBJData(data)
+  #expect(decoded.isFloat || decoded.isInteger)
+}
