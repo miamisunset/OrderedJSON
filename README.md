@@ -151,6 +151,81 @@ Use `JSON.number(.integer(...))` for whole numbers and `JSON.number(.float(...))
 
 ---
 
+## JSONBuilder
+
+For complex nested structures, `JSON.ObjectBuilder` and `JSON.ArrayBuilder` provide a fluent, chainable API. Each `set`/`add` method returns `self`, so you can chain calls without nested factory-method boilerplate.
+
+### ObjectBuilder
+
+Build ordered JSON objects by chaining `.set(key, value)` calls, then `.build()`:
+
+```swift
+let person = JSON.ObjectBuilder()
+  .set("name", "Alice")
+  .set("age", 30)
+  .set("active", true)
+  .set("pi", 3.14)
+  .build()
+// → {"name":"Alice","age":30,"active":true,"pi":3.14}
+```
+
+`.set` accepts `String`, `Bool`, `Int`, `Int64`, `Double`, `Float`, `[JSON]`, `JSON.ObjectBuilder`, `JSON.ArrayBuilder`, and raw `JSON` values. Nested objects and arrays use the builder's `.build()` directly:
+
+```swift
+let nested = JSON.ObjectBuilder()
+  .set("name", "Alice")
+  .set("address", JSON.ObjectBuilder()
+    .set("city", "NYC")
+    .set("zip", "10001")
+    .build())
+  .set("tags", JSON.ArrayBuilder()
+    .add("admin")
+    .add("user")
+    .build())
+  .build()
+```
+
+Additional methods:
+- `.remove(key)` — removes a key from the builder
+- `.count` — returns the current number of key-value pairs
+- `.buildString(indent:)` — builds and serializes directly to a JSON string
+
+### ArrayBuilder
+
+Build ordered JSON arrays by chaining `.add(value)` calls, then `.build()`:
+
+```swift
+let items = JSON.ArrayBuilder()
+  .add("a")
+  .add(42)
+  .add(true)
+  .add(3.14)
+  .build()
+// → ["a",42,true,3.14]
+```
+
+`.add` accepts the same set of types as `.set`. Nested structures work naturally:
+
+```swift
+let mixed = JSON.ArrayBuilder()
+  .add("outer")
+  .add(JSON.ObjectBuilder()
+    .set("x", 1)
+    .build())
+  .add(JSON.ArrayBuilder()
+    .add("inner")
+    .add(99)
+    .build())
+  .build()
+```
+
+### When to use builders
+
+- **Builder** — prefer for complex, deeply nested structures with mixed types. The chaining style eliminates nested `JSON.object(...)` / `JSON.array(...)` boilerplate.
+- **Factory methods / inits** — prefer for simple literals or when constructing inline inside an existing builder call.
+
+---
+
 ## Parsing JSON
 
 `JSON.parse()` is the primary way to turn a JSON string into an OrderedJSON value. It performs recursive descent parsing and always preserves key insertion order.
