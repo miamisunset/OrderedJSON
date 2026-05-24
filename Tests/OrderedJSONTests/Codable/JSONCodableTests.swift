@@ -265,3 +265,53 @@ extension JSON {
     return Array(dict.keys)
   }
 }
+
+// MARK: - Convenience decode
+
+@Test func convenienceDecodeFromString() throws {
+  struct Person: Decodable {
+    let name: String
+    let age: Int
+  }
+  let person = try JSON.decode(Person.self, from: "{\"name\": \"Alice\", \"age\": 30}")
+  #expect(person.name == "Alice")
+  #expect(person.age == 30)
+}
+
+@Test func convenienceDecodeFromData() throws {
+  struct Person: Decodable {
+    let name: String
+    let age: Int
+  }
+  let data = Data("{\"name\": \"Bob\", \"age\": 25}".utf8)
+  let person = try JSON.decode(Person.self, from: data)
+  #expect(person.name == "Bob")
+  #expect(person.age == 25)
+}
+
+@Test func convenienceDecodeJSON() throws {
+  let json: JSON = try JSON.decode(JSON.self, from: "{\"x\": 1, \"y\": 2}")
+  #expect(json["x"] == .number(.integer(1)))
+  #expect(json["y"] == .number(.integer(2)))
+}
+
+// MARK: - Number normalization
+
+@Test func numberNormalizationCleanDouble() throws {
+  let data = Data("42.0".utf8)
+  let decoded = try JSONDecoder().decode(JSON.self, from: data)
+  #expect(decoded.isInteger)
+  #expect(decoded == .number(.integer(42)))
+}
+
+@Test func numberNormalizationFractionalDouble() throws {
+  let data = Data("3.14".utf8)
+  let decoded = try JSONDecoder().decode(JSON.self, from: data)
+  #expect(decoded.isFloat)
+}
+
+@Test func numberNormalizationLargeInteger() throws {
+  let data = Data("1.0e20".utf8)
+  let decoded = try JSONDecoder().decode(JSON.self, from: data)
+  #expect(decoded.isFloat)
+}

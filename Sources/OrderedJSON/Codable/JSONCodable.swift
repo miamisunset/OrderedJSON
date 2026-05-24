@@ -82,14 +82,20 @@ extension JSON: Decodable {
       } else if let i = try? container.decode(Int64.self) {
         self = .number(.integer(i))
       } else if let d = try? container.decode(Double.self) {
-        self = .number(.float(d))
+        // Normalize clean integer doubles (e.g., 1.0 → 1)
+        if d == d.rounded(.towardZero) && d >= Double(Int64.min) && d <= Double(Int64.max) {
+          self = .number(.integer(Int64(d)))
+        } else {
+          self = .number(.float(d))
+        }
       } else if let b = try? container.decode(Bool.self) {
         self = .boolean(b)
       } else {
         throw DecodingError.dataCorrupted(
           DecodingError.Context(
             codingPath: decoder.codingPath,
-            debugDescription: "Unsupported JSON value type"))
+            debugDescription:
+              "Unsupported JSON value type: expected string, number, boolean, or null"))
       }
     }
   }
