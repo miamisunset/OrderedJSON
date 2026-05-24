@@ -60,10 +60,11 @@ Swift library that preserves JSON key order with a rich method-based API mirrori
 
 ## Workflow
 
-> **Hard Rule**: Always use the PR process. Even though you can push directly to `main` (bypass actor), you must create a feature branch, open a PR, and squash-merge after checks pass. This ensures traceability, reviewability, and CI validation for every change.
+> **Hard Rule**: Every change goes on a dedicated feature branch — never commit or push directly to `main`. Open a PR for every branch and wait for human review before merging.
 
-- **Branch-first** — all development on a new branch; merge to `main` only after checks pass
-- **PR required** — open a pull request for every branch; do not push to `main` directly
+- **Branch required** — every change, including documentation-only updates, starts on a new branch off `main`
+- **PR required** — open a pull request for every branch; never push to `main` directly
+- **Do not self-merge** — never use `gh pr merge --admin` or any flag that bypasses review; wait for a human to approve
 - **Pre-merge** — run `swift test --enable-code-coverage` (must pass) + `swift format lint --recursive --parallel -p .` (must be clean) + `swift format format --recursive --parallel --in-place -p .` (auto-format)
 - **Order**: lint → format → test (format first so lint sees formatted code)
 - **Merge method**: squash and merge only — keeps a clean linear history with one commit per PR
