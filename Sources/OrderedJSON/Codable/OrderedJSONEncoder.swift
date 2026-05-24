@@ -33,7 +33,7 @@ public struct OrderedJSONEncoder {
   /// - Returns: A `JSON` value.
   /// - Throws: Encoding errors from the value's `encode(to:)` implementation.
   public func encode<T: Encodable>(_ value: T) throws -> JSON {
-    let impl = _JSONEncodeImpl()
+    let impl = _JSONEncodeImpl(userInfo: userInfo)
     try value.encode(to: impl)
     return impl.json
   }
@@ -52,222 +52,219 @@ public struct OrderedJSONEncoder {
 // MARK: - Internal encoder implementation
 
 /// The concrete `Encoder` implementation used by `OrderedJSONEncoder`.
-///
-/// This is a reference type that builds a `JSON` value incrementally as
-/// encoding containers are created and populated.
 final class _JSONEncodeImpl: Encoder {
-  /// The final encoded JSON value. Set by the outermost container.
+  /// The final encoded JSON value.
   var json: JSON = .null
 
-  /// The coding path from the root to the current encoding point.
   let codingPath: [CodingKey] = []
-
-  /// User-provided contextual information.
-  var userInfo: [CodingUserInfoKey: Any] { _userInfo }
-
-  private let _userInfo: [CodingUserInfoKey: Any]
+  var userInfo: [CodingUserInfoKey: Any]
 
   init(userInfo: [CodingUserInfoKey: Any] = [:]) {
-    self._userInfo = userInfo
+    self.userInfo = userInfo
   }
 
   func container<Key: CodingKey>(keyedBy keyType: Key.Type) -> KeyedEncodingContainer<Key> {
-    let container = _JSONKeyedEncodingContainer<Key>(encoder: self)
+    let container = _JSONKeyedEncodingContainer<Key>(impl: self)
     return KeyedEncodingContainer(container)
   }
 
   func unkeyedContainer() -> UnkeyedEncodingContainer {
-    _JSONUnkeyedEncodingContainer(encoder: self)
+    _JSONUnkeyedEncodingContainer(impl: self)
   }
 
   func singleValueContainer() -> SingleValueEncodingContainer {
-    _JSONSingleValueEncodingContainer(encoder: self)
+    _JSONSingleValueEncodingContainer(impl: self)
   }
 }
 
-// MARK: - Keyed encoding container
+// MARK: - Keyed encoding container (class-based)
 
-struct _JSONKeyedEncodingContainer<Key: CodingKey>: KeyedEncodingContainerProtocol {
+/// A class-based keyed encoding container so nested containers share state.
+final class _JSONKeyedEncodingContainer<Key: CodingKey>: KeyedEncodingContainerProtocol {
   let codingPath: [CodingKey] = []
-
-  /// The encoder that owns this container.
-  let encoder: _JSONEncodeImpl
-
-  /// The object being built, stored as key-value pairs.
+  let impl: _JSONEncodeImpl
   var object: OrderedDictionary<String, JSON> = [:]
 
-  /// When finished, this becomes the encoder's final json.
-  mutating func encode(_ value: JSON, forKey key: Key) throws {
+  init(impl: _JSONEncodeImpl) {
+    self.impl = impl
+  }
+
+  func encode(_ value: JSON, forKey key: Key) throws {
     object[key.stringValue] = value
   }
 
-  mutating func encode<T: Encodable>(_ value: T, forKey key: Key) throws {
-    let child = _JSONEncodeImpl(userInfo: encoder.userInfo)
+  func encode<T: Encodable>(_ value: T, forKey key: Key) throws {
+    let child = _JSONEncodeImpl(userInfo: impl.userInfo)
     try value.encode(to: child)
     object[key.stringValue] = child.json
   }
 
-  mutating func encodeNil(forKey key: Key) throws {
+  func encodeNil(forKey key: Key) throws {
     object[key.stringValue] = .null
   }
 
-  mutating func encode(_ value: String, forKey key: Key) throws {
+  func encode(_ value: String, forKey key: Key) throws {
     object[key.stringValue] = .string(value)
   }
 
-  mutating func encode(_ value: Bool, forKey key: Key) throws {
+  func encode(_ value: Bool, forKey key: Key) throws {
     object[key.stringValue] = .boolean(value)
   }
 
-  mutating func encode(_ value: Int64, forKey key: Key) throws {
+  func encode(_ value: Int64, forKey key: Key) throws {
     object[key.stringValue] = .number(.integer(value))
   }
 
-  mutating func encode(_ value: Int, forKey key: Key) throws {
+  func encode(_ value: Int, forKey key: Key) throws {
     object[key.stringValue] = .number(.integer(Int64(value)))
   }
 
-  mutating func encode(_ value: Double, forKey key: Key) throws {
+  func encode(_ value: Double, forKey key: Key) throws {
     object[key.stringValue] = .number(.float(value))
   }
 
-  mutating func encode(_ value: Float, forKey key: Key) throws {
+  func encode(_ value: Float, forKey key: Key) throws {
     object[key.stringValue] = .number(.float(Double(value)))
   }
 
-  mutating func nestedContainer<NestedKey: CodingKey>(
+  func nestedContainer<NestedKey: CodingKey>(
     keyedBy keyType: NestedKey.Type,
     forKey key: Key
   ) -> KeyedEncodingContainer<NestedKey> {
-    let container = _JSONKeyedEncodingContainer<NestedKey>(encoder: encoder)
-    object[key.stringValue] = .object(container.object)
-    return KeyedEncodingContainer(container)
+    let child = _JSONKeyedEncodingContainer<NestedKey>(impl: impl)
+    object[key.stringValue] = .object(child.object)
+    return KeyedEncodingContainer(child)
   }
 
-  mutating func nestedUnkeyedContainer(forKey key: Key) -> UnkeyedEncodingContainer {
-    let container = _JSONUnkeyedEncodingContainer(encoder: encoder)
-    object[key.stringValue] = .array(container.elements)
-    return container
+  func nestedUnkeyedContainer(forKey key: Key) -> UnkeyedEncodingContainer {
+    let child = _JSONUnkeyedEncodingContainer(impl: impl)
+    object[key.stringValue] = .array(child.elements)
+    return child
   }
 
-  mutating func superEncoder(forKey key: Key) -> Encoder {
-    _JSONEncodeImpl(userInfo: encoder.userInfo)
+  func superEncoder(forKey key: Key) -> Encoder {
+    _JSONEncodeImpl(userInfo: impl.userInfo)
   }
 
-  mutating func superEncoder() -> Encoder {
-    _JSONEncodeImpl(userInfo: encoder.userInfo)
+  func superEncoder() -> Encoder {
+    _JSONEncodeImpl(userInfo: impl.userInfo)
   }
 
-  /// Finishes encoding: sets the encoder's json to the completed object.
-  mutating func finish() {
-    encoder.json = .object(object)
+  func finish() {
+    impl.json = .object(object)
   }
 }
 
-// MARK: - Unkeyed encoding container
+// MARK: - Unkeyed encoding container (class-based)
 
-struct _JSONUnkeyedEncodingContainer: UnkeyedEncodingContainer {
+final class _JSONUnkeyedEncodingContainer: UnkeyedEncodingContainer {
   let codingPath: [CodingKey] = []
-  let encoder: _JSONEncodeImpl
-
+  let impl: _JSONEncodeImpl
   var elements: [JSON] = []
   var count: Int { elements.count }
 
-  mutating func encode<T: Encodable>(_ value: T) throws {
-    let child = _JSONEncodeImpl(userInfo: encoder.userInfo)
+  init(impl: _JSONEncodeImpl) {
+    self.impl = impl
+  }
+
+  func encode<T: Encodable>(_ value: T) throws {
+    let child = _JSONEncodeImpl(userInfo: impl.userInfo)
     try value.encode(to: child)
     elements.append(child.json)
   }
 
-  mutating func encodeNil() throws {
+  func encodeNil() throws {
     elements.append(.null)
   }
 
-  mutating func encode(_ value: String) throws {
+  func encode(_ value: String) throws {
     elements.append(.string(value))
   }
 
-  mutating func encode(_ value: Bool) throws {
+  func encode(_ value: Bool) throws {
     elements.append(.boolean(value))
   }
 
-  mutating func encode(_ value: Int64) throws {
+  func encode(_ value: Int64) throws {
     elements.append(.number(.integer(value)))
   }
 
-  mutating func encode(_ value: Int) throws {
+  func encode(_ value: Int) throws {
     elements.append(.number(.integer(Int64(value))))
   }
 
-  mutating func encode(_ value: Double) throws {
+  func encode(_ value: Double) throws {
     elements.append(.number(.float(value)))
   }
 
-  mutating func encode(_ value: Float) throws {
+  func encode(_ value: Float) throws {
     elements.append(.number(.float(Double(value))))
   }
 
-  mutating func nestedContainer<NestedKey: CodingKey>(
+  func nestedContainer<NestedKey: CodingKey>(
     keyedBy keyType: NestedKey.Type
   ) -> KeyedEncodingContainer<NestedKey> {
-    let container = _JSONKeyedEncodingContainer<NestedKey>(encoder: encoder)
-    elements.append(.object(container.object))
-    return KeyedEncodingContainer(container)
+    let child = _JSONKeyedEncodingContainer<NestedKey>(impl: impl)
+    elements.append(.object(child.object))
+    return KeyedEncodingContainer(child)
   }
 
-  mutating func nestedUnkeyedContainer() -> UnkeyedEncodingContainer {
-    let container = _JSONUnkeyedEncodingContainer(encoder: encoder)
-    elements.append(.array(container.elements))
-    return container
+  func nestedUnkeyedContainer() -> UnkeyedEncodingContainer {
+    let child = _JSONUnkeyedEncodingContainer(impl: impl)
+    elements.append(.array(child.elements))
+    return child
   }
 
-  mutating func superEncoder() -> Encoder {
-    _JSONEncodeImpl(userInfo: encoder.userInfo)
+  func superEncoder() -> Encoder {
+    _JSONEncodeImpl(userInfo: impl.userInfo)
   }
 
-  /// Finishes encoding: sets the encoder's json to the completed array.
-  mutating func finish() {
-    encoder.json = .array(elements)
+  func finish() {
+    impl.json = .array(elements)
   }
 }
 
-// MARK: - Single-value encoding container
+// MARK: - Single-value encoding container (struct is fine)
 
 struct _JSONSingleValueEncodingContainer: SingleValueEncodingContainer {
   let codingPath: [CodingKey] = []
-  let encoder: _JSONEncodeImpl
+  let impl: _JSONEncodeImpl
+
+  init(impl: _JSONEncodeImpl) {
+    self.impl = impl
+  }
 
   mutating func encodeNil() throws {
-    encoder.json = .null
+    impl.json = .null
   }
 
   mutating func encode(_ value: String) throws {
-    encoder.json = .string(value)
+    impl.json = .string(value)
   }
 
   mutating func encode(_ value: Bool) throws {
-    encoder.json = .boolean(value)
+    impl.json = .boolean(value)
   }
 
   mutating func encode(_ value: Int64) throws {
-    encoder.json = .number(.integer(value))
+    impl.json = .number(.integer(value))
   }
 
   mutating func encode(_ value: Int) throws {
-    encoder.json = .number(.integer(Int64(value)))
+    impl.json = .number(.integer(Int64(value)))
   }
 
   mutating func encode(_ value: Double) throws {
-    encoder.json = .number(.float(value))
+    impl.json = .number(.float(value))
   }
 
   mutating func encode(_ value: Float) throws {
-    encoder.json = .number(.float(Double(value)))
+    impl.json = .number(.float(Double(value)))
   }
 
   mutating func encode<T: Encodable>(_ value: T) throws {
-    let child = _JSONEncodeImpl(userInfo: encoder.userInfo)
+    let child = _JSONEncodeImpl(userInfo: impl.userInfo)
     try value.encode(to: child)
-    encoder.json = child.json
+    impl.json = child.json
   }
 }

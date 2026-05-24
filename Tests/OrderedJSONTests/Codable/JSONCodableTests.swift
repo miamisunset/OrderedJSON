@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+
 @testable import OrderedJSON
 
 // MARK: - JSON Codable conformance
@@ -95,9 +96,10 @@ import Testing
     let address: Address
   }
   let encoder = OrderedJSONEncoder()
-  let json = try encoder.encode(Person(
-    name: "Alice",
-    address: Address(city: "NYC", zip: "10001")))
+  let json = try encoder.encode(
+    Person(
+      name: "Alice",
+      address: Address(city: "NYC", zip: "10001")))
   #expect(json["name"] == .string("Alice"))
   #expect(json["address"]?.isObject == true)
   #expect(json["address"]?["city"] == .string("NYC"))
@@ -229,10 +231,13 @@ import Testing
   #expect(try json.requireString() == "hello")
 }
 
-@Test func requireStringThrows() throws {
+@Test func requireStringThrows() {
   let json = JSON.number(.integer(42))
-  #expect(try throws: JSONError.typeError(expected: "string", actual: "number")) {
+  #expect {
     try json.requireString()
+  } throws: { error in
+    guard let jsonError = error as? JSONError else { return false }
+    return jsonError == JSONError.typeError(expected: "string", actual: "number")
   }
 }
 

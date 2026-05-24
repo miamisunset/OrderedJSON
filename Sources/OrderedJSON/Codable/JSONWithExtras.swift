@@ -33,25 +33,38 @@ public struct JSONWithExtras<T: Decodable>: Decodable {
   /// Any unknown keys not part of `T`, captured as a JSON object.
   public let extras: JSON
 
+  /// Creates a `JSONWithExtras` with explicit value and extras.
+  public init(value: T, extras: JSON) {
+    self.value = value
+    self.extras = extras
+  }
+
   /// Creates a `JSONWithExtras` by decoding known keys into `T` and
   /// capturing unknown keys into `extras`.
   ///
-  /// This initializer uses the `OrderedJSONDecoder` internally to
-  /// preserve key order for the extras object.
+  /// Uses a tracking decoder that records which keys `T` accesses,
+  /// then treats unaccessed keys as extras.
   public init(from decoder: Decoder) throws {
-    let container = try decoder.container(keyedBy: _ExtrasKey.self)
-    let allKeys = container.allKeys
-    let knownKeys = Set(allKeys.map { $0.stringValue })
+    // Step 1: Decode all values as JSON
+    let allValues = try decoder.container(keyedBy: _ExtrasKey.self)
+    let keys = allValues.allKeys
+    var dict = OrderedDictionary<String, JSON>()
+    for key in keys {
+      dict[key.stringValue] = try allValues.decode(JSON.self, forKey: key)
+    }
+    let jsonObject = JSON.object(dict)
 
-    // Decode the known struct fields
-    let valueDecoder = _ValueDecoder(container: container, knownKeys: knownKeys)
-    value = try T(from: valueDecoder)
+    // Step 2: Decode T while tracking which keys it accesses
+    var usedKeys = Set<String>()
+    let trackingDecoder = _TrackingDecoder(
+      json: jsonObject,
+      onAccess: { usedKeys.insert($0) })
+    value = try T(from: trackingDecoder)
 
-    // Collect unknown keys into extras
+    // Step 3: Remaining keys are extras
     var extrasDict = OrderedDictionary<String, JSON>()
-    for key in allKeys where !knownKeys.contains(key.stringValue) {
-      let json = try container.decode(JSON.self, forKey: key)
-      extrasDict[key.stringValue] = json
+    for (key, value) in dict where !usedKeys.contains(key) {
+      extrasDict[key] = value
     }
     extras = .object(extrasDict)
   }
@@ -89,18 +102,17 @@ private struct _ExtrasKey: CodingKey {
   }
 }
 
-/// A decoder wrapper that hides unknown keys from the child decoder.
-/// This ensures `T` only sees its own keys and doesn't fail on extras.
-private struct _ValueDecoder: Decoder {
-  let container: KeyedDecodingContainer<_ExtrasKey>
-  let knownKeys: Set<String>
+/// A decoder that tracks which keys were accessed during decoding.
+private struct _TrackingDecoder: Decoder {
+  let json: JSON
+  let onAccess: (String) -> Void
   let codingPath: [CodingKey] = []
   let userInfo: [CodingUserInfoKey: Any] = [:]
 
   func container<Key: CodingKey>(keyedBy keyType: Key.Type) throws -> KeyedDecodingContainer<Key> {
-    let filtered = _FilteredKeyedDecodingContainer<Key>(
-      container: container, knownKeys: knownKeys)
-    return KeyedDecodingContainer(filtered)
+    let tracking = _TrackingKeyedDecodingContainer<Key>(
+      json: json, onAccess: onAccess)
+    return KeyedDecodingContainer(tracking)
   }
 
   func unkeyedContainer() throws -> UnkeyedDecodingContainer {
@@ -120,66 +132,100 @@ private struct _ValueDecoder: Decoder {
   }
 }
 
-/// A keyed decoding container that only exposes keys in `knownKeys`.
-private struct _FilteredKeyedDecodingContainer<Key: CodingKey>: KeyedDecodingContainerProtocol {
-  var container: KeyedDecodingContainer<_ExtrasKey>
-  let knownKeys: Set<String>
+/// A keyed decoding container that records which keys were accessed.
+private struct _TrackingKeyedDecodingContainer<Key: CodingKey>: KeyedDecodingContainerProtocol {
+  let json: JSON
+  let onAccess: (String) -> Void
   let codingPath: [CodingKey] = []
-  var allKeys: [Key] { [] }  // Not needed — we use the parent container
 
-  func contains(_ key: Key) -> Bool { knownKeys.contains(key.stringValue) }
+  var allKeys: [Key] {
+    guard case .object(let dict) = json.storage else { return [] }
+    return dict.keys.compactMap {
+      Key(stringValue: $0)
+    }
+  }
+
+  func contains(_ key: Key) -> Bool {
+    guard case .object(let dict) = json.storage else { return false }
+    return dict.keys.contains(key.stringValue)
+  }
 
   func decodeNil(forKey key: Key) throws -> Bool {
-    try container.decodeNil(forKey: _ExtrasKey(stringValue: key.stringValue))
+    onAccess(key.stringValue)
+    guard case .object(let dict) = json.storage else { return true }
+    guard let val = dict[key.stringValue] else { return true }
+    return val == .null
   }
 
   func decode(_ type: Bool.Type, forKey key: Key) throws -> Bool {
-    try container.decode(type, forKey: _ExtrasKey(stringValue: key.stringValue))
+    onAccess(key.stringValue)
+    return try json[key.stringValue]!.requireBool()
   }
 
   func decode(_ type: String.Type, forKey key: Key) throws -> String {
-    try container.decode(type, forKey: _ExtrasKey(stringValue: key.stringValue))
+    onAccess(key.stringValue)
+    return try json[key.stringValue]!.requireString()
   }
 
   func decode(_ type: Int64.Type, forKey key: Key) throws -> Int64 {
-    try container.decode(type, forKey: _ExtrasKey(stringValue: key.stringValue))
+    onAccess(key.stringValue)
+    return try json[key.stringValue]!.requireInt64()
   }
 
   func decode(_ type: Int.Type, forKey key: Key) throws -> Int {
-    try container.decode(type, forKey: _ExtrasKey(stringValue: key.stringValue))
+    onAccess(key.stringValue)
+    return try json[key.stringValue]!.requireInt()
   }
 
   func decode(_ type: Double.Type, forKey key: Key) throws -> Double {
-    try container.decode(type, forKey: _ExtrasKey(stringValue: key.stringValue))
+    onAccess(key.stringValue)
+    return try json[key.stringValue]!.requireDouble()
   }
 
   func decode(_ type: Float.Type, forKey key: Key) throws -> Float {
-    try container.decode(type, forKey: _ExtrasKey(stringValue: key.stringValue))
+    onAccess(key.stringValue)
+    return try json[key.stringValue]!.requireFloat()
   }
 
   func decode<T: Decodable>(_ type: T.Type, forKey key: Key) throws -> T {
-    try container.decode(type, forKey: _ExtrasKey(stringValue: key.stringValue))
+    onAccess(key.stringValue)
+    let val = json[key.stringValue]!
+    let decoder = OrderedJSONDecoder()
+    return try decoder.decode(type, from: val)
   }
 
   func nestedContainer<NestedKey: CodingKey>(
     keyedBy keyType: NestedKey.Type, forKey key: Key
   ) throws -> KeyedDecodingContainer<NestedKey> {
-    try container.nestedContainer(
-      keyedBy: keyType, forKey: _ExtrasKey(stringValue: key.stringValue))
+    onAccess(key.stringValue)
+    let val = json[key.stringValue]!
+    let tracking = _TrackingKeyedDecodingContainer<NestedKey>(
+      json: val, onAccess: onAccess)
+    return KeyedDecodingContainer(tracking)
   }
 
   func nestedUnkeyedContainer(forKey key: Key) throws -> UnkeyedDecodingContainer {
-    try container.nestedUnkeyedContainer(forKey: _ExtrasKey(stringValue: key.stringValue))
+    onAccess(key.stringValue)
+    let val = json[key.stringValue]!
+    guard case .array(let elements) = val.storage else {
+      throw DecodingError.typeMismatch(
+        JSON.self,
+        DecodingError.Context(
+          codingPath: codingPath,
+          debugDescription: "Expected an array"))
+    }
+    return _JSONUnkeyedDecodingContainer(
+      elements: elements, encoder: _JSONDecodeImpl(json: val, userInfo: [:]))
   }
 
   func superDecoder(forKey key: Key) throws -> Decoder {
-    try container.superDecoder(forKey: _ExtrasKey(stringValue: key.stringValue))
+    onAccess(key.stringValue)
+    let val = json[key.stringValue]!
+    return _TrackingDecoder(json: val, onAccess: onAccess)
   }
 
   func superDecoder() throws -> Decoder {
-    // Fallback: use the parent container's super decoder.
-    // This is rarely used in practice for extras wrappers.
-    try container.superDecoder()
+    _TrackingDecoder(json: json, onAccess: onAccess)
   }
 }
 
@@ -190,7 +236,6 @@ private struct _ValueEncoder: Encoder {
   let userInfo: [CodingUserInfoKey: Any] = [:]
 
   func container<Key: CodingKey>(keyedBy keyType: Key.Type) -> KeyedEncodingContainer<Key> {
-    // Return a proxy that wraps the parent container
     let proxy = _FilteredKeyedEncodingContainer<Key>(container: container)
     return KeyedEncodingContainer(proxy)
   }
@@ -204,7 +249,7 @@ private struct _ValueEncoder: Encoder {
   }
 }
 
-/// An keyed encoding container that writes to the parent container.
+/// A keyed encoding container that writes to the parent container.
 private struct _FilteredKeyedEncodingContainer<Key: CodingKey>: KeyedEncodingContainerProtocol {
   var container: KeyedEncodingContainer<_ExtrasKey>
   let codingPath: [CodingKey] = []
@@ -244,19 +289,19 @@ private struct _FilteredKeyedEncodingContainer<Key: CodingKey>: KeyedEncodingCon
   mutating func nestedContainer<NestedKey: CodingKey>(
     keyedBy keyType: NestedKey.Type, forKey key: Key
   ) -> KeyedEncodingContainer<NestedKey> {
-    try! container.nestedContainer(
+    container.nestedContainer(
       keyedBy: keyType, forKey: _ExtrasKey(stringValue: key.stringValue))
   }
 
   mutating func nestedUnkeyedContainer(forKey key: Key) -> UnkeyedEncodingContainer {
-    try! container.nestedUnkeyedContainer(forKey: _ExtrasKey(stringValue: key.stringValue))
+    container.nestedUnkeyedContainer(forKey: _ExtrasKey(stringValue: key.stringValue))
   }
 
   mutating func superEncoder(forKey key: Key) -> Encoder {
-    try! container.superEncoder(forKey: _ExtrasKey(stringValue: key.stringValue))
+    container.superEncoder(forKey: _ExtrasKey(stringValue: key.stringValue))
   }
 
   mutating func superEncoder() -> Encoder {
-    try! container.superEncoder()
+    container.superEncoder()
   }
 }
