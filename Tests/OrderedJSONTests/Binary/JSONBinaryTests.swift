@@ -4,6 +4,17 @@ import Testing
 
 @testable import OrderedJSON
 
+// MARK: - Test helpers
+
+/// Appends the big-endian bytes of a UInt64 value to a byte array.
+private func appendBE(_ value: UInt64, to bytes: inout [UInt8]) {
+  withUnsafeBytes(of: value.bigEndian) { ptr in
+    for i in 0..<8 {
+      bytes.append(ptr.baseAddress!.assumingMemoryBound(to: UInt8.self)[i])
+    }
+  }
+}
+
 // MARK: - CBOR Tests
 
 @Test func cborRoundTripNull() throws {
@@ -876,11 +887,7 @@ import Testing
   // Value: 2^63 + 1 = 9223372036854775808, which is > Int64.max
   var bytes: [UInt8] = [0xCF]
   let large = UInt64(Int64.max) + 1  // 2^63
-  withUnsafeBytes(of: large.bigEndian) { ptr in
-    for i in 0..<8 {
-      bytes.append(ptr.baseAddress!.assumingMemoryBound(to: UInt8.self)[i])
-    }
-  }
+  appendBE(large, to: &bytes)
   let data = Data(bytes)
   let decoded = try JSON.fromMsgPack(data)
   // Should decode as float since value exceeds Int64.max
@@ -897,11 +904,7 @@ import Testing
   // Value: 2^63 + 1 = 9223372036854775808, which is > Int64.max
   var bytes: [UInt8] = [0x1B]  // major=0, additional=27 (8 bytes)
   let large = UInt64(Int64.max) + 1
-  withUnsafeBytes(of: large.bigEndian) { ptr in
-    for i in 0..<8 {
-      bytes.append(ptr.baseAddress!.assumingMemoryBound(to: UInt8.self)[i])
-    }
-  }
+  appendBE(large, to: &bytes)
   let data = Data(bytes)
   let decoded = try JSON.fromCBOR(data)
   // Should decode as float since value exceeds Int64.max
@@ -919,11 +922,7 @@ import Testing
   // Encode argument = UInt64.max, so result = -1 - UInt64.max which overflows Int64
   var bytes: [UInt8] = [0x3B]  // major=1, additional=27 (8 bytes)
   let large = UInt64.max
-  withUnsafeBytes(of: large.bigEndian) { ptr in
-    for i in 0..<8 {
-      bytes.append(ptr.baseAddress!.assumingMemoryBound(to: UInt8.self)[i])
-    }
-  }
+  appendBE(large, to: &bytes)
   let data = Data(bytes)
   let decoded = try JSON.fromCBOR(data)
   // Should decode as float since negative value exceeds Int64 range
@@ -935,11 +934,7 @@ import Testing
   // Value: -1 - Int64.max = Int64.min (exactly representable as Int64)
   var bytes: [UInt8] = [0x3B]  // major=1, additional=27
   let arg = UInt64(Int64.max)
-  withUnsafeBytes(of: arg.bigEndian) { ptr in
-    for i in 0..<8 {
-      bytes.append(ptr.baseAddress!.assumingMemoryBound(to: UInt8.self)[i])
-    }
-  }
+  appendBE(arg, to: &bytes)
   let data = Data(bytes)
   let decoded = try JSON.fromCBOR(data)
   #expect(decoded.isInteger)
@@ -981,11 +976,7 @@ import Testing
   // NaN is valid in CBOR binary format — decode should preserve it
   var bytes: [UInt8] = [0xFB]
   let bits = Double.nan.bitPattern
-  withUnsafeBytes(of: bits.bigEndian) { ptr in
-    for i in 0..<8 {
-      bytes.append(ptr.baseAddress!.assumingMemoryBound(to: UInt8.self)[i])
-    }
-  }
+  appendBE(bits, to: &bytes)
   let data = Data(bytes)
   let decoded = try JSON.fromCBOR(data)
   #expect(decoded.isFloat)
@@ -997,4 +988,28 @@ import Testing
   // Serialize to JSON string — should produce null
   let dumped = decoded.dump(indent: -1)
   #expect(dumped == "null")
+}
+
+// MARK: - Precision loss documentation
+
+@Test func cborUInt64PrecisionLoss() throws {
+  // Values > Int64.max stored as Double — round-trip through CBOR loses precision.
+  // This documents the intentional semantic change: these values are no longer exact.
+  let original = UInt64(Int64.max) + 1  // 2^63
+  var bytes: [UInt8] = [0x1B]
+  appendBE(original, to: &bytes)
+  let data = Data(bytes)
+  let decoded = try JSON.fromCBOR(data)
+  #expect(decoded.isFloat)
+  if case .number(.float(let d)) = decoded.storage {
+    // The Double representation of 2^63 is exact (it's a power of 2)
+    // but larger values would lose precision
+    #expect(d == Double(original))
+    // Re-encode back to CBOR and verify
+    let reEncoded = decoded.toCBOR()
+    let roundTrip = try JSON.fromCBOR(reEncoded)
+    #expect(roundTrip == decoded)
+  } else {
+    Issue.record("Expected float")
+  }
 }

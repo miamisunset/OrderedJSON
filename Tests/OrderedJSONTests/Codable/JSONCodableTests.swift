@@ -1302,8 +1302,9 @@ extension JSON {
   // that produces a double near Int64.max
   let decoder = JSONDecoder()
   let decoded = try decoder.decode(JSON.self, from: data)
-  // Should decode as float, not crash with overflow
-  #expect(decoded.isFloat || decoded.isInteger)
+  // Double(Int64.max) rounds up to 2^63, which is not representable as Int64
+  // Must decode as float, not crash
+  #expect(decoded.isFloat)
 }
 
 @Test func decodeLargeDoubleStaysFloat() throws {
@@ -1333,4 +1334,32 @@ extension JSON {
   if case .number(.integer(let i)) = decoded.storage {
     #expect(i == Int64.min)
   }
+}
+
+// MARK: - NaN/Infinity via Encodable path
+
+@Test func nanFloatThroughJSONEncoder() throws {
+  // JSON.number(.float(NaN)) encodes as null via JSON: Encodable
+  let json = JSON.number(.float(Double.nan))
+  let encoder = JSONEncoder()
+  let data = try encoder.encode(json)
+  let string = String(data: data, encoding: .utf8)!
+  #expect(string == "null" || string == "[null]")
+}
+
+@Test func infinityFloatThroughJSONEncoder() throws {
+  // JSON.number(.float(Infinity)) encodes as null via JSON: Encodable
+  let json = JSON.number(.float(Double.infinity))
+  let encoder = JSONEncoder()
+  let data = try encoder.encode(json)
+  let string = String(data: data, encoding: .utf8)!
+  #expect(string == "null" || string == "[null]")
+}
+
+@Test func nanFloatThroughOrderedJSONEncoder() throws {
+  // OrderedJSONEncoder should also encode NaN as null
+  let json = JSON.number(.float(Double.nan))
+  let encoder = OrderedJSONEncoder()
+  let encoded = try encoder.encode(json)
+  #expect(encoded.isNull)
 }

@@ -73,7 +73,7 @@ private func decodeCBOR(_ data: Data, _ pos: inout Int) throws -> JSON {
       let value = -1 - Int64(argument)
       return JSON.number(.integer(value))
     } else {
-      return JSON.number(.float(Double(-1) - Double(argument)))
+      return JSON.number(.float(-1.0 - Double(argument)))
     }
 
   case 2:  // Byte string

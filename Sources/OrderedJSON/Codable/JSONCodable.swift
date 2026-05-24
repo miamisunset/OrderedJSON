@@ -27,7 +27,14 @@ extension JSON: Encodable {
       var container = encoder.singleValueContainer()
       switch num {
       case .integer(let i): try container.encode(i)
-      case .float(let d): try container.encode(d)
+      case .float(let d):
+        // NaN and Infinity are not valid JSON — encode as nil (null)
+        // matching dump() behavior and nlohmann/json's default.
+        if d.isNaN || d.isInfinite {
+          try container.encodeNil()
+        } else {
+          try container.encode(d)
+        }
       }
     case .boolean(let b):
       var container = encoder.singleValueContainer()
