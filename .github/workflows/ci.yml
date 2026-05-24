@@ -24,7 +24,9 @@ jobs:
     runs-on: macos-26
     steps:
       - uses: actions/checkout@v4
-      - name: Build & Test
+      - name: Build
+        run: swift build
+      - name: Run tests (list then filter)
         run: |
-          set -o pipefail
-          swift test --parallel 2>&1 | tee /dev/null
+          swift test --list-tests 2>/dev/null | head -5
+          swift test --parallel --filter ".*" 2>&1
