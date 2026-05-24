@@ -20,7 +20,7 @@ let package = Package(
   ],
   dependencies: [
     // For OrderedDictionary - highly recommended
-    .package(url: "https://github.com/apple/swift-collections.git", from: "1.5.1"),
+    .package(url: "https://github.com/apple/swift-collections.git", from: "1.5.1")
   ],
   targets: [
     // Targets are the basic building blocks of a package, defining a module or a test suite.
