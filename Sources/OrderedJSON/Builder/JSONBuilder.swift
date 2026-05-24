@@ -110,6 +110,16 @@ extension JSON {
       return self
     }
 
+    /// Merges all key-value pairs from `other` into this builder.
+    /// Existing keys in `self` are overwritten by matching keys from `other`.
+    @discardableResult
+    public func merge(_ other: JSON.ObjectBuilder) -> Self {
+      for (key, value) in other.dict {
+        dict[key] = value
+      }
+      return self
+    }
+
     /// Returns the current number of key-value pairs in the builder.
     public var count: Int { dict.count }
 
@@ -225,6 +235,20 @@ extension JSON {
     @discardableResult
     public func add(_ value: JSON.ArrayBuilder) -> Self {
       elements.append(value.build())
+      return self
+    }
+
+    /// Appends all elements from `other` into this builder.
+    @discardableResult
+    public func append(contentsOf other: JSON.ArrayBuilder) -> Self {
+      elements.append(contentsOf: other.elements)
+      return self
+    }
+
+    /// Appends all elements from an array of `JSON` values.
+    @discardableResult
+    public func append(contentsOf other: [JSON]) -> Self {
+      elements.append(contentsOf: other)
       return self
     }
 

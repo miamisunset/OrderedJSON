@@ -247,6 +247,69 @@ import Testing
   #expect(json[0]?[1] == .number(.integer(1)))
 }
 
+@Test func objectBuilderMerge() throws {
+  let base = JSON.ObjectBuilder()
+    .set("a", 1)
+    .set("b", 2)
+
+  let other = JSON.ObjectBuilder()
+    .set("c", 3)
+    .set("d", 4)
+
+  let merged = base.merge(other).build()
+  #expect(merged.count == 4)
+  #expect(merged["a"] == .number(.integer(1)))
+  #expect(merged["b"] == .number(.integer(2)))
+  #expect(merged["c"] == .number(.integer(3)))
+  #expect(merged["d"] == .number(.integer(4)))
+}
+
+@Test func objectBuilderMergeOverwrites() throws {
+  let base = JSON.ObjectBuilder()
+    .set("a", 1)
+    .set("b", 2)
+
+  let other = JSON.ObjectBuilder()
+    .set("b", 99)
+    .set("c", 3)
+
+  let merged = base.merge(other).build()
+  #expect(merged.count == 3)
+  #expect(merged["a"] == .number(.integer(1)))
+  #expect(merged["b"] == .number(.integer(99)))
+  #expect(merged["c"] == .number(.integer(3)))
+}
+
+@Test func arrayBuilderAppendContentsOfBuilder() throws {
+  let base = JSON.ArrayBuilder()
+    .add("a")
+    .add("b")
+
+  let other = JSON.ArrayBuilder()
+    .add("c")
+    .add("d")
+
+  let combined = base.append(contentsOf: other).build()
+  #expect(combined.count == 4)
+  #expect(combined[0] == .string("a"))
+  #expect(combined[1] == .string("b"))
+  #expect(combined[2] == .string("c"))
+  #expect(combined[3] == .string("d"))
+}
+
+@Test func arrayBuilderAppendContentsOfArray() throws {
+  let base = JSON.ArrayBuilder()
+    .add(1)
+    .add(2)
+
+  let combined = base.append(contentsOf: [.string("x"), .number(.integer(3))]).build()
+  #expect(combined.count == 4)
+  #expect(combined[0] == .number(.integer(1)))
+  #expect(combined[1] == .number(.integer(2)))
+  #expect(combined[2] == .string("x"))
+  #expect(combined[3] == .number(.integer(3)))
+}
+
 // MARK: - Builder round-trip
 
 @Test func builderRoundTripWithEncoderDecoder() throws {
