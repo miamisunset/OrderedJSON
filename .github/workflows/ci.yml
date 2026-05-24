@@ -24,7 +24,10 @@ jobs:
     runs-on: macos-26
     steps:
       - uses: actions/checkout@v4
-      - name: Build
-        run: swift build
-      - name: Test
-        run: swift test --parallel
+      - name: Build tests
+        run: swift build --build-tests
+      - name: Run tests directly
+        run: |
+          TEST_BINARY=$(swift build --show-bin-path)/OrderedJSONPackageTests.xctest/Contents/MacOS/OrderedJSONPackageTests
+          chmod +x "$TEST_BINARY"
+          "$TEST_BINARY" --testing-library swift-testing
