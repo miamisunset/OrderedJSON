@@ -111,7 +111,14 @@ private func decodeMsgPack(_ data: Data, _ pos: inout Int) throws -> JSON {
   }
   if byte == 0xCD { return JSON.number(.integer(Int64(readUInt16(data, &pos)))) }
   if byte == 0xCE { return JSON.number(.integer(Int64(readUInt32(data, &pos)))) }
-  if byte == 0xCF { return JSON.number(.integer(Int64(readUInt64(data, &pos)))) }
+  if byte == 0xCF {
+    let v = readUInt64(data, &pos)
+    if v <= UInt64(Int64.max) {
+      return JSON.number(.integer(Int64(v)))
+    } else {
+      return JSON.number(.float(Double(v)))
+    }
+  }
 
   // Signed integers
   if byte == 0xD0 {

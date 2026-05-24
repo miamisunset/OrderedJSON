@@ -27,7 +27,14 @@ extension JSON: Encodable {
       var container = encoder.singleValueContainer()
       switch num {
       case .integer(let i): try container.encode(i)
-      case .float(let d): try container.encode(d)
+      case .float(let d):
+        // NaN and Infinity are not valid JSON — encode as nil (null)
+        // matching dump() behavior and nlohmann/json's default.
+        if d.isNaN || d.isInfinite {
+          try container.encodeNil()
+        } else {
+          try container.encode(d)
+        }
       }
     case .boolean(let b):
       var container = encoder.singleValueContainer()
@@ -104,8 +111,10 @@ extension JSON: Decodable {
       self = .number(.integer(i))
     } else if let d = try? container.decode(Double.self) {
       // Normalize clean integer doubles (e.g., 1.0 → 1)
-      if d == d.rounded(.towardZero) && d >= Double(Int64.min) && d <= Double(Int64.max) {
-        self = .number(.integer(Int64(d)))
+      // Use Int64(exactly:) to avoid overflow: Double(Int64.max) rounds up
+      // beyond Int64.max due to floating-point precision.
+      if let i = Int64(exactly: d), d == d.rounded(.towardZero) {
+        self = .number(.integer(i))
       } else {
         self = .number(.float(d))
       }

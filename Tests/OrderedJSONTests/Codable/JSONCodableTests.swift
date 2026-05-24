@@ -1290,3 +1290,76 @@ extension JSON {
   #expect(back.dates[0].timeIntervalSince1970 == 1_000)
   #expect(back.dates[1].timeIntervalSince1970 == 2_000)
 }
+
+// MARK: - Decodable overflow protection
+
+@Test func decodeDoubleNearInt64Max() throws {
+  // Double(Int64.max) rounds up beyond Int64.max — must not crash
+  let json = JSON.number(.float(Double(Int64.max)))
+  let encoder = JSONEncoder()
+  let data = try encoder.encode(json)
+  // Round-trip through JSONSerialization to simulate a decoder
+  // that produces a double near Int64.max
+  let decoder = JSONDecoder()
+  let decoded = try decoder.decode(JSON.self, from: data)
+  // Double(Int64.max) rounds up to 2^63, which is not representable as Int64
+  // Must decode as float, not crash
+  #expect(decoded.isFloat)
+}
+
+@Test func decodeLargeDoubleStaysFloat() throws {
+  // A double value that exceeds Int64.max should remain float
+  let value = Double(Int64.max) * 2  // way beyond Int64.max
+  let json = JSON.number(.float(value))
+  let encoder = JSONEncoder()
+  let data = try encoder.encode(json)
+  let decoder = JSONDecoder()
+  let decoded = try decoder.decode(JSON.self, from: data)
+  #expect(decoded.isFloat)
+  if case .number(.float(let d)) = decoded.storage {
+    #expect(d == value)
+  }
+}
+
+@Test func decodeNegativeDoubleNearInt64Min() throws {
+  // Double(Int64.min) is exactly representable — must not overflow
+  let value = Double(Int64.min)
+  let json = JSON.number(.float(value))
+  let encoder = JSONEncoder()
+  let data = try encoder.encode(json)
+  let decoder = JSONDecoder()
+  let decoded = try decoder.decode(JSON.self, from: data)
+  // Should normalize to integer since it's exact
+  #expect(decoded.isInteger)
+  if case .number(.integer(let i)) = decoded.storage {
+    #expect(i == Int64.min)
+  }
+}
+
+// MARK: - NaN/Infinity via Encodable path
+
+@Test func nanFloatThroughJSONEncoder() throws {
+  // JSON.number(.float(NaN)) encodes as null via JSON: Encodable
+  let json = JSON.number(.float(Double.nan))
+  let encoder = JSONEncoder()
+  let data = try encoder.encode(json)
+  let string = String(data: data, encoding: .utf8)!
+  #expect(string == "null" || string == "[null]")
+}
+
+@Test func infinityFloatThroughJSONEncoder() throws {
+  // JSON.number(.float(Infinity)) encodes as null via JSON: Encodable
+  let json = JSON.number(.float(Double.infinity))
+  let encoder = JSONEncoder()
+  let data = try encoder.encode(json)
+  let string = String(data: data, encoding: .utf8)!
+  #expect(string == "null" || string == "[null]")
+}
+
+@Test func nanFloatThroughOrderedJSONEncoder() throws {
+  // OrderedJSONEncoder should also encode NaN as null
+  let json = JSON.number(.float(Double.nan))
+  let encoder = OrderedJSONEncoder()
+  let encoded = try encoder.encode(json)
+  #expect(encoded.isNull)
+}
