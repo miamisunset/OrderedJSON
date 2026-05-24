@@ -6,6 +6,64 @@ A Swift library that preserves JSON key order with a rich method-based API mirro
 
 ---
 
+## Table of Contents
+
+<details>
+<summary>Click to expand</summary>
+
+- [Why OrderedJSON?](#why-orderedjson)
+- [Quick Start](#quick-start)
+- [Performance](#performance)
+  - [Parsing](#parsing)
+  - [Encoding / Serialization](#encoding--serialization)
+  - [Binary Formats](#binary-formats)
+  - [Codable](#codable)
+  - [Comparison vs. Foundation](#comparison-vs-foundation)
+- [Installation](#installation)
+- [Creating Values](#creating-values)
+- [JSONBuilder](#jsonbuilder)
+  - [ObjectBuilder](#objectbuilder)
+  - [ArrayBuilder](#arraybuilder)
+  - [When to use builders](#when-to-use-builders)
+- [Parsing JSON](#parsing-json)
+  - [Duplicate keys](#duplicate-keys)
+  - [Parser options](#parser-options)
+  - [Parsing from Data](#parsing-from-data)
+  - [Error handling](#error-handling)
+- [Encoding / Serialization](#encoding--serialization)
+- [Type Checks](#type-checks)
+- [Subscript / At / Value Access](#subscript--at--value-access)
+- [Capacity / Lookup](#capacity--lookup)
+- [Modifiers](#modifiers)
+- [Flatten / Unflatten](#flatten--unflatten)
+- [JSON Pointer](#json-pointer)
+- [Comparison Operators](#comparison-operators)
+  - [Type ordering](#type-ordering)
+  - [Mixed number comparison](#mixed-number-comparison)
+- [Sequence Conformance](#sequence-conformance)
+- [JSON Patch (RFC 6902)](#json-patch-rfc-6902)
+- [Diff](#diff)
+- [JSON Merge Patch (RFC 7396)](#json-merge-patch-rfc-7396)
+- [SAX Parsing](#sax-parsing)
+- [Binary Formats](#binary-formats)
+- [Feature Parity vs. nlohmann/json](#feature-parity-vs-nlohmannjson)
+  - [Summary](#summary)
+- [Codable Support](#codable-support)
+  - [JSON: Codable Conformance](#json-codable-conformance)
+  - [OrderedJSONEncoder](#orderedjsonencoder)
+  - [OrderedJSONDecoder](#orderedjsondecoder)
+  - [Foundation Type Support](#foundation-type-support)
+  - [Convenience: JSON.encode(_:)](#convenience-jsonencode_)
+  - [Convenience: JSON.decode(_:from:)](#convenience-jsondecode_from)
+  - [JSONWithExtras<T>](#jsonwithextrat)
+  - [Throwing Typed Accessors](#throwing-typed-accessors)
+  - [Round-Trip Example](#round-trip-example)
+- [Best Practices](#best-practices)
+
+</details>
+
+---
+
 ## Why OrderedJSON?
 
 Standard JSON dictionaries have no defined key order — Swift's `Dictionary` and most JSON libraries treat key order as an implementation detail. But many applications depend on insertion order: API signatures, serialization formats, configuration files, and protocol buffers all benefit from deterministic ordering.
