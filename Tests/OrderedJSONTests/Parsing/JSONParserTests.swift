@@ -83,7 +83,7 @@ import Testing
 
 @Test func parseStringWithBackspaceFormfeed() throws {
   let result = try JSON.parse("\"a\\b\\fb\"")
-  #expect(result == JSON.string("a\u{8}\u{12}b"))
+  #expect(result == JSON.string("a\u{8}\u{0C}b"))
 }
 
 @Test func parseEmptyArray() throws {
@@ -260,6 +260,14 @@ import Testing
   }
 }
 
+@Test func parseDepthExceedsLimitByOne() throws {
+  let opts = JSON.ParserOptions(maxDepth: 3)
+  let deepJSON = "{\"a\": {\"b\": {\"c\": {\"d\": 1}}}}"
+  #expect(throws: JSONParseError.depthExceeded(line: 1, column: 20, depth: 4, maxDepth: 3)) {
+    try JSON.parse(deepJSON, options: opts)
+  }
+}
+
 // MARK: - Data Parsing Tests
 
 @Test func parseFromData() throws {
@@ -307,6 +315,30 @@ import Testing
 @Test func parseSurrogatePairSkull() throws {
   let result = try JSON.parse("\"\\uD83D\\uDC80\"")
   #expect(result == JSON.string("💀"))
+}
+
+@Test func parseLoneLowSurrogate() throws {
+  #expect(throws: JSONParseError.invalidUnicodeEscape(line: 1, column: 8)) {
+    try JSON.parse("\"\\uDC00\"")
+  }
+}
+
+@Test func parseHighSurrogateNotFollowedByBackslash() throws {
+  #expect(throws: JSONParseError.invalidUnicodeEscape(line: 1, column: 13)) {
+    try JSON.parse("\"\\uD800X\"")
+  }
+}
+
+@Test func parseUnicodeEscapeFollowedByChar() throws {
+  let result = try JSON.parse("\"\\u0041X\"")
+  #expect(result == JSON.string("AX"))
+}
+
+@Test func parseDepthAtLimit() throws {
+  let opts = JSON.ParserOptions(maxDepth: 3)
+  let nested = "{\"a\": {\"b\": {\"c\": 1}}}"
+  let result = try JSON.parse(nested, options: opts)
+  #expect(result["a"]?["b"]?["c"] == JSON.number(.integer(1)))
 }
 
 // MARK: - Large JSON Performance (smoke test)
