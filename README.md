@@ -38,6 +38,47 @@ Unlike `JSONSerialization`, which may reorder keys arbitrarily, `JSON.parse()` g
 
 ---
 
+## Performance
+
+OrderedJSON is a Swift-native implementation designed for production use with predictable performance characteristics.
+
+### Parsing
+
+Parsing is single-pass recursive descent with no intermediate AST — JSON values are constructed inline as tokens are consumed. This minimizes memory allocation compared to multi-pass approaches.
+
+- **Small objects (<10 keys)**: Parsing completes in microseconds on modern hardware.
+- **Large objects (10k+ keys)**: Linear time in key count. Memory scales with the document size, dominated by `OrderedDictionary` storage.
+- **Arrays**: Parsed in a single pass with `Array` append operations — no pre-allocation needed.
+- **Depth**: Controlled by `ParserOptions.maxDepth` (default 1024). Use lower values like 64 for untrusted input to prevent stack exhaustion.
+
+### Encoding / Serialization
+
+`dump()` performs a single recursive traversal with string formatting. Performance is linear in the value count.
+
+- **Compact output** (`indent: -1`): Minimal overhead — mostly string escaping and concatenation.
+- **Pretty-printed** (`indent: 2`): Slightly more overhead due to whitespace insertion per nesting level.
+
+### Binary Formats
+
+All five binary formats (CBOR, MessagePack, UBJSON, BSON, BJData) use single-pass encode/decode with no intermediate representation.
+
+### Codable
+
+`OrderedJSONEncoder` and `OrderedJSONDecoder` are custom implementations that avoid Foundation's `JSONSerialization` codepath entirely. Encoding/decoding a small struct with 3–5 fields completes in microseconds. For deeply nested types, performance is linear in the total number of encoded values.
+
+### Comparison vs. Foundation
+
+| Operation | OrderedJSON | Foundation `JSONSerialization` |
+|-----------|-------------|-------------------------------|
+| Parse (1 KB) | Single-pass recursive descent | Multi-pass with mutable containers |
+| Key order | Preserved by design | Alphabetical (sorted) |
+| Codable encode/decode | Custom encoder/decoder, no `JSONSerialization` bridge | Uses `JSONSerialization` internally |
+| Binary formats | Native CBOR/MessagePack/UBJSON/BSON/BJData | No built-in support |
+
+> **Note:** Precise benchmarks depend on document size, hardware, and Swift optimization level (`-O` vs `-Ounchecked`). Run your own profiling with representative workloads.
+
+---
+
 ## Installation
 
 Add `OrderedJSON` to your `Package.swift`:
@@ -658,6 +699,235 @@ All major feature categories from `nlohmann/json` are implemented:
 - ✅ Hashable, Sendable, and full documentation
 
 The missing features are either **Swift-inappropriate** (C++ stream operators, allocators, string literals, unsigned integer distinction) or **naming differences** (`append` vs `push_back`, `first`/`last` vs `front`/`back`). None affect the library's ability to serve as a complete ordered JSON implementation for Swift.
+
+---
+
+## Codable Support
+
+OrderedJSON provides full `Codable` interop with Foundation, plus dedicated `OrderedJSONEncoder` and `OrderedJSONDecoder` that preserve key order through encoding and decoding.
+
+### JSON: Codable Conformance
+
+`JSON` itself conforms to `Encodable` and `Decodable`, so you can use it with Foundation's `JSONEncoder` and `JSONDecoder`:
+
+```swift
+let json = JSON.object([
+  "name": .string("Alice"),
+  "age": .number(.integer(30)),
+])
+
+// Encode JSON with Foundation's JSONEncoder
+let data = try JSONEncoder().encode(json)
+
+// Decode back with Foundation's JSONDecoder
+let decoded = try JSONDecoder().decode(JSON.self, from: data)
+// decoded == json (Foundation may reorder keys)
+```
+
+> **Note:** Foundation's `JSONDecoder` sorts keys alphabetically by default, so key order from the original `JSON` value may not be preserved. Use `OrderedJSONDecoder` for order-preserving decoding.
+
+### OrderedJSONEncoder
+
+`OrderedJSONEncoder` encodes `Codable` types directly into `JSON` values, preserving the order of keys as declared in the struct (or as encoded by a custom `encode(to:)` implementation).
+
+```swift
+struct Person: Codable {
+  let name: String
+  let age: Int
+}
+
+let encoder = OrderedJSONEncoder()
+let json = try encoder.encode(Person(name: "Alice", age: 30))
+// json is a JSON object with keys in declaration order: ["name", "age"]
+
+// Or encode directly to a compact JSON string
+let string = try encoder.encodeToString(Person(name: "Bob", age: 25))
+// "{\"name\":\"Bob\",\"age\":25}"
+```
+
+Key features:
+
+- **Key order preserved**: Keys appear in the order they were declared in the `Codable` type or written by `encode(to:)`.
+- **Nested containers**: Nested objects/arrays via `nestedContainer(keyedBy:forKey:)` and `nestedUnkeyedContainer(forKey:)` work correctly — child mutations propagate to parent entries.
+- **Super encoders**: `superEncoder()` and `superEncoder(forKey:)` write results back under the key `"super"` (matching Foundation convention).
+- **Full integer/unsigned width support**: `Int8`, `Int16`, `Int32`, `Int64`, `UInt`, `UInt8`, `UInt16`, `UInt32`, `UInt64` — all encode without loss. `UInt64` values exceeding `Int64.max` throw `EncodingError.invalidValue`.
+- **Set `userInfo` before calling**: Mutations after `encode()` do not propagate to nested containers.
+
+### OrderedJSONDecoder
+
+`OrderedJSONDecoder` decodes `Codable` types from `JSON`, `Data`, or JSON strings, preserving key insertion order. For `JSON` targets, keys are reported in the original parsed order. For struct types, the decoder's `allKeys` array preserves insertion order.
+
+```swift
+struct Person: Decodable {
+  let name: String
+  let age: Int
+}
+
+let decoder = OrderedJSONDecoder()
+
+// Decode from a JSON value
+let json = try JSON.parse(#"{"name": "Alice", "age": 30}"#)
+let person1 = try decoder.decode(Person.self, from: json)
+
+// Decode from raw data
+let data = Data(#"{"name": "Bob", "age": 25}"#.utf8)
+let person2 = try decoder.decode(Person.self, from: data)
+
+// Decode from a JSON string
+let person3 = try decoder.decode(Person.self, from: "{\"name\": \"Charlie\", \"age\": 35}")
+
+// Decode JSON itself — keys preserved from input
+let ordered = try decoder.decode(JSON.self, from: #"{"z": 1, "a": 2, "m": 3}"#)
+// ordered.keys == ["z", "a", "m"] (insertion order)
+```
+
+Key features:
+
+- **Key order preserved**: `JSON` objects decoded via `OrderedJSONDecoder` retain their parsed insertion order.
+- **`decodeIfPresent`**: Optional fields work correctly — absent keys return `nil`, explicit `null` returns `nil`, present values decode normally.
+- **Full integer/unsigned width support**: `Int8`, `Int16`, `Int32`, `Int64`, `UInt`, `UInt8`, `UInt16`, `UInt32`, `UInt64` — all decode with bounds-checked conversion. Values outside the target type's range throw `DecodingError.typeMismatch`.
+- **Coding path propagation**: Every container threads the coding path, so decoding errors include meaningful paths (e.g., `["address", "zip"]`).
+- **Set `userInfo` before calling**: Mutations after `decode()` do not propagate to nested containers.
+
+### Convenience: JSON.decode(...)
+
+Combine parsing and decoding in a single call:
+
+```swift
+struct Person: Codable {
+  let name: String
+  let age: Int
+}
+
+// From a JSON string
+let p1 = try JSON.decode(Person.self, from: "{\"name\": \"Alice\", \"age\": 30}")
+
+// From raw data
+let data = Data(#"{"name": "Bob", "age": 25}"#.utf8)
+let p2 = try JSON.decode(Person.self, from: data)
+
+// With parser options
+let opts = JSON.ParserOptions(allowTrailingCommas: true)
+let p3 = try JSON.decode(Person.self, from: "{\"name\": \"Charlie\", \"age\": 35,}", options: opts)
+```
+
+These live in `Sources/OrderedJSON/Codable/JSON+Decode.swift` — they depend on `OrderedJSONDecoder`.
+
+### JSONWithExtras<T>
+
+Capture unknown JSON keys as extras while decoding known fields into a strongly-typed struct — similar to `#[serde(flatten)]` in serde.
+
+```swift
+struct Person: Codable {
+  let name: String
+  let age: Int
+}
+
+let data = Data(#"""
+  {"name": "Alice", "age": 30, "color": "blue", "city": "NYC"}
+  """#.utf8)
+
+let wrapped = try OrderedJSONDecoder().decode(
+  JSONWithExtras<Person>.self, from: data)
+
+// Known fields
+wrapped.value.name  // "Alice"
+wrapped.value.age   // 30
+
+// Unknown keys captured as extras
+wrapped.extras["color"]  // .string("blue")
+wrapped.extras["city"]   // .string("NYC")
+```
+
+`JSONWithExtras` works by:
+1. Decoding all keys as raw `JSON` values
+2. Decoding `T` while tracking which keys it accesses via `decode(...)` and `decodeNil(forKey:)`
+3. Treating unaccessed keys as extras
+
+**Known limitations:**
+- `contains(_:)` does **not** mark keys as accessed — use `decodeIfPresent` for optional fields
+- `T` must encode/decode as a keyed object; single-value and unkeyed containers are not supported
+- Extras must be a JSON object when encoding; non-object extras throw `EncodingError.invalidValue`
+
+### Throwing Typed Accessors
+
+`JSON` provides throwing accessors for strong typing without optional unwrapping:
+
+```swift
+let json = try JSON.parse(#"{"name": "Alice", "count": 42, "rate": 3.14, "active": true}"#)
+
+// String
+let name = try json["name"]?.requireString()  // "Alice"
+
+// Boolean
+let active = try json["active"]?.requireBool()  // true
+
+// Integers — accepts both .integer and .float (when float is a clean integer)
+let count = try json["count"]?.requireInt64()  // 42
+let count32 = try json["count"]?.requireInt32()  // 42
+let countU = try json["count"]?.requireUInt()  // 42
+
+// Floats — accepts both .float and .integer (widening)
+let rate = try json["rate"]?.requireDouble()  // 3.14
+let rateF = try json["rate"]?.requireFloat()  // 3.14 (lossless)
+
+// Bounds-checked integer widths
+let small = try json["count"]?.requireInt8()   // 42
+let large = try json["count"]?.requireUInt64()  // 42
+
+// All throw JSONError.typeError on type mismatch with descriptive messages
+```
+
+Available accessors:
+
+| Method | Accepts | Returns | Throws if |
+|--------|---------|---------|-----------|
+| `requireString()` | `.string` | `String` | Not a string |
+| `requireBool()` | `.boolean` | `Bool` | Not a boolean |
+| `requireInt64()` | `.integer` or `.float` (clean integer) | `Int64` | Not a number or fractional float |
+| `requireInt()` | `.integer` or `.float` (clean integer) | `Int` | Not a number, or out of `Int` range |
+| `requireInt8()` | `.integer` or `.float` (clean integer) | `Int8` | Not a number, or out of `Int8` range |
+| `requireInt16()` | `.integer` or `.float` (clean integer) | `Int16` | Not a number, or out of `Int16` range |
+| `requireInt32()` | `.integer` or `.float` (clean integer) | `Int32` | Not a number, or out of `Int32` range |
+| `requireDouble()` | `.float` or `.integer` (widening) | `Double` | Not a number |
+| `requireFloat()` | `.float` or `.integer` (widening) | `Float` | Not a number, or not losslessly representable |
+| `requireUInt()` | `.integer` or `.float` (clean integer) | `UInt` | Not a number, or negative / out of `UInt` range |
+| `requireUInt8()` | `.integer` or `.float` (clean integer) | `UInt8` | Not a number, or negative / out of `UInt8` range |
+| `requireUInt16()` | `.integer` or `.float` (clean integer) | `UInt16` | Not a number, or negative / out of `UInt16` range |
+| `requireUInt32()` | `.integer` or `.float` (clean integer) | `UInt32` | Not a number, or negative / out of `UInt32` range |
+| `requireUInt64()` | `.integer` or `.float` (clean integer) | `UInt64` | Not a number, or negative |
+
+> **Note:** `requireFloat()` uses lossless conversion (`Float(exactly:)`). Values like `0.1` that are not exactly representable as `Float` throw `JSONError.typeError`. For Foundation-compatible lossy narrowing, use `requireDouble()` and cast manually.
+
+### Round-Trip Example
+
+Full round-trip through `OrderedJSONEncoder` → serialization → parsing → `OrderedJSONDecoder`:
+
+```swift
+struct Person: Codable {
+  let name: String
+  let age: Int
+  let address: String?
+}
+
+let original = Person(name: "Alice", age: 30, address: nil)
+
+// Encode
+let encoder = OrderedJSONEncoder()
+let json = try encoder.encode(original)
+
+// Serialize to string
+let jsonString = json.dump(indent: -1)
+// {"name":"Alice","age":30,"address":null}
+
+// Parse back
+let parsed = try JSON.parse(jsonString)
+
+// Decode
+let decoder = OrderedJSONDecoder()
+let roundTripped = try decoder.decode(Person.self, from: parsed)
+// roundTripped == original
+```
 
 ---
 
