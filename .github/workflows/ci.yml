@@ -24,11 +24,18 @@ jobs:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Install Swift 6.3 via swiftly
+      - name: Install Swiftly and Swift 6.3
         run: |
-          curl -Ls https://swiftly.swift.org/install.sh | bash
-          swiftly install 6.3.0
+          curl -O https://download.swift.org/swiftly/darwin/swiftly.pkg
+          installer -pkg swiftly.pkg -target CurrentUserHomeDirectory
+          export SWIFTLY_PATH="$HOME/.swiftly/bin"
+          "$SWIFTLY_PATH/swiftly" init --accept-license
+          "$SWIFTLY_PATH/swiftly" install 6.3.0
       - name: Build
-        run: swiftly run swift build
+        run: |
+          export SWIFTLY_PATH="$HOME/.swiftly/bin"
+          "$SWIFTLY_PATH/swiftly" run swift build
       - name: Test
-        run: swiftly run swift test
+        run: |
+          export SWIFTLY_PATH="$HOME/.swiftly/bin"
+          "$SWIFTLY_PATH/swiftly" run swift test
