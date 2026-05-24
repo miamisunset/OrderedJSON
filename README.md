@@ -841,6 +841,9 @@ Available strategies:
 - `DateEncodingStrategy`: `.deferredToDate`, `.secondsSince1970`, `.millisecondsSince1970`, `.iso8601`, `.formatted(DateFormatter)`, `.custom((Date, Encoder) throws -> JSON)`
 - `DateDecodingStrategy`: `.deferredToDate`, `.secondsSince1970`, `.millisecondsSince1970`, `.iso8601`, `.formatted(DateFormatter)`, `.custom((JSON, Decoder) throws -> Date)`
 
+> The `.iso8601` strategy uses `ISO8601DateFormatter` with `.withInternetDateTime | .withFractionalSeconds` options.
+> Dates always include fractional seconds (e.g. `
+
 #### Data Strategies
 
 ```swift
@@ -855,7 +858,7 @@ decoder.dataDecodingStrategy = .base64
 let back = try decoder.decode(Container.self, from: json)  // Data([0xDE, 0xAD, 0xBE, 0xEF])
 ```
 
-Available strategies:
+Available strategies (default: `.base64`):
 - `DataEncodingStrategy`: `.deferredToData`, `.base64`, `.custom((Data, Encoder) throws -> JSON)`
 - `DataDecodingStrategy`: `.deferredToData`, `.base64`, `.custom((JSON, Decoder) throws -> Data)`
 
@@ -877,11 +880,15 @@ let doc = Document(
 
 let encoder = OrderedJSONEncoder()
 let json = try encoder.encode(doc)
-// URL → absolute string, UUID → uuid string, Decimal → JSON number
+// URL → absolute string, UUID → uuid string, Decimal → JSON string (preserves precision)
 
 let decoder = OrderedJSONDecoder()
 let back = try decoder.decode(Document.self, from: json)
 ```
+
+> **Decimal strategies**: By default `Decimal` encodes as a JSON string (preserving full precision).
+> Use `encoder.decimalEncodingStrategy = .asNumber` / `decoder.decimalDecodingStrategy = .asNumber`
+> to match Foundation's `JSONEncoder` behavior (JSON number).
 
 ### Convenience: JSON.encode(_:)
 

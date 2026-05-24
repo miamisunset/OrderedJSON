@@ -216,3 +216,13 @@ All 403 tests pass. Build produces zero errors. CI pipeline passes (SwiftFormat 
 - Merged `codable-support` → `main` via squash-merge at `9cc89b2`
 - Tagged and released as **v2.1.0**
 - README updated with Codable documentation, performance section, throwing accessor table
+
+## Review Fixes Applied (PR #8)
+
+### Issues Addressed
+1. **Decimal precision**: Changed default from `.asNumber` (JSON number via `Double`) to `.asString` (JSON string preserving precision). Added `DecimalEncodingStrategy`/`DecimalDecodingStrategy` enums.
+2. **ISO8601 fractional seconds**: Both encoder and decoder now use `ISO8601DateFormatter` with `.withInternetDateTime | .withFractionalSeconds`.
+3. **Default data strategy**: Changed from `.deferredToData` to `.base64` (matching Foundation's `JSONEncoder` default).
+4. **Strategy propagation**: `decimalEncodingStrategy`/`decimalDecodingStrategy` propagate to all nested containers and super encoders.
+5. **Tests updated**: `foundationDecimal` expects string, added `foundationDecimalAsNumber` test, updated `foundationDateISO8601` for fractional seconds.
+6. **README updated**: Decimal section now notes `.asString` default, Data section notes `.base64` default, ISO8601 section documents `.withFractionalSeconds`.

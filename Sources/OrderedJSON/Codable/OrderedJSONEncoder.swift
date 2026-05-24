@@ -13,7 +13,10 @@ public struct OrderedJSONEncoder {
   public var dateEncodingStrategy: DateEncodingStrategy = .deferredToDate
 
   /// The strategy to use for encoding `Data` values.
-  public var dataEncodingStrategy: DataEncodingStrategy = .deferredToData
+  public var dataEncodingStrategy: DataEncodingStrategy = .base64
+
+  /// The strategy to use for encoding `Decimal` values.
+  public var decimalEncodingStrategy: DecimalEncodingStrategy = .asString
 
   /// Creates a new encoder with default options.
   public init() {
@@ -24,7 +27,8 @@ public struct OrderedJSONEncoder {
     let impl = _JSONEncodeImpl(
       userInfo: userInfo,
       dateEncodingStrategy: dateEncodingStrategy,
-      dataEncodingStrategy: dataEncodingStrategy)
+      dataEncodingStrategy: dataEncodingStrategy,
+      decimalEncodingStrategy: decimalEncodingStrategy)
     try value.encode(to: impl)
     return impl.json
   }
@@ -55,12 +59,20 @@ public enum DateEncodingStrategy {
 
 /// Strategy for encoding `Data` values.
 public enum DataEncodingStrategy {
-  /// Encode the `Data` using its `Encodable` implementation (default).
+  /// Encode the `Data` using its `Encodable` implementation.
   case deferredToData
-  /// Encode as a Base64-encoded string.
+  /// Encode as a Base64-encoded string (default).
   case base64
   /// Encode using a custom closure that produces a `JSON` value.
   case custom((Data, Encoder) throws -> JSON)
+}
+
+/// Strategy for encoding `Decimal` values.
+public enum DecimalEncodingStrategy {
+  /// Encode the `Decimal` as a JSON string (default, preserves precision).
+  case asString
+  /// Encode the `Decimal` as a JSON number (matching Foundation's `JSONEncoder` behavior).
+  case asNumber
 }
 
 // MARK: - Internal encoder implementation
@@ -86,6 +98,7 @@ final class _JSONEncodeImpl: Encoder {
   /// Strategies propagated from `OrderedJSONEncoder`.
   let dateEncodingStrategy: DateEncodingStrategy
   let dataEncodingStrategy: DataEncodingStrategy
+  let decimalEncodingStrategy: DecimalEncodingStrategy
 
   /// The final encoded JSON value.
   var json: JSON = .null
@@ -112,11 +125,13 @@ final class _JSONEncodeImpl: Encoder {
   init(
     userInfo: [CodingUserInfoKey: Any] = [:],
     dateEncodingStrategy: DateEncodingStrategy = .deferredToDate,
-    dataEncodingStrategy: DataEncodingStrategy = .deferredToData
+    dataEncodingStrategy: DataEncodingStrategy = .base64,
+    decimalEncodingStrategy: DecimalEncodingStrategy = .asString
   ) {
     self.userInfo = userInfo
     self.dateEncodingStrategy = dateEncodingStrategy
     self.dataEncodingStrategy = dataEncodingStrategy
+    self.decimalEncodingStrategy = decimalEncodingStrategy
   }
 
   func container<Key: CodingKey>(keyedBy keyType: Key.Type) -> KeyedEncodingContainer<Key> {
@@ -187,6 +202,7 @@ private func encodeDate(_ date: Date, with strategy: DateEncodingStrategy, codin
     return .number(.float(date.timeIntervalSince1970 * 1000.0))
   case .iso8601:
     let formatter = ISO8601DateFormatter()
+    formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
     return .string(formatter.string(from: date))
   case .formatted(let formatter):
     return .string(formatter.string(from: date))
@@ -209,6 +225,15 @@ private func encodeData(_ data: Data, with strategy: DataEncodingStrategy) throw
   case .custom(let closure):
     let impl = _JSONEncodeImpl()
     return try closure(data, impl)
+  }
+}
+
+private func encodeDecimal(_ decimal: Decimal, with strategy: DecimalEncodingStrategy) -> JSON {
+  switch strategy {
+  case .asString:
+    return .string(decimal.description)
+  case .asNumber:
+    return .number(.float(Double(decimal.description) ?? 0))
   }
 }
 
@@ -254,8 +279,7 @@ final class _JSONKeyedEncodingContainer<Key: CodingKey>: KeyedEncodingContainerP
       return
     }
     if let decimal = value as? Decimal {
-      // Encode Decimal as JSON number (matching Foundation's JSONEncoder behavior)
-      ref.dict[key.stringValue] = .number(.float(Double(decimal.description) ?? 0))
+      ref.dict[key.stringValue] = encodeDecimal(decimal, with: impl.decimalEncodingStrategy)
       impl.syncKeyed()
       return
     }
@@ -264,7 +288,8 @@ final class _JSONKeyedEncodingContainer<Key: CodingKey>: KeyedEncodingContainerP
     let child = _JSONEncodeImpl(
       userInfo: impl.userInfo,
       dateEncodingStrategy: impl.dateEncodingStrategy,
-      dataEncodingStrategy: impl.dataEncodingStrategy)
+      dataEncodingStrategy: impl.dataEncodingStrategy,
+      decimalEncodingStrategy: impl.decimalEncodingStrategy)
     child.codingPath = codingPath + [key]
     try value.encode(to: child)
     ref.dict[key.stringValue] = child.json
@@ -366,7 +391,8 @@ final class _JSONKeyedEncodingContainer<Key: CodingKey>: KeyedEncodingContainerP
     let childImpl = _JSONEncodeImpl(
       userInfo: impl.userInfo,
       dateEncodingStrategy: impl.dateEncodingStrategy,
-      dataEncodingStrategy: impl.dataEncodingStrategy)
+      dataEncodingStrategy: impl.dataEncodingStrategy,
+      decimalEncodingStrategy: impl.decimalEncodingStrategy)
     childImpl.codingPath = codingPath + [key]
     childImpl.objectRef = childRef
     childImpl.parentRef = ref
@@ -384,7 +410,8 @@ final class _JSONKeyedEncodingContainer<Key: CodingKey>: KeyedEncodingContainerP
     let childImpl = _JSONEncodeImpl(
       userInfo: impl.userInfo,
       dateEncodingStrategy: impl.dateEncodingStrategy,
-      dataEncodingStrategy: impl.dataEncodingStrategy)
+      dataEncodingStrategy: impl.dataEncodingStrategy,
+      decimalEncodingStrategy: impl.decimalEncodingStrategy)
     childImpl.codingPath = codingPath + [key]
     childImpl.arrayRef = childRef
     childImpl.parentRef = ref
@@ -402,7 +429,8 @@ final class _JSONKeyedEncodingContainer<Key: CodingKey>: KeyedEncodingContainerP
     let childImpl = _JSONEncodeImpl(
       userInfo: impl.userInfo,
       dateEncodingStrategy: impl.dateEncodingStrategy,
-      dataEncodingStrategy: impl.dataEncodingStrategy)
+      dataEncodingStrategy: impl.dataEncodingStrategy,
+      decimalEncodingStrategy: impl.decimalEncodingStrategy)
     childImpl.codingPath = codingPath + [key]
     childImpl.parentRef = ref
     childImpl.parentKey = key.stringValue
@@ -417,7 +445,8 @@ final class _JSONKeyedEncodingContainer<Key: CodingKey>: KeyedEncodingContainerP
     let childImpl = _JSONEncodeImpl(
       userInfo: impl.userInfo,
       dateEncodingStrategy: impl.dateEncodingStrategy,
-      dataEncodingStrategy: impl.dataEncodingStrategy)
+      dataEncodingStrategy: impl.dataEncodingStrategy,
+      decimalEncodingStrategy: impl.decimalEncodingStrategy)
     childImpl.parentRef = ref
     childImpl.parentKey = "super"
     childImpl.parentImpl = impl
@@ -466,7 +495,7 @@ final class _JSONUnkeyedEncodingContainer: UnkeyedEncodingContainer {
       return
     }
     if let decimal = value as? Decimal {
-      ref.elements.append(.number(.float(Double(decimal.description) ?? 0)))
+      ref.elements.append(encodeDecimal(decimal, with: impl.decimalEncodingStrategy))
       impl.syncUnkeyed()
       return
     }
@@ -475,7 +504,8 @@ final class _JSONUnkeyedEncodingContainer: UnkeyedEncodingContainer {
     let child = _JSONEncodeImpl(
       userInfo: impl.userInfo,
       dateEncodingStrategy: impl.dateEncodingStrategy,
-      dataEncodingStrategy: impl.dataEncodingStrategy)
+      dataEncodingStrategy: impl.dataEncodingStrategy,
+      decimalEncodingStrategy: impl.decimalEncodingStrategy)
     try value.encode(to: child)
     ref.elements.append(child.json)
     impl.syncUnkeyed()
@@ -574,7 +604,8 @@ final class _JSONUnkeyedEncodingContainer: UnkeyedEncodingContainer {
     let childImpl = _JSONEncodeImpl(
       userInfo: impl.userInfo,
       dateEncodingStrategy: impl.dateEncodingStrategy,
-      dataEncodingStrategy: impl.dataEncodingStrategy)
+      dataEncodingStrategy: impl.dataEncodingStrategy,
+      decimalEncodingStrategy: impl.decimalEncodingStrategy)
     childImpl.objectRef = childRef
     childImpl.parentArrayRef = ref
     childImpl.parentArrayIndex = ref.elements.count
@@ -591,7 +622,8 @@ final class _JSONUnkeyedEncodingContainer: UnkeyedEncodingContainer {
     let childImpl = _JSONEncodeImpl(
       userInfo: impl.userInfo,
       dateEncodingStrategy: impl.dateEncodingStrategy,
-      dataEncodingStrategy: impl.dataEncodingStrategy)
+      dataEncodingStrategy: impl.dataEncodingStrategy,
+      decimalEncodingStrategy: impl.decimalEncodingStrategy)
     childImpl.arrayRef = childRef
     // Capture index *before* appending the placeholder, so the child
     // always writes to the correct slot even if more elements are appended
@@ -611,7 +643,8 @@ final class _JSONUnkeyedEncodingContainer: UnkeyedEncodingContainer {
     let childImpl = _JSONEncodeImpl(
       userInfo: impl.userInfo,
       dateEncodingStrategy: impl.dateEncodingStrategy,
-      dataEncodingStrategy: impl.dataEncodingStrategy)
+      dataEncodingStrategy: impl.dataEncodingStrategy,
+      decimalEncodingStrategy: impl.decimalEncodingStrategy)
     childImpl.parentArrayRef = ref
     childImpl.parentArrayIndex = ref.elements.count
     childImpl.parentImpl = impl
@@ -690,7 +723,7 @@ struct _JSONSingleValueEncodingContainer: SingleValueEncodingContainer {
       return
     }
     if let decimal = value as? Decimal {
-      impl.json = .number(.float(Double(decimal.description) ?? 0))
+      impl.json = encodeDecimal(decimal, with: impl.decimalEncodingStrategy)
       impl.syncKeyed()
       return
     }
@@ -699,7 +732,8 @@ struct _JSONSingleValueEncodingContainer: SingleValueEncodingContainer {
     let child = _JSONEncodeImpl(
       userInfo: impl.userInfo,
       dateEncodingStrategy: impl.dateEncodingStrategy,
-      dataEncodingStrategy: impl.dataEncodingStrategy)
+      dataEncodingStrategy: impl.dataEncodingStrategy,
+      decimalEncodingStrategy: impl.decimalEncodingStrategy)
     try value.encode(to: child)
     impl.json = child.json
     impl.syncKeyed()

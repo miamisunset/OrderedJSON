@@ -984,7 +984,7 @@ extension JSON {
     let timestamp: Date
   }
   let formatter = ISO8601DateFormatter()
-  formatter.formatOptions = .withInternetDateTime
+  formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
   let date = Date(timeIntervalSince1970: 1_234_567_890)
   let dateString = formatter.string(from: date)
 
@@ -1072,9 +1072,25 @@ extension JSON {
   let decimal = Decimal(string: "3.14159")!
   let encoder = OrderedJSONEncoder()
   let json = try encoder.encode(Container(amount: decimal))
-  #expect(json["amount"]?.isNumber == true)
+  #expect(json["amount"]?.isString == true)
+  #expect(json["amount"]?.stringValue == "3.14159")
 
   let decoder = OrderedJSONDecoder()
+  let back = try decoder.decode(Container.self, from: json)
+  #expect(back.amount == decimal)
+}
+
+@Test func foundationDecimalAsNumber() throws {
+  struct Container: Codable {
+    let amount: Decimal
+  }
+  let decimal = Decimal(string: "3.14159")!
+  var encoder = OrderedJSONEncoder()
+  encoder.decimalEncodingStrategy = .asNumber
+  let json = try encoder.encode(Container(amount: decimal))
+  #expect(json["amount"]?.isNumber == true)
+  var decoder = OrderedJSONDecoder()
+  decoder.decimalDecodingStrategy = .asNumber
   let back = try decoder.decode(Container.self, from: json)
   #expect(back.amount == decimal)
 }
