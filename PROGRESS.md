@@ -273,3 +273,26 @@ All 403 tests pass. Build produces zero errors. CI pipeline passes (SwiftFormat 
 - `foundationOptionalDateExplicitNull` — `Date?` with explicit null
 - `strategyPropagationInDeferredDate` — verifies `.deferredToDate` passes configured strategies to child impl
 - `foundationDateInUnkeyedContainer` — `[Date]` array via unkeyed container
+
+## PR #12 — Bug Hunt (merged to main)
+
+### Bugs Fixed
+1. **MsgPack uint64 overflow** (🔴 crash) — `Int64(readUInt64(...))` crashes when value > Int64.max
+2. **CBOR unsigned integer overflow** (🔴 crash) — same pattern in CBOR decoder
+3. **CBOR negative integer overflow** (🔴 crash) — `-1 - Int64(argument)` crashes
+4. **Decodable Int64(Double(Int64.max)) overflow** (🔴 crash) — `Double(Int64.max)` rounds up beyond Int64.max
+5. **NaN/Infinity serialization** (🟡 invalid output) — `String(Double.nan)` produces `"nan"`
+
+### Fixes
+- Out-of-range uint64 values stored as `.float(Double)` (matching builder UInt/UInt64 policy)
+- Decodable uses `Int64(exactly:)` instead of `Int64(d)` — returns nil for out-of-range
+- NaN/Infinity serialized as `null` in both `dump()` and `Encodable` paths
+- Encodable path now encodes NaN/Inf as nil (matching dump)
+
+### Tests
+- 16 new tests covering all fixed paths
+- All pass
+
+### Audit
+- UBJSON/BSON/BJData confirmed safe — use `Int64(bitPattern:)`
+
