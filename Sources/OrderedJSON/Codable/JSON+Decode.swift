@@ -1,7 +1,40 @@
 import Foundation
+import OrderedCollections
 
 extension JSON {
   // MARK: - Convenience decode methods
+
+  /// Decodes a `Decodable` type from a `JSON` value.
+  ///
+  /// Uses `OrderedJSONDecoder` internally, preserving key order.
+  ///
+  /// - Parameters:
+  ///   - type: The type to decode.
+  ///   - json: A `JSON` value.
+  /// - Returns: A decoded value of the requested type.
+  /// - Throws: `DecodingError` if the value cannot be decoded.
+  ///
+  /// ## Example
+  ///
+  /// ```swift
+  /// struct Person: Decodable {
+  ///   let name: String
+  ///   let age: Int
+  /// }
+  ///
+  /// let json = JSON.object([
+  ///   "name": .string("Alice"),
+  ///   "age":  .number(.integer(30))
+  /// ])
+  /// let person = try JSON.decode(Person.self, from: json)
+  /// ```
+  public static func decode<T: Decodable>(
+    _ type: T.Type,
+    from json: JSON
+  ) throws -> T {
+    let decoder = OrderedJSONDecoder()
+    return try decoder.decode(type, from: json)
+  }
 
   /// Decodes a `Decodable` type from a JSON string.
   ///
