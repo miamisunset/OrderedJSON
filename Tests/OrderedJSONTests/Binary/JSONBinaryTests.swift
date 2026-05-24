@@ -1018,7 +1018,7 @@ private func appendBE(_ value: UInt64, to bytes: inout [UInt8]) {
 
 @Test func ubjsonUInt64OverflowBecomesFloat() throws {
   // UBJSON marker for int64 reads uint64 bit pattern — must not crash
-  var bytes: [UInt8] = [0x49]  // 'I' marker for int64
+  var bytes: [UInt8] = [0x4C]  // 'L' marker for int64
   let large = UInt64(Int64.max) + 1
   appendBE(large, to: &bytes)
   let data = Data(bytes)
@@ -1028,21 +1028,20 @@ private func appendBE(_ value: UInt64, to bytes: inout [UInt8]) {
 
 @Test func bsonUInt64OverflowBecomesFloat() throws {
   // BSON int64 uses Int64(bitPattern:) — must not crash
-  // BSON document format: {int64: 0x12, key: "x\x00", uint64 bytes}
-  var bytes: [UInt8] = []
+  // Build a minimal BSON document with an int64 element
   let large = UInt64(Int64.max) + 1
-  // Build minimal BSON document
-  let key = "x\x00"  // null-terminated key
-  bytes.append(contentsOf: [0x12])  // type: int64
-  bytes.append(contentsOf: key.data(using: .utf8)!)
-  appendBE(large, to: &bytes)
-  // Pad to document length (4 bytes) + 1 null terminator
-  let docLen = UInt32(bytes.count + 4 + 1)  // +4 for length prefix, +1 for null
+  // Build element body: type(1) + key(2) + value(8) = 11 bytes
+  var element: [UInt8] = [0x12, 0x78, 0x00]  // type int64, key "x", null terminator
+  appendBE(large, to: &element)
+  // Document: length(4) + element(11) + null(1) = 16 bytes
+  let docLen = UInt32(4 + element.count + 1)  // 4 + 11 + 1 = 16
+  var bytes: [UInt8] = []
   withUnsafeBytes(of: docLen.littleEndian) { ptr in
     for i in 0..<4 {
-      bytes.insert(ptr.baseAddress!.assumingMemoryBound(to: UInt8.self)[i], at: 0)
+      bytes.append(ptr.baseAddress!.assumingMemoryBound(to: UInt8.self)[i])
     }
   }
+  bytes.append(contentsOf: element)
   bytes.append(0x00)  // document null terminator
   let data = Data(bytes)
   let decoded = try JSON.fromBSON(data)
@@ -1055,7 +1054,7 @@ private func appendBE(_ value: UInt64, to bytes: inout [UInt8]) {
 
 @Test func bjdataUInt64OverflowBecomesFloat() throws {
   // BJData marker for uint64 uses Int64(bitPattern:) — must not crash
-  var bytes: [UInt8] = [0x55]  // 'U' marker for uint64
+  var bytes: [UInt8] = [0x4D]  // 'M' marker for uint64
   let large = UInt64(Int64.max) + 1
   appendBE(large, to: &bytes)
   let data = Data(bytes)
