@@ -140,8 +140,11 @@ let dupes = try JSON.parse("""
 Use `JSON.ParserOptions` to customize parsing behavior:
 
 ```swift
-var opts = JSON.ParserOptions()
-opts.allowTrailingCommas = true
+// Use .default for the standard configuration
+let opts = JSON.ParserOptions.default
+
+// Or customize:
+var opts = JSON.ParserOptions(allowTrailingCommas: true)
 opts.maxDepth = 512
 
 // Trailing commas in arrays and objects
@@ -151,9 +154,13 @@ let trailing = try JSON.parse("[1, 2, 3,]", options: opts)
 // Nesting depth limit — throws depthExceeded
 let deep = "{\"a\": {\"b\": {\"c\": {\"d\": 1}}}"
 // JSON.parse(deep, options: opts) would throw at depth > 512
+
+// Safety: limit nesting to prevent stack overflow on untrusted input
+let safe = JSON.ParserOptions(maxDepth: 64)
+let parsed = try JSON.parse(untrustedInput, options: safe)
 ```
 
-`allowTrailingCommas` (default `false`) accepts JSON with trailing commas. `maxDepth` (default `1024`) sets the maximum nesting depth before throwing `depthExceeded`.
+`allowTrailingCommas` (default `false`) accepts JSON with trailing commas. `maxDepth` (default `1024`) sets the maximum nesting depth before throwing `depthExceeded` — use a lower value like 64 for untrusted input.
 
 ### Parsing from Data
 

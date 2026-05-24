@@ -490,6 +490,7 @@ extension JSON {
       }
     }
 
+    // Substring slice on String.Index is O(1); no copying.
     let numString = String(ctx.string[start..<ctx.pos])
     if isFloat {
       return .number(.float(try parseDouble(numString, line: startLine, column: startColumn)))

@@ -418,6 +418,13 @@ extension JSON {
       ctx.advance()
     }
     guard hexStr.count == 4, let scalar = UInt16(hexStr, radix: 16) else {
+      // Lenient mode: consume up to 4 non-hex characters after \u
+      // so they don't end up as literal characters in the string.
+      let remaining = 4 - hexStr.count
+      for _ in 0..<remaining {
+        guard ctx.pos < ctx.string.endIndex else { break }
+        ctx.advance()
+      }
       return ""
     }
 
