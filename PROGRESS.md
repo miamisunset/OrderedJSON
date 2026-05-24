@@ -212,6 +212,20 @@ All 403 tests pass. Build produces zero errors. CI pipeline passes (SwiftFormat 
 ### Next Steps
 1. Consider adding remaining minor gaps from feature parity table (e.g., `contains(element)` for arrays, `merge()` for objects, `is_number_unsigned`, `is_binary`, `is_discarded`, generic `get<T>()`, explicit iterator properties)
 
+## Phase 12 — JSONBuilder fluent construction API
+
+### What shipped
+- `JSON.ObjectBuilder` — fluent builder for ordered objects with `.set(key, value)` chaining
+- `JSON.ArrayBuilder` — fluent builder for ordered arrays with `.add(value)` chaining
+- Overloaded setters/adders for `String`, `Bool`, `Int`, `Int64`, `Double`, `Float`, `[JSON]`, `ObjectBuilder`, `ArrayBuilder`, and raw `JSON`
+- `remove(_:)` on ObjectBuilder, `count` on both, `build()` → JSON, `buildString()` → String
+- 21 tests covering all code paths
+
+### Key decisions
+- Builders are classes (not structs) to allow mutation without `inout` — enables fluent chaining via `@discardableResult`
+- `Sendable` conformance omitted because builders are inherently single-threaded and `StrictConcurrency` forbids mutable stored properties in `Sendable` classes
+- No `@resultBuilder`/function builder approach — kept simple with method chaining to avoid `@escaping` closure boilerplate and result builder infrastructure
+
 ## Release
 - Merged `codable-support` → `main` via squash-merge at `9cc89b2`
 - Tagged and released as **v2.1.0**
