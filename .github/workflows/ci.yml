@@ -29,4 +29,4 @@ jobs:
           sudo xcode-select -s /Applications/Xcode_26.4.1.app
           xcrun swift --version
       - name: Build & Test
-        run: xcrun swift test --parallel
+        run: xcrun swift test --xctest --parallel
