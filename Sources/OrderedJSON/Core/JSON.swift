@@ -100,12 +100,32 @@ public struct JSON: Hashable, Sendable {
 
   // MARK: - Convenience initializers
 
+  /// Creates a JSON string value from a Swift `String`.
+  /// - Parameter value: The string value.
   public init(_ value: String) { self.storage = .string(value) }
+
+  /// Creates a JSON boolean value from a Swift `Bool`.
+  /// - Parameter value: The boolean value.
   public init(_ value: Bool) { self.storage = .boolean(value) }
+
+  /// Creates a JSON integer value from a Swift `Int64`.
+  /// - Parameter value: The integer value.
   public init(_ value: Int64) { self.storage = .number(.integer(value)) }
+
+  /// Creates a JSON integer value from a Swift `Int`.
+  /// - Parameter value: The integer value.
   public init(_ value: Int) { self.storage = .number(.integer(Int64(value))) }
+
+  /// Creates a JSON floating-point value from a Swift `Double`.
+  /// - Parameter value: The double value.
   public init(_ value: Double) { self.storage = .number(.float(value)) }
+
+  /// Creates a JSON array value from a Swift array of `JSON`.
+  /// - Parameter value: The array elements.
   public init(_ value: [JSON]) { self.storage = .array(value) }
+
+  /// Creates a JSON object value from an ordered dictionary.
+  /// - Parameter value: The ordered dictionary of key-value pairs.
   public init(_ value: OrderedDictionary<String, JSON>) { self.storage = .object(value) }
 
   // MARK: - Type checks
@@ -178,11 +198,17 @@ public struct JSON: Hashable, Sendable {
 
   /// Enum representing the JSON type of a value.
   public enum JSONType: Hashable, Sendable {
+    /// The `null` type.
     case null
+    /// The `boolean` type.
     case boolean
+    /// The `number` type.
     case number
+    /// The `string` type.
     case string
+    /// The `object` type.
     case object
+    /// The `array` type.
     case array
   }
 

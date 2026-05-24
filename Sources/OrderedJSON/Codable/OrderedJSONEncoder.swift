@@ -5,8 +5,10 @@ import OrderedCollections
 /// - Important: Set `userInfo` before calling `encode`/`encodeToString`;
 ///   mutations after the call do not propagate to nested containers.
 public struct OrderedJSONEncoder {
+  /// The user info dictionary for the encoder, propagated to all nested encoders.
   public var userInfo: [CodingUserInfoKey: Any]
 
+  /// Creates a new encoder with default options.
   public init() {
     self.userInfo = [:]
   }

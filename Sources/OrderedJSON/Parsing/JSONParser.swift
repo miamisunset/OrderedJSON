@@ -26,6 +26,10 @@ extension JSON {
     /// Default: `1024`
     public var maxDepth: Int
 
+    /// Creates a parser options configuration.
+    /// - Parameters:
+    ///   - allowTrailingCommas: Whether to allow trailing commas in objects and arrays.
+    ///   - maxDepth: The maximum nesting depth allowed during parsing.
     public init(allowTrailingCommas: Bool = false, maxDepth: Int = 1024) {
       self.allowTrailingCommas = allowTrailingCommas
       self.maxDepth = maxDepth
