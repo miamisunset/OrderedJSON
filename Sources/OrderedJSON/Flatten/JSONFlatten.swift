@@ -40,7 +40,8 @@ extension JSON {
       guard !dict.isEmpty else { return }
       for (key, value) in dict {
         // RFC 6901 §4: escape ~ as ~0 and / as ~1 in key segments
-        let escaped = key
+        let escaped =
+          key
           .replacingOccurrences(of: "~", with: "~0")
           .replacingOccurrences(of: "/", with: "~1")
         let fullKey = prefix.isEmpty ? "/\(escaped)" : "\(prefix)/\(escaped)"
