@@ -37,9 +37,12 @@ import Testing
 @Test func objectBuilderNestedObject() throws {
   let json = JSON.ObjectBuilder()
     .set("name", "Alice")
-    .set("address", JSON.ObjectBuilder()
-      .set("city", "NYC")
-      .set("zip", "10001"))
+    .set(
+      "address",
+      JSON.ObjectBuilder()
+        .set("city", "NYC")
+        .set("zip", "10001")
+    )
     .build()
 
   #expect(json["name"] == .string("Alice"))
@@ -50,9 +53,12 @@ import Testing
 
 @Test func objectBuilderNestedArray() throws {
   let json = JSON.ObjectBuilder()
-    .set("tags", JSON.ArrayBuilder()
-      .add("admin")
-      .add("user"))
+    .set(
+      "tags",
+      JSON.ArrayBuilder()
+        .add("admin")
+        .add("user")
+    )
     .build()
 
   #expect(json["tags"]?.isArray == true)
@@ -124,11 +130,11 @@ import Testing
     .buildString(indent: 2)
 
   let expected = """
-{
-  "x": 1,
-  "y": "hello"
-}
-"""
+    {
+      "x": 1,
+      "y": "hello"
+    }
+    """
   #expect(str == expected)
 }
 
@@ -278,8 +284,12 @@ import Testing
 @Test func objectBuilderSetIfPresentObjectBuilder() throws {
   let json = JSON.ObjectBuilder()
     .set("a", 1)
-    .setIfPresent("addr", JSON.ObjectBuilder?(JSON.ObjectBuilder()
-      .set("city", "NYC")))
+    .setIfPresent(
+      "addr",
+      JSON.ObjectBuilder?(
+        JSON.ObjectBuilder()
+          .set("city", "NYC"))
+    )
     .setIfPresent("nil", nil as JSON.ObjectBuilder?)
     .build()
 
@@ -291,9 +301,13 @@ import Testing
 @Test func objectBuilderSetIfPresentArrayBuilder() throws {
   let json = JSON.ObjectBuilder()
     .set("a", 1)
-    .setIfPresent("tags", JSON.ArrayBuilder?(JSON.ArrayBuilder()
-      .add("x")
-      .add("y")))
+    .setIfPresent(
+      "tags",
+      JSON.ArrayBuilder?(
+        JSON.ArrayBuilder()
+          .add("x")
+          .add("y"))
+    )
     .setIfPresent("nil", nil as JSON.ArrayBuilder?)
     .build()
 
@@ -306,9 +320,11 @@ import Testing
   let merged = JSON.ObjectBuilder()
     .set("a", 1)
     .set("b", 2)
-    .merge(JSON.ObjectBuilder()
-      .set("c", 3)
-      .set("d", 4))
+    .merge(
+      JSON.ObjectBuilder()
+        .set("c", 3)
+        .set("d", 4)
+    )
     .build()
 
   #expect(merged.count == 4)
@@ -322,9 +338,11 @@ import Testing
   let merged = JSON.ObjectBuilder()
     .set("a", 1)
     .set("b", 2)
-    .merge(JSON.ObjectBuilder()
-      .set("b", 99)
-      .set("c", 3))
+    .merge(
+      JSON.ObjectBuilder()
+        .set("b", 99)
+        .set("c", 3)
+    )
     .build()
 
   #expect(merged.count == 3)
@@ -337,9 +355,11 @@ import Testing
   let merged = JSON.ObjectBuilder()
     .set("a", 1)
     .set("b", 2)
-    .merge(JSON.ObjectBuilder()
-      .set("b", 99)  // overwrite — keeps original position
-      .set("c", 3))   // new — appended at end
+    .merge(
+      JSON.ObjectBuilder()
+        .set("b", 99)  // overwrite — keeps original position
+        .set("c", 3)
+    )  // new — appended at end
     .build()
 
   let keys = merged.objectKeys
@@ -369,9 +389,11 @@ import Testing
 @Test func arrayBuilderNestedObject() throws {
   let json = JSON.ArrayBuilder()
     .add("hello")
-    .add(JSON.ObjectBuilder()
-      .set("x", 1)
-      .set("y", 2))
+    .add(
+      JSON.ObjectBuilder()
+        .set("x", 1)
+        .set("y", 2)
+    )
     .build()
 
   #expect(json.count == 2)
@@ -384,9 +406,11 @@ import Testing
 @Test func arrayBuilderNestedArray() throws {
   let json = JSON.ArrayBuilder()
     .add("outer")
-    .add(JSON.ArrayBuilder()
-      .add("inner")
-      .add(99))
+    .add(
+      JSON.ArrayBuilder()
+        .add("inner")
+        .add(99)
+    )
     .build()
 
   #expect(json.count == 2)
@@ -435,11 +459,11 @@ import Testing
     .buildString(indent: 2)
 
   let expected = """
-[
-  1,
-  "two"
-]
-"""
+    [
+      1,
+      "two"
+    ]
+    """
   #expect(str == expected)
 }
 
@@ -503,9 +527,11 @@ import Testing
   let combined = JSON.ArrayBuilder()
     .add("a")
     .add("b")
-    .append(contentsOf: JSON.ArrayBuilder()
-      .add("c")
-      .add("d"))
+    .append(
+      contentsOf: JSON.ArrayBuilder()
+        .add("c")
+        .add("d")
+    )
     .build()
 
   #expect(combined.count == 4)
@@ -570,8 +596,11 @@ import Testing
 @Test func arrayBuilderAddIfPresentObjectBuilder() throws {
   let json = JSON.ArrayBuilder()
     .add("a")
-    .addIfPresent(JSON.ObjectBuilder?(JSON.ObjectBuilder()
-      .set("x", 1)))
+    .addIfPresent(
+      JSON.ObjectBuilder?(
+        JSON.ObjectBuilder()
+          .set("x", 1))
+    )
     .addIfPresent(nil as JSON.ObjectBuilder?)
     .build()
 
@@ -583,8 +612,11 @@ import Testing
 @Test func arrayBuilderAddIfPresentArrayBuilder() throws {
   let json = JSON.ArrayBuilder()
     .add("a")
-    .addIfPresent(JSON.ArrayBuilder?(JSON.ArrayBuilder()
-      .add("inner")))
+    .addIfPresent(
+      JSON.ArrayBuilder?(
+        JSON.ArrayBuilder()
+          .add("inner"))
+    )
     .addIfPresent(nil as JSON.ArrayBuilder?)
     .build()
 
@@ -615,9 +647,12 @@ import Testing
   let json = JSON.ObjectBuilder()
     .set("name", "Alice")
     .set("age", 30)
-    .set("tags", JSON.ArrayBuilder()
-      .add("admin")
-      .add("user"))
+    .set(
+      "tags",
+      JSON.ArrayBuilder()
+        .add("admin")
+        .add("user")
+    )
     .build()
 
   let decoder = OrderedJSONDecoder()

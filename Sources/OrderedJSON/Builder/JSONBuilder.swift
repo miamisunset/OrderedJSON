@@ -41,6 +41,10 @@ extension JSON {
   ///   on every chained call. This builder is designed for single-threaded use;
   ///   it is not safe to share across concurrency boundaries. Marked
   ///   `@unchecked Sendable` to allow storage in `Sendable` types.
+  /// - Optional overloads: `setIfPresent(_:_:)` and `setNull(_:)` use Optional
+  ///   parameters. Because Swift cannot resolve overloads for `nil` literals,
+  ///   callers must disambiguate with `as Type?` or a typed `let` binding:
+  ///   `setIfPresent("key", nil as String?)` or `let v: String?; setIfPresent("key", v)`.
   public final class ObjectBuilder: @unchecked Sendable {
     private var dict: OrderedDictionary<String, JSON> = [:]
 
@@ -215,7 +219,9 @@ extension JSON {
     /// - Returns: `self` for chaining.
     @discardableResult
     public func setIfPresent(_ key: String, _ value: UInt?) -> Self {
-      if let v = value { dict[key] = v <= UInt(Int64.max) ? .number(.integer(Int64(v))) : .number(.float(Double(v))) }
+      if let v = value {
+        dict[key] = v <= UInt(Int64.max) ? .number(.integer(Int64(v))) : .number(.float(Double(v)))
+      }
       return self
     }
 
@@ -224,7 +230,10 @@ extension JSON {
     /// - Returns: `self` for chaining.
     @discardableResult
     public func setIfPresent(_ key: String, _ value: UInt64?) -> Self {
-      if let v = value { dict[key] = v <= UInt64(Int64.max) ? .number(.integer(Int64(v))) : .number(.float(Double(v))) }
+      if let v = value {
+        dict[key] =
+          v <= UInt64(Int64.max) ? .number(.integer(Int64(v))) : .number(.float(Double(v)))
+      }
       return self
     }
 
@@ -334,6 +343,10 @@ extension JSON {
   ///   on every chained call. This builder is designed for single-threaded use;
   ///   it is not safe to share across concurrency boundaries. Marked
   ///   `@unchecked Sendable` to allow storage in `Sendable` types.
+  /// - Optional overloads: `addIfPresent(_:)` and `addNull()` use Optional
+  ///   parameters. Because Swift cannot resolve overloads for `nil` literals,
+  ///   callers must disambiguate with `as Type?` or a typed `let` binding:
+  ///   `addIfPresent(nil as String?)` or `let v: String?; addIfPresent(v)`.
   public final class ArrayBuilder: @unchecked Sendable {
     private var elements: [JSON] = []
 
@@ -492,7 +505,10 @@ extension JSON {
     /// - Returns: `self` for chaining.
     @discardableResult
     public func addIfPresent(_ value: UInt?) -> Self {
-      if let v = value { elements.append(v <= UInt(Int64.max) ? .number(.integer(Int64(v))) : .number(.float(Double(v)))) }
+      if let v = value {
+        elements.append(
+          v <= UInt(Int64.max) ? .number(.integer(Int64(v))) : .number(.float(Double(v))))
+      }
       return self
     }
 
@@ -501,7 +517,10 @@ extension JSON {
     /// - Returns: `self` for chaining.
     @discardableResult
     public func addIfPresent(_ value: UInt64?) -> Self {
-      if let v = value { elements.append(v <= UInt64(Int64.max) ? .number(.integer(Int64(v))) : .number(.float(Double(v)))) }
+      if let v = value {
+        elements.append(
+          v <= UInt64(Int64.max) ? .number(.integer(Int64(v))) : .number(.float(Double(v))))
+      }
       return self
     }
 
