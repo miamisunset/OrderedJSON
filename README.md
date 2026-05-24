@@ -135,9 +135,68 @@ let dupes = try JSON.parse("""
 // dupes["x"] == 3, key position remains first occurrence
 ```
 
+### Parser options
+
+Use `JSON.ParserOptions` to customize parsing behavior:
+
+```swift
+var opts = JSON.ParserOptions()
+opts.allowTrailingCommas = true
+opts.maxDepth = 512
+
+// Trailing commas in arrays and objects
+let trailing = try JSON.parse("[1, 2, 3,]", options: opts)
+// trailing == [1, 2, 3]
+
+// Nesting depth limit — throws depthExceeded
+let deep = "{\"a\": {\"b\": {\"c\": {\"d\": 1}}}"
+// JSON.parse(deep, options: opts) would throw at depth > 512
+```
+
+`allowTrailingCommas` (default `false`) accepts JSON with trailing commas. `maxDepth` (default `1024`) sets the maximum nesting depth before throwing `depthExceeded`.
+
+### Parsing from Data
+
+`parse()` accepts raw UTF-8 data:
+
+```swift
+let data = "{\"key\": \"value\"}".data(using: .utf8)!
+let parsed = try JSON.parse(data)
+// parsed["key"] == "value"
+
+// With options
+let parsed2 = try JSON.parse(data, options: opts)
+```
+
+Non-UTF-8 data throws `invalidEncoding`.
+
 ### Error handling
 
-Parsing throws `JSONParseError` on malformed input. Always wrap untrusted input in `do {} catch {}`.
+Parsing throws `JSONParseError` on malformed input. All errors include 1-based line and column numbers:
+
+```swift
+do {
+  let json = try JSON.parse("{\"a\": }")
+} catch let error as JSONParseError {
+  print(error)
+  // "Expected string value at line 1, column 6"
+}
+```
+
+Error kinds:
+- `unexpectedEnd` — input ended prematurely
+- `unexpectedToken(line:column:)` — unexpected character at position
+- `expectedString(line:column:)` — expected a JSON string
+- `expectedColon(line:column:)` — expected `:` after object key
+- `expectedCloseBrace(line:column:)` — expected `}`
+- `expectedCloseBracket(line:column:)` — expected `]`
+- `invalidEscape(line:column:)` — invalid escape sequence
+- `invalidUnicodeEscape(line:column:)` — invalid `\\u` escape
+- `invalidNumber(line:column:)` — malformed number literal
+- `invalidEncoding` — non-UTF-8 input data
+- `depthExceeded(line:column:)` — nesting exceeded `maxDepth`
+
+Always wrap untrusted input in `do {} catch {}`.
 
 ---
 
@@ -498,7 +557,7 @@ class MyHandler: JSONSAXEventHandler {
   func endObject() -> Bool { print("}"); return true }
   func startArray() -> Bool { print("["); return true }
   func endArray() -> Bool { print("]"); return true }
-  func parseError(_ e: JSONParseError, data: Data) -> Bool { print("error"); return false }
+  func parseError(_ e: JSONParseError, data: Data) -> Bool { print(e); return false }
 }
 
 let ok = JSON.saxParse("""{"a": 1}""", handler: MyHandler())
