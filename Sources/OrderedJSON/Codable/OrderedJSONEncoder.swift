@@ -154,6 +154,10 @@ struct _JSONKeyedEncodingContainer<Key: CodingKey>: KeyedEncodingContainerProtoc
     _JSONEncodeImpl(userInfo: encoder.userInfo)
   }
 
+  mutating func superEncoder() -> Encoder {
+    _JSONEncodeImpl(userInfo: encoder.userInfo)
+  }
+
   /// Finishes encoding: sets the encoder's json to the completed object.
   mutating func finish() {
     encoder.json = .object(object)

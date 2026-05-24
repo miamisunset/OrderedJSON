@@ -26,7 +26,7 @@ extension JSON: Encodable {
       var container = encoder.singleValueContainer()
       switch num {
       case .integer(let i): try container.encode(i)
-      case .float(let d):   try container.encode(d)
+      case .float(let d): try container.encode(d)
       }
     case .boolean(let b):
       var container = encoder.singleValueContainer()
@@ -74,7 +74,7 @@ extension JSON: Decodable {
       }
       self = .array(elements)
     } else {
-      var container = try decoder.singleValueContainer()
+      let container = try decoder.singleValueContainer()
       if container.decodeNil() {
         self = .null
       } else if let s = try? container.decode(String.self) {
