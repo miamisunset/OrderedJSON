@@ -55,7 +55,7 @@ let package = Package(
     .watchOS(.v26),
   ],
   dependencies: [
-    .package(url: "https://github.com/your-username/OrderedJSON.git", from: "1.0.0"),
+    .package(url: "https://github.com/miamisunset/OrderedJSON.git", from: "1.0.0"),
   ],
   targets: [
     .target(
