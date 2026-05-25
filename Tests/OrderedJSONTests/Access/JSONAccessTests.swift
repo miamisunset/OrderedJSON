@@ -251,6 +251,30 @@ let indexOutOfBoundsNeg = JSONError.indexOutOfBounds(-1)
   #expect(str.value("key", default: JSON.number(.integer(42))) == JSON.number(.integer(42)))
 }
 
+// MARK: - Array value with default Tests
+
+@Test func valueIndexWithDefault() {
+  let arr = JSON.array([
+    JSON.string("a"),
+    JSON.number(.integer(1)),
+    JSON.boolean(true),
+  ])
+  #expect(arr.value(0, default: JSON.string("default")) == JSON.string("a"))
+  #expect(arr.value(1, default: JSON.string("default")) == JSON.number(.integer(1)))
+  #expect(arr.value(2, default: JSON.string("default")) == JSON.boolean(true))
+}
+
+@Test func valueIndexOutOfBounds() {
+  let arr = JSON.array([JSON.string("a"), JSON.number(.integer(1))])
+  #expect(arr.value(2, default: JSON.string("default")) == JSON.string("default"))
+  #expect(arr.value(-1, default: JSON.number(.integer(0))) == JSON.number(.integer(0)))
+}
+
+@Test func valueIndexNonArray() {
+  let scalar = JSON.string("hello")
+  #expect(scalar.value(0, default: JSON.number(.integer(42))) == JSON.number(.integer(42)))
+}
+
 // MARK: - Dynamic member lookup
 
 @Test func dynamicMemberGetObjectKey() {

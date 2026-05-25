@@ -110,6 +110,19 @@ extension JSON {
     return dict[key] ?? defaultValue
   }
 
+  /// Returns the element at the given array index, or a default value if the
+  /// index is out of bounds or if the value is not an array.
+  ///
+  /// - Parameters:
+  ///   - index: The array index.
+  ///   - defaultValue: The value to return if the index is out of bounds.
+  /// - Returns: The element at the index, or `defaultValue`.
+  public func value(_ index: Int, default defaultValue: JSON) -> JSON {
+    guard case .array(let arr) = storage else { return defaultValue }
+    guard index >= 0, index < arr.count else { return defaultValue }
+    return arr[index]
+  }
+
   // MARK: - Dynamic member lookup
 
   /// Dynamic member lookup for dot-notation access to object keys.
