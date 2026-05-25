@@ -338,3 +338,50 @@ final class SAXCollector: JSONSAXEventHandler {
     #expect(value == expectedKey)
   }
 }
+
+// MARK: - SAX Early Termination Tests
+
+@Test func saxEarlyTerminationNull() {
+  // Handler returns false from null() — parse stops immediately
+  class StoppingHandler: JSONSAXEventHandler {
+    var didCall = false
+    func null() -> Bool {
+      didCall = true
+      return false
+    }
+    func boolean(_: Bool) -> Bool { return true }
+    func integer(_: Int64) -> Bool { return true }
+    func float(_: Double, string: String) -> Bool { return true }
+    func string(_: String) -> Bool { return true }
+    func startObject() -> Bool { return true }
+    func key(_: String) -> Bool { return true }
+    func endObject() -> Bool { return true }
+    func startArray() -> Bool { return true }
+    func endArray() -> Bool { return true }
+    func parseError(_: JSONParseError, data: Data) -> Bool { return true }
+  }
+  let handler = StoppingHandler()
+  let ok = JSON.saxParse("null", handler: handler)
+  #expect(!ok)  // stopped early
+  #expect(handler.didCall)
+}
+
+@Test func saxEarlyTerminationStopParsing() {
+  // Handler returns false from key() — stops mid-object
+  class StoppingHandler: JSONSAXEventHandler {
+    func null() -> Bool { return true }
+    func boolean(_: Bool) -> Bool { return true }
+    func integer(_: Int64) -> Bool { return true }
+    func float(_: Double, string: String) -> Bool { return true }
+    func string(_: String) -> Bool { return true }
+    func startObject() -> Bool { return true }
+    func key(_: String) -> Bool { return false }  // stop here
+    func endObject() -> Bool { return true }
+    func startArray() -> Bool { return true }
+    func endArray() -> Bool { return true }
+    func parseError(_: JSONParseError, data: Data) -> Bool { return true }
+  }
+  let handler = StoppingHandler()
+  let ok = JSON.saxParse(#"{"key": "value"}"#, handler: handler)
+  #expect(!ok)  // stopped early
+}

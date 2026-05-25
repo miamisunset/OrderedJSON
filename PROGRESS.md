@@ -312,7 +312,7 @@ All 403 tests pass. Build produces zero errors. CI pipeline passes (SwiftFormat 
 - 10 tests covering simple merge, deep merge, array overwrite, null overwrite, self-merge, default-false regression
 - All pass, lint clean
 
-## Phase 5 — Generic get<T>() accessor (PR #24, open)
+## Phase 5 — Generic get<T>() accessor (PR #24, merged)
 
 ### Changes
 - Added `func get<T>(_ type: T.Type) throws -> T` — dispatches to `require*()` based on T
@@ -320,7 +320,18 @@ All 403 tests pass. Build produces zero errors. CI pipeline passes (SwiftFormat 
 - Unsupported T throws `JSONError.typeError`
 
 ### Tests
-- 12 tests covering all supported types plus unsupported type throws
+- 18 tests covering all supported types plus bounds-check propagation, final-throw coverage
+- All pass, lint clean
+
+## Phase 6 — Test coverage expansion (PR #25, open)
+
+### Changes
+- Added CBOR non-string map key test (`cborNonStringMapKey`)
+- Added CBOR unsupported simple value test (`cborUnsupportedSimpleValue`)
+- Added SAX early termination tests (`saxEarlyTerminationNull`, `saxEarlyTerminationStopParsing`)
+
+### Tests
+- 4 new tests covering previously uncovered CBOR error paths and SAX early-termination paths
 - All pass, lint clean
 
 ## Release

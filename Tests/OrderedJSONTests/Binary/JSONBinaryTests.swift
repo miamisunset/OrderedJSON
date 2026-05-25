@@ -794,6 +794,21 @@ private func appendBE(_ value: UInt64, to bytes: inout [UInt8]) {
   #expect(decoded == JSON.number(.float(1.0 / 16384.0)))
 }
 
+@Test func cborNonStringMapKey() throws {
+  // CBOR map with integer key instead of string
+  // Map of 1 entry: major 5 (0xA0 | 1 = 0xA1), integer key 0x01, value null (0xF6)
+  let bytes: [UInt8] = [0xA1, 0x01, 0xF6]
+  let data = Data(bytes)
+  #expect(throws: JSONError.self) { try JSON.fromCBOR(data) }
+}
+
+@Test func cborUnsupportedSimpleValue() throws {
+  // CBOR simple value 28 (info 28) — not 20-23, not half/double float
+  let bytes: [UInt8] = [0xFC]  // major 7, info 28
+  let data = Data(bytes)
+  #expect(throws: JSONError.self) { try JSON.fromCBOR(data) }
+}
+
 // MARK: - UBJSON Edge Cases
 
 @Test func ubjsonCharMarker() throws {
