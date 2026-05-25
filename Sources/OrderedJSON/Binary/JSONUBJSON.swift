@@ -111,6 +111,9 @@ private func decodeUBJSON(_ data: Data, _ pos: inout Int) throws -> JSON {
 
   case ubjsonMarkerString:
     let len = try decodeUBJSONStringLen(data, &pos)
+    guard len >= 0, pos + len <= data.count else {
+      throw JSONError.invalidUBJSON("String length exceeds data")
+    }
     let body = data[pos..<pos + len]
     pos += len
     guard let str = String(data: body, encoding: .utf8) else {
@@ -152,9 +155,11 @@ private func decodeUBJSONStringLen(_ data: Data, _ pos: inout Int) throws -> Int
     pos += 1
     return len >= 0 ? len : 0
   case ubjsonMarkerInt16:
-    return Int(Int16(bitPattern: readUBJSONUInt16(data, &pos)))
+    let len = Int(Int16(bitPattern: readUBJSONUInt16(data, &pos)))
+    return len >= 0 ? len : 0
   case ubjsonMarkerInt32:
-    return Int(Int32(bitPattern: readUBJSONUInt32(data, &pos)))
+    let len = Int(Int32(bitPattern: readUBJSONUInt32(data, &pos)))
+    return len >= 0 ? len : 0
   default:
     throw JSONError.invalidUBJSON("Expected integer marker for string length")
   }
@@ -172,9 +177,11 @@ private func decodeUBJSONCount(_ data: Data, _ pos: inout Int) throws -> Int {
     pos += 1
     return count >= 0 ? count : 0
   case ubjsonMarkerInt16:
-    return Int(Int16(bitPattern: readUBJSONUInt16(data, &pos)))
+    let count = Int(Int16(bitPattern: readUBJSONUInt16(data, &pos)))
+    return count >= 0 ? count : 0
   case ubjsonMarkerInt32:
-    return Int(Int32(bitPattern: readUBJSONUInt32(data, &pos)))
+    let count = Int(Int32(bitPattern: readUBJSONUInt32(data, &pos)))
+    return count >= 0 ? count : 0
   default:
     throw JSONError.invalidUBJSON("Expected integer marker for container count")
   }
@@ -188,6 +195,9 @@ private func decodeUBJSONString(_ data: Data, _ pos: inout Int) throws -> String
 
   if marker == ubjsonMarkerString {
     let len = try decodeUBJSONStringLen(data, &pos)
+    guard len >= 0, pos + len <= data.count else {
+      throw JSONError.invalidUBJSON("String length exceeds data")
+    }
     let body = data[pos..<pos + len]
     pos += len
     guard let str = String(data: body, encoding: .utf8) else {

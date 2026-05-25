@@ -452,7 +452,8 @@ extension JSON {
       return String(unicodeScalar)
     }
 
-    return String(UnicodeScalar(scalar)!)
+    guard let unicodeScalar = UnicodeScalar(scalar) else { return "" }
+    return String(unicodeScalar)
   }
 }
 
