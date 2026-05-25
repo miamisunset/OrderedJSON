@@ -61,7 +61,7 @@ private func decodeBSONDocument(_ data: Data, _ pos: inout Int) throws -> JSON {
     throw JSONError.invalidBSON("Unexpected end of BSON document")
   }
 
-  let docLen = Int(readBSONInt32(data, &pos))
+  let docLen = Int(try readBSONInt32(data, &pos))
   guard docLen >= 5 else {
     throw JSONError.invalidBSON("Document length too small")
   }
@@ -93,11 +93,11 @@ private func decodeBSONElement(_ data: Data, _ pos: inout Int) throws -> (String
 
   switch type {
   case 0x01:  // Double
-    let bits = readBSONUInt64(data, &pos)
+    let bits = try readBSONUInt64(data, &pos)
     return (key, JSON.number(.float(Double(bitPattern: bits))))
 
   case 0x02:  // UTF-8 string
-    let len = Int(readBSONInt32(data, &pos))
+    let len = Int(try readBSONInt32(data, &pos))
     guard len > 0, pos + len <= data.count else {
       throw JSONError.invalidBSON("String length exceeds data")
     }
@@ -117,7 +117,7 @@ private func decodeBSONElement(_ data: Data, _ pos: inout Int) throws -> (String
     return (key, arr)
 
   case 0x05:  // Binary data
-    let len = Int(readBSONInt32(data, &pos))
+    let len = Int(try readBSONInt32(data, &pos))
     guard len >= 0, pos + 1 + len <= data.count else {
       throw JSONError.invalidBSON("Binary length exceeds data")
     }
@@ -136,11 +136,11 @@ private func decodeBSONElement(_ data: Data, _ pos: inout Int) throws -> (String
     return (key, JSON.null)
 
   case 0x10:  // int32
-    let value = Int64(readBSONInt32(data, &pos))
+    let value = Int64(try readBSONInt32(data, &pos))
     return (key, JSON.number(.integer(value)))
 
   case 0x12:  // int64
-    let value = Int64(bitPattern: readBSONUInt64(data, &pos))
+    let value = Int64(bitPattern: try readBSONUInt64(data, &pos))
     return (key, JSON.number(.integer(value)))
 
   default:
@@ -153,7 +153,7 @@ private func decodeBSONArray(_ data: Data, _ pos: inout Int) throws -> JSON {
     throw JSONError.invalidBSON("Unexpected end of BSON array")
   }
 
-  let docLen = Int(readBSONInt32(data, &pos))
+  let docLen = Int(try readBSONInt32(data, &pos))
   guard docLen >= 5 else {
     throw JSONError.invalidBSON("Array length too small")
   }
@@ -304,12 +304,13 @@ private func encodeBSONCString(_ str: String, _ bytes: inout [UInt8]) {
 
 // MARK: - BSON helpers (little-endian)
 
-private func readBSONInt32(_ data: Data, _ pos: inout Int) -> Int32 {
-  let value = Int32(bitPattern: readBSONUInt32(data, &pos))
+private func readBSONInt32(_ data: Data, _ pos: inout Int) throws -> Int32 {
+  let value = Int32(bitPattern: try readBSONUInt32(data, &pos))
   return value
 }
 
-private func readBSONUInt32(_ data: Data, _ pos: inout Int) -> UInt32 {
+private func readBSONUInt32(_ data: Data, _ pos: inout Int) throws -> UInt32 {
+  guard pos + 4 <= data.count else { throw JSONError.invalidBSON("Unexpected end of BSON element") }
   let value =
     UInt32(data[pos]) | UInt32(data[pos + 1]) << 8 | UInt32(data[pos + 2]) << 16 | UInt32(
       data[pos + 3]) << 24
@@ -317,7 +318,8 @@ private func readBSONUInt32(_ data: Data, _ pos: inout Int) -> UInt32 {
   return value
 }
 
-private func readBSONUInt64(_ data: Data, _ pos: inout Int) -> UInt64 {
+private func readBSONUInt64(_ data: Data, _ pos: inout Int) throws -> UInt64 {
+  guard pos + 8 <= data.count else { throw JSONError.invalidBSON("Unexpected end of BSON element") }
   let value =
     UInt64(data[pos]) | UInt64(data[pos + 1]) << 8 | UInt64(data[pos + 2]) << 16 | UInt64(
       data[pos + 3]) << 24 | UInt64(data[pos + 4]) << 32 | UInt64(data[pos + 5]) << 40 | UInt64(

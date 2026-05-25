@@ -161,23 +161,25 @@ private func readCBORArgument(_ data: Data, _ pos: inout Int, _ info: Int) throw
     pos += 1
     return v
   case 25:  // 2 bytes
-    return UInt64(readUInt16(data, &pos))
+    return UInt64(try readUInt16(data, &pos))
   case 26:  // 4 bytes
-    return UInt64(readUInt32(data, &pos))
+    return UInt64(try readUInt32(data, &pos))
   case 27:  // 8 bytes
-    return readUInt64(data, &pos)
+    return try readUInt64(data, &pos)
   default:
     throw JSONError.invalidCBOR("Reserved additional info \(info)")
   }
 }
 
-private func readUInt16(_ data: Data, _ pos: inout Int) -> UInt16 {
+private func readUInt16(_ data: Data, _ pos: inout Int) throws -> UInt16 {
+  guard pos + 2 <= data.count else { throw JSONError.invalidCBOR("Unexpected end of CBOR data") }
   let value = UInt16(data[pos]) << 8 | UInt16(data[pos + 1])
   pos += 2
   return value
 }
 
-private func readUInt32(_ data: Data, _ pos: inout Int) -> UInt32 {
+private func readUInt32(_ data: Data, _ pos: inout Int) throws -> UInt32 {
+  guard pos + 4 <= data.count else { throw JSONError.invalidCBOR("Unexpected end of CBOR data") }
   let value =
     UInt32(data[pos]) << 24 | UInt32(data[pos + 1]) << 16 | UInt32(data[pos + 2]) << 8
     | UInt32(data[pos + 3])
@@ -185,7 +187,8 @@ private func readUInt32(_ data: Data, _ pos: inout Int) -> UInt32 {
   return value
 }
 
-private func readUInt64(_ data: Data, _ pos: inout Int) -> UInt64 {
+private func readUInt64(_ data: Data, _ pos: inout Int) throws -> UInt64 {
+  guard pos + 8 <= data.count else { throw JSONError.invalidCBOR("Unexpected end of CBOR data") }
   let value =
     UInt64(data[pos]) << 56 | UInt64(data[pos + 1]) << 48 | UInt64(data[pos + 2]) << 40 | UInt64(
       data[pos + 3]) << 32 | UInt64(data[pos + 4]) << 24 | UInt64(data[pos + 5]) << 16 | UInt64(

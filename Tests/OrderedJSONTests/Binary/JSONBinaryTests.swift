@@ -1294,3 +1294,59 @@ private func appendBE(_ value: UInt64, to bytes: inout [UInt8]) {
   let data = Data(bytes)
   #expect(throws: JSONError.self) { try JSON.fromBJData(data) }
 }
+
+@Test func cborTruncatedUInt16Argument() throws {
+  // CBOR half-float marker (info 25) with only 1 byte of argument (needs 2)
+  let bytes: [UInt8] = [0xFA, 0x00]  // major 7, info 25, 1 byte (need 2)
+  let data = Data(bytes)
+  #expect(throws: JSONError.self) { try JSON.fromCBOR(data) }
+}
+
+@Test func cborTruncatedUInt32Argument() throws {
+  // CBOR float marker (info 26) with only 2 bytes of argument (needs 4)
+  let bytes: [UInt8] = [0xFB, 0x00, 0x00]  // major 7, info 26, 2 bytes (need 4)
+  let data = Data(bytes)
+  #expect(throws: JSONError.self) { try JSON.fromCBOR(data) }
+}
+
+@Test func cborTruncatedUInt64Argument() throws {
+  // CBOR double marker (info 27) with only 4 bytes of argument (needs 8)
+  let bytes: [UInt8] = [0xFC, 0x00, 0x00, 0x00, 0x00]  // major 7, info 27, 4 bytes (need 8)
+  let data = Data(bytes)
+  #expect(throws: JSONError.self) { try JSON.fromCBOR(data) }
+}
+
+@Test func ubjsonTruncatedUInt16Argument() throws {
+  // UBJSON int16 marker 'J' with only 1 byte (needs 2)
+  let bytes: [UInt8] = [0x4A, 0x01]  // 'J', 1 byte (need 2)
+  let data = Data(bytes)
+  #expect(throws: JSONError.self) { try JSON.fromUBJSON(data) }
+}
+
+@Test func ubjsonTruncatedUInt32Argument() throws {
+  // UBJSON int32 marker with only 2 bytes (needs 4)
+  let bytes: [UInt8] = [0x4C, 0x00, 0x00]  // 'L', 2 bytes (need 4)
+  let data = Data(bytes)
+  #expect(throws: JSONError.self) { try JSON.fromUBJSON(data) }
+}
+
+@Test func bsonTruncatedUInt32Argument() throws {
+  // BSON document with only 2 bytes of length (needs 4)
+  let bytes: [UInt8] = [0x02, 0x00]  // doc length: 2 bytes (need 4)
+  let data = Data(bytes)
+  #expect(throws: JSONError.self) { try JSON.fromBSON(data) }
+}
+
+@Test func bjdataTruncatedUInt16Argument() throws {
+  // BJData int16 marker 'J' with only 1 byte (needs 2)
+  let bytes: [UInt8] = [0x4A, 0x01]  // 'J', 1 byte (need 2)
+  let data = Data(bytes)
+  #expect(throws: JSONError.self) { try JSON.fromBJData(data) }
+}
+
+@Test func bjdataTruncatedUInt32Argument() throws {
+  // BJData int32 marker with only 2 bytes (needs 4)
+  let bytes: [UInt8] = [0x4C, 0x00, 0x00]  // 'L', 2 bytes (need 4)
+  let data = Data(bytes)
+  #expect(throws: JSONError.self) { try JSON.fromBJData(data) }
+}

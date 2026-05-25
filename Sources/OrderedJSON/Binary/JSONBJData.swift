@@ -92,15 +92,15 @@ private func decodeBJData(_ data: Data, _ pos: inout Int) throws -> JSON {
     return JSON.number(.integer(value))
 
   case bjdataMarkerInt16:
-    let value = Int64(Int16(bitPattern: readBJDataUInt16(data, &pos)))
+    let value = Int64(Int16(bitPattern: try readBJDataUInt16(data, &pos)))
     return JSON.number(.integer(value))
 
   case bjdataMarkerInt32:
-    let value = Int64(Int32(bitPattern: readBJDataUInt32(data, &pos)))
+    let value = Int64(Int32(bitPattern: try readBJDataUInt32(data, &pos)))
     return JSON.number(.integer(value))
 
   case bjdataMarkerInt64:
-    let value = Int64(bitPattern: readBJDataUInt64(data, &pos))
+    let value = Int64(bitPattern: try readBJDataUInt64(data, &pos))
     return JSON.number(.integer(value))
 
   case bjdataMarkerUInt8:
@@ -110,20 +110,20 @@ private func decodeBJData(_ data: Data, _ pos: inout Int) throws -> JSON {
     return JSON.number(.integer(value))
 
   case bjdataMarkerUInt16:
-    return JSON.number(.integer(Int64(readBJDataUInt16(data, &pos))))
+    return JSON.number(.integer(Int64(try readBJDataUInt16(data, &pos))))
 
   case bjdataMarkerUInt32:
-    return JSON.number(.integer(Int64(readBJDataUInt32(data, &pos))))
+    return JSON.number(.integer(Int64(try readBJDataUInt32(data, &pos))))
 
   case bjdataMarkerUInt64:
-    return JSON.number(.integer(Int64(bitPattern: readBJDataUInt64(data, &pos))))
+    return JSON.number(.integer(Int64(bitPattern: try readBJDataUInt64(data, &pos))))
 
   case bjdataMarkerFloat32:
-    let value = Double(Float(bitPattern: readBJDataUInt32(data, &pos)))
+    let value = Double(Float(bitPattern: try readBJDataUInt32(data, &pos)))
     return JSON.number(.float(value))
 
   case bjdataMarkerFloat64:
-    let value = Double(bitPattern: readBJDataUInt64(data, &pos))
+    let value = Double(bitPattern: try readBJDataUInt64(data, &pos))
     return JSON.number(.float(value))
 
   case bjdataMarkerChar:
@@ -192,11 +192,11 @@ private func decodeBJDataStringLen(_ data: Data, _ pos: inout Int) throws -> Int
     pos += 1
     return len
   case bjdataMarkerInt16:
-    let len = Int(Int16(bitPattern: readBJDataUInt16(data, &pos)))
+    let len = Int(Int16(bitPattern: try readBJDataUInt16(data, &pos)))
     guard len >= 0 else { throw JSONError.invalidBJData("Negative string length") }
     return len
   case bjdataMarkerInt32:
-    let len = Int(Int32(bitPattern: readBJDataUInt32(data, &pos)))
+    let len = Int(Int32(bitPattern: try readBJDataUInt32(data, &pos)))
     guard len >= 0 else { throw JSONError.invalidBJData("Negative string length") }
     return len
   default:
@@ -340,13 +340,19 @@ private func encodeBJDataString(_ str: String, _ bytes: inout [UInt8]) {
 
 // MARK: - BJData helpers (little-endian)
 
-private func readBJDataUInt16(_ data: Data, _ pos: inout Int) -> UInt16 {
+private func readBJDataUInt16(_ data: Data, _ pos: inout Int) throws -> UInt16 {
+  guard pos + 2 <= data.count else {
+    throw JSONError.invalidBJData("Unexpected end of BJData data")
+  }
   let value = UInt16(data[pos]) | UInt16(data[pos + 1]) << 8
   pos += 2
   return value
 }
 
-private func readBJDataUInt32(_ data: Data, _ pos: inout Int) -> UInt32 {
+private func readBJDataUInt32(_ data: Data, _ pos: inout Int) throws -> UInt32 {
+  guard pos + 4 <= data.count else {
+    throw JSONError.invalidBJData("Unexpected end of BJData data")
+  }
   let value =
     UInt32(data[pos]) | UInt32(data[pos + 1]) << 8 | UInt32(data[pos + 2]) << 16 | UInt32(
       data[pos + 3]) << 24
@@ -354,7 +360,10 @@ private func readBJDataUInt32(_ data: Data, _ pos: inout Int) -> UInt32 {
   return value
 }
 
-private func readBJDataUInt64(_ data: Data, _ pos: inout Int) -> UInt64 {
+private func readBJDataUInt64(_ data: Data, _ pos: inout Int) throws -> UInt64 {
+  guard pos + 8 <= data.count else {
+    throw JSONError.invalidBJData("Unexpected end of BJData data")
+  }
   let value =
     UInt64(data[pos]) | UInt64(data[pos + 1]) << 8 | UInt64(data[pos + 2]) << 16 | UInt64(
       data[pos + 3]) << 24 | UInt64(data[pos + 4]) << 32 | UInt64(data[pos + 5]) << 40 | UInt64(
