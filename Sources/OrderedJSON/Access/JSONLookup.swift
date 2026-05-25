@@ -14,6 +14,16 @@ extension JSON {
     return dict.keys.contains(key)
   }
 
+  /// Returns `true` if a JSON array contains the given element.
+  ///
+  /// Uses `==` for comparison. For non-array values, always returns `false`.
+  /// - Parameter element: The element to look up.
+  /// - Returns: `true` if the element exists in this array.
+  public func contains(_ element: JSON) -> Bool {
+    guard case .array(let arr) = storage else { return false }
+    return arr.contains(element)
+  }
+
   // MARK: - count(_ key:)
 
   /// Returns 1 if a JSON object contains the given key, or 0 otherwise.

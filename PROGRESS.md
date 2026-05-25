@@ -259,6 +259,18 @@ All 403 tests pass. Build produces zero errors. CI pipeline passes (SwiftFormat 
 - Tightened `@unchecked Sendable` doc comment to cite COW-avoidance (accurate)
 - 50 tests total (all passing)
 
+## Phase 1 — Missing value accessors (PR #20, open)
+
+### Changes
+- Added `intValue: Int64?`, `floatValue: Double?`, `boolValue: Bool?`, `numberValue: JSONNumber?` computed properties
+- Each returns nil when the underlying storage doesn't match the expected type
+- `intValue` accepts clean floats (e.g., `1.0` → `1`), rejects fractional floats
+- `floatValue` widens integers to Double
+
+### Tests
+- 17 tests covering all accessor paths (success + nil for each)
+- All pass, lint clean
+
 ## Release
 - Merged all 3 PRs (#9, #10, #11) to `main`
 - Tagged and released as **v2.2.0**
