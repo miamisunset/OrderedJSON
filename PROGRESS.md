@@ -259,7 +259,7 @@ All 403 tests pass. Build produces zero errors. CI pipeline passes (SwiftFormat 
 - Tightened `@unchecked Sendable` doc comment to cite COW-avoidance (accurate)
 - 50 tests total (all passing)
 
-## Phase 1 — Missing value accessors (PR #20, open)
+## Phase 1 — Missing value accessors (PR #20, merged)
 
 ### Changes
 - Added `intValue: Int64?`, `floatValue: Double?`, `boolValue: Bool?`, `numberValue: JSONNumber?` computed properties
@@ -269,6 +269,16 @@ All 403 tests pass. Build produces zero errors. CI pipeline passes (SwiftFormat 
 
 ### Tests
 - 17 tests covering all accessor paths (success + nil for each)
+- All pass, lint clean
+
+## Phase 2 — Array contains(element:) (PR #21, open)
+
+### Changes
+- Added `func contains(_ element: JSON) -> Bool` for array element containment
+- Uses `==` for comparison; non-arrays return `false`
+
+### Tests
+- 5 tests covering existing element, missing element, non-array, empty array, nested array
 - All pass, lint clean
 
 ## Release
