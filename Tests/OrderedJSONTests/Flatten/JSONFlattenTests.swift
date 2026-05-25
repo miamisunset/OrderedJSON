@@ -4,10 +4,52 @@ import Testing
 
 // MARK: - Flatten tests (JSON Pointer format)
 
-@Test func flattenEmptyObject() {
+@Test func flattenEmptyObject() throws {
   let value = JSON.object([:])
   let result = value.flatten()
-  #expect(result.isEmpty)
+  // Empty objects flatten to null (matching nlohmann/json behavior)
+  guard case .object(let dict) = result.storage else {
+    Issue.record("Expected object")
+    return
+  }
+  #expect(dict.count == 1)
+  #expect(dict[""] == JSON.null)
+}
+
+@Test func flattenEmptyArray() throws {
+  let value = JSON.array([])
+  let result = value.flatten()
+  // Empty arrays flatten to null (matching nlohmann/json behavior)
+  guard case .object(let dict) = result.storage else {
+    Issue.record("Expected object")
+    return
+  }
+  #expect(dict.count == 1)
+  #expect(dict[""] == JSON.null)
+}
+
+@Test func flattenNestedEmptyObject() throws {
+  let value = JSON.object([
+    "a": .object([:])
+  ])
+  let result = value.flatten()
+  guard case .object(let dict) = result.storage else {
+    Issue.record("Expected object")
+    return
+  }
+  #expect(dict["/a"] == JSON.null)
+}
+
+@Test func flattenNestedEmptyArray() throws {
+  let value = JSON.object([
+    "a": .array([])
+  ])
+  let result = value.flatten()
+  guard case .object(let dict) = result.storage else {
+    Issue.record("Expected object")
+    return
+  }
+  #expect(dict["/a"] == JSON.null)
 }
 
 @Test func flattenString() throws {
@@ -186,7 +228,7 @@ import Testing
     "a~/b": .number(.integer(3)),
   ])
   let flat = original.flatten()
-  let unflattened = flat.unflatten()
+  let unflattened = try flat.unflatten()
   // Verify each key has the correct value (order may differ)
   guard case .object(let dict) = unflattened.storage else {
     Issue.record("Expected object")
@@ -195,4 +237,47 @@ import Testing
   #expect(dict["a/b"] == JSON.number(.integer(1)))
   #expect(dict["a~b"] == JSON.number(.integer(2)))
   #expect(dict["a~/b"] == JSON.number(.integer(3)))
+}
+
+@Test func flattenUnflattenRoundTripWithEmptyContainers() throws {
+  // Empty arrays/objects flatten to null; round-trip preserves the null
+  let original = JSON.object([
+    "emptyObj": .object([:]),
+    "emptyArr": .array([]),
+  ])
+  let flat = original.flatten()
+  let reconstructed = try flat.unflatten()
+  // Empty containers become null after round-trip
+  guard case .object(let dict) = reconstructed.storage else {
+    Issue.record("Expected object")
+    return
+  }
+  #expect(dict["emptyObj"] == JSON.null)
+  #expect(dict["emptyArr"] == JSON.null)
+}
+
+@Test func flattenUnflattenNonObjectThrows() throws {
+  let scalar = JSON.string("hello")
+  #expect {
+    _ = try scalar.unflatten()
+  } throws: { error in
+    guard let flattenErr = error as? FlattenError else { return false }
+    if case .notObject = flattenErr { return true }
+    return false
+  }
+}
+
+@Test func unflattenNonPrimitiveValueThrows() throws {
+  let flat = JSON.object([
+    "/a": .object(["b": .string("nested")])
+  ])
+  #expect {
+    _ = try flat.unflatten()
+  } throws: { error in
+    guard let flattenErr = error as? FlattenError else { return false }
+    if case .notPrimitive(let key, let type) = flattenErr {
+      return key == "/a" && type == "object"
+    }
+    return false
+  }
 }

@@ -307,12 +307,12 @@ import Testing
 
 // MARK: - Flatten/Unflatten Edge Cases
 
-@Test func unflattenSimple() {
+@Test func unflattenSimple() throws {
   let flat = JSON.object([
     "/a": JSON.string("x"),
     "/b": JSON.number(.integer(1)),
   ])
-  let result = flat.unflatten()
+  let result = try flat.unflatten()
   guard case .object(let dict) = result.storage else {
     Issue.record("Expected object")
     return
@@ -321,43 +321,48 @@ import Testing
   #expect(dict["b"] == JSON.number(.integer(1)))
 }
 
-@Test func unflattenNested() {
+@Test func unflattenNested() throws {
   let flat = JSON.object([
     "/a/b/c": JSON.string("deep")
   ])
-  let result = flat.unflatten()
+  let result = try flat.unflatten()
   #expect(result["a"]?["b"]?["c"] == JSON.string("deep"))
 }
 
-@Test func unflattenArrayIndices() {
+@Test func unflattenArrayIndices() throws {
   let flat = JSON.object([
     "/0": JSON.string("a"),
     "/1": JSON.number(.integer(1)),
   ])
-  let result = flat.unflatten()
+  let result = try flat.unflatten()
   #expect(result.isArray)
   #expect(result[0] == JSON.string("a"))
   #expect(result[1] == JSON.number(.integer(1)))
 }
 
-@Test func unflattenNestedArray() {
+@Test func unflattenNestedArray() throws {
   let flat = JSON.object([
     "/a/0": JSON.string("first"),
     "/a/1": JSON.number(.integer(2)),
   ])
-  let result = flat.unflatten()
+  let result = try flat.unflatten()
   #expect(result["a"]?.isArray == true)
   #expect(result["a"]?[0] == JSON.string("first"))
   #expect(result["a"]?[1] == JSON.number(.integer(2)))
 }
 
-@Test func unflattenNonObject() {
+@Test func unflattenNonObjectThrows() throws {
   let scalar = JSON.string("hello")
-  let result = scalar.unflatten()
-  #expect(result == JSON.string("hello"))
+  #expect {
+    _ = try scalar.unflatten()
+  } throws: { error in
+    guard let flattenErr = error as? FlattenError else { return false }
+    if case .notObject = flattenErr { return true }
+    return false
+  }
 }
 
-@Test func flattenAndUnflattenRoundTrip() {
+@Test func flattenAndUnflattenRoundTrip() throws {
   let original = JSON.object([
     "a": JSON.object([
       "b": JSON.array([
@@ -368,23 +373,26 @@ import Testing
     "d": JSON.string("leaf"),
   ])
   let flat = original.flatten()
-  let reconstructed = flat.unflatten()
+  let reconstructed = try flat.unflatten()
   #expect(reconstructed == original)
 }
 
-@Test func unflattenEmptyObject() {
+@Test func unflattenEmptyObject() throws {
+  // An empty input object unflattens to an empty object — not null.
+  // The "empty containers → null" rule applies on the flatten side
+  // only; unflatten does not apply a symmetric reverse.
   let flat = JSON.object([:])
-  let result = flat.unflatten()
+  let result = try flat.unflatten()
   #expect(result.isObject)
   #expect(result.isEmpty)
 }
 
-@Test func unflattenArrayPathWithoutLeadingSlash() {
+@Test func unflattenArrayPathWithoutLeadingSlash() throws {
   // Keys like "a/b/c" (without leading /) should still work
   let flat = JSON.object([
     "a": JSON.string("x")
   ])
-  let result = flat.unflatten()
+  let result = try flat.unflatten()
   guard case .object(let dict) = result.storage else {
     Issue.record("Expected object")
     return
@@ -392,25 +400,25 @@ import Testing
   #expect(dict["a"] == JSON.string("x"))
 }
 
-@Test func unflattenArrayWithNestedObject() {
+@Test func unflattenArrayWithNestedObject() throws {
   // Path /0/foo: first segment "0" creates array from object root, rest not empty
   let flat = JSON.object([
     "/0/foo": JSON.string("bar")
   ])
-  let result = flat.unflatten()
+  let result = try flat.unflatten()
   #expect(result.isArray)
   #expect(result[0]?.isObject == true)
   #expect(result[0]?["foo"] == JSON.string("bar"))
 }
 
-@Test func unflattenMixedArrayAndObjectPaths() {
+@Test func unflattenMixedArrayAndObjectPaths() throws {
   // First path /0 creates array root; second path /foo/bar overwrites root to object
   // (conflicting root types — last one wins)
   let flat = JSON.object([
     "/0": JSON.string("a"),
     "/foo/bar": JSON.string("b"),
   ])
-  let result = flat.unflatten()
+  let result = try flat.unflatten()
   #expect(result.isObject)
   #expect(result["foo"]?.isObject == true)
   #expect(result["foo"]?["bar"] == JSON.string("b"))
