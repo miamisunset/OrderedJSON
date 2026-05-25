@@ -327,3 +327,10 @@ All 403 tests pass. Build produces zero errors. CI pipeline passes (SwiftFormat 
 - Flatten tests: 14 (was 10)
 - Parser tests: 66 (was 63)
 
+## PR #15 — Bug hunt fixes: crash, binary decoder bounds/overflow, edge cases (open)
+
+### 🔴 CRASH BUGS (Priority 1)
+1. **Low surrogate force-unwrap** — `JSONParser.swift:401` and `JSONSAX.swift:455`
+   - `UnicodeScalar(scalar)!` crashes on standalone `\uDC00`–`\uDFFF` escapes
+   - Fixed: guarded return throws `invalidUnicodeEscape` (parser) / returns `
+

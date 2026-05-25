@@ -178,6 +178,7 @@ private struct _TrackingKeyedDecodingContainer<Key: CodingKey>: KeyedDecodingCon
   }
 
   func contains(_ key: Key) -> Bool {
+    onAccess(key.stringValue)
     guard case .object(let dict) = json.storage else { return false }
     return dict.keys.contains(key.stringValue)
   }

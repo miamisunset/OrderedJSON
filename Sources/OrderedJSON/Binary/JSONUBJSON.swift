@@ -111,6 +111,9 @@ private func decodeUBJSON(_ data: Data, _ pos: inout Int) throws -> JSON {
 
   case ubjsonMarkerString:
     let len = try decodeUBJSONStringLen(data, &pos)
+    guard len >= 0, pos + len <= data.count else {
+      throw JSONError.invalidUBJSON("String length exceeds data")
+    }
     let body = data[pos..<pos + len]
     pos += len
     guard let str = String(data: body, encoding: .utf8) else {
@@ -150,11 +153,16 @@ private func decodeUBJSONStringLen(_ data: Data, _ pos: inout Int) throws -> Int
     guard pos < data.count else { throw JSONError.invalidUBJSON("Unexpected end") }
     let len = Int(Int8(bitPattern: data[pos]))
     pos += 1
-    return len >= 0 ? len : 0
+    guard len >= 0 else { throw JSONError.invalidUBJSON("Negative string length") }
+    return len
   case ubjsonMarkerInt16:
-    return Int(Int16(bitPattern: readUBJSONUInt16(data, &pos)))
+    let len = Int(Int16(bitPattern: readUBJSONUInt16(data, &pos)))
+    guard len >= 0 else { throw JSONError.invalidUBJSON("Negative string length") }
+    return len
   case ubjsonMarkerInt32:
-    return Int(Int32(bitPattern: readUBJSONUInt32(data, &pos)))
+    let len = Int(Int32(bitPattern: readUBJSONUInt32(data, &pos)))
+    guard len >= 0 else { throw JSONError.invalidUBJSON("Negative string length") }
+    return len
   default:
     throw JSONError.invalidUBJSON("Expected integer marker for string length")
   }
@@ -170,11 +178,16 @@ private func decodeUBJSONCount(_ data: Data, _ pos: inout Int) throws -> Int {
     guard pos < data.count else { throw JSONError.invalidUBJSON("Unexpected end") }
     let count = Int(Int8(bitPattern: data[pos]))
     pos += 1
-    return count >= 0 ? count : 0
+    guard count >= 0 else { throw JSONError.invalidUBJSON("Negative container count") }
+    return count
   case ubjsonMarkerInt16:
-    return Int(Int16(bitPattern: readUBJSONUInt16(data, &pos)))
+    let count = Int(Int16(bitPattern: readUBJSONUInt16(data, &pos)))
+    guard count >= 0 else { throw JSONError.invalidUBJSON("Negative container count") }
+    return count
   case ubjsonMarkerInt32:
-    return Int(Int32(bitPattern: readUBJSONUInt32(data, &pos)))
+    let count = Int(Int32(bitPattern: readUBJSONUInt32(data, &pos)))
+    guard count >= 0 else { throw JSONError.invalidUBJSON("Negative container count") }
+    return count
   default:
     throw JSONError.invalidUBJSON("Expected integer marker for container count")
   }
@@ -188,6 +201,9 @@ private func decodeUBJSONString(_ data: Data, _ pos: inout Int) throws -> String
 
   if marker == ubjsonMarkerString {
     let len = try decodeUBJSONStringLen(data, &pos)
+    guard len >= 0, pos + len <= data.count else {
+      throw JSONError.invalidUBJSON("String length exceeds data")
+    }
     let body = data[pos..<pos + len]
     pos += len
     guard let str = String(data: body, encoding: .utf8) else {

@@ -566,10 +566,11 @@ import Testing
     .addIfPresent(nil as Bool?)
     .build()
 
-  #expect(json.count == 3)
+  #expect(json.count == 4)
   #expect(json[0] == .string("a"))
   #expect(json[1] == .string("hello"))
-  #expect(json[2] == .boolean(true))
+  #expect(json[2] == .number(.integer(42)))
+  #expect(json[3] == .boolean(true))
 }
 
 @Test func arrayBuilderAddIfPresentUInt() throws {

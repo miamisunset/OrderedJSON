@@ -1061,3 +1061,131 @@ private func appendBE(_ value: UInt64, to bytes: inout [UInt8]) {
   let decoded = try JSON.fromBJData(data)
   #expect(decoded.isFloat || decoded.isInteger)
 }
+
+// MARK: - Error path tests
+
+@Test func cborStringLenOverflowThrows() throws {
+  // CBOR text string with length > Int64.max should throw
+  var bytes: [UInt8] = [0x7B, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF]
+  let data = Data(bytes)
+  #expect(throws: JSONError.self) { try JSON.fromCBOR(data) }
+}
+
+@Test func cborArrayCountOverflowThrows() throws {
+  // CBOR array with count > Int64.max should throw
+  var bytes: [UInt8] = [0x9B, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF]
+  let data = Data(bytes)
+  #expect(throws: JSONError.self) { try JSON.fromCBOR(data) }
+}
+
+@Test func cborStringLenExceedsDataThrows() throws {
+  // CBOR text string with length > available data should throw
+  var bytes: [UInt8] = [0x78, 100, 0x41, 0x42, 0x43, 0x44, 0x45]
+  let data = Data(bytes)
+  #expect(throws: JSONError.self) { try JSON.fromCBOR(data) }
+}
+
+@Test func msgPackStringLenExceedsDataThrows() throws {
+  // MsgPack string 32 with length > available data should throw
+  var bytes: [UInt8] = [0xDB, 0xFF, 0xFF, 0xFF, 0xFF]
+  let data = Data(bytes)
+  #expect(throws: JSONError.self) { try JSON.fromMsgPack(data) }
+}
+
+@Test func msgPackBinLenExceedsDataThrows() throws {
+  // MsgPack bin 32 with length > available data should throw
+  var bytes: [UInt8] = [0xC6, 0xFF, 0xFF, 0xFF, 0xFF]
+  let data = Data(bytes)
+  #expect(throws: JSONError.self) { try JSON.fromMsgPack(data) }
+}
+
+@Test func bsonDocLenTooSmallThrows() throws {
+  // BSON document with length < 5 should throw
+  var bytes: [UInt8] = [0x03, 0x00, 0x00, 0x00]
+  let data = Data(bytes)
+  #expect(throws: JSONError.self) { try JSON.fromBSON(data) }
+}
+
+@Test func bsonStringLenNegativeThrows() throws {
+  // BSON string with negative length should throw
+  var bytes: [UInt8] = [0x02, 0x78, 0x00, 0xFF, 0xFF, 0xFF, 0xFF]
+  let data = Data(bytes)
+  #expect(throws: JSONError.self) { try JSON.fromBSON(data) }
+}
+
+@Test func bsonStringLenExceedsDataThrows() throws {
+  // BSON string with length > available data should throw
+  var bytes: [UInt8] = [0x02, 0x78, 0x00, 0x64, 0x00, 0x00, 0x00]
+  let data = Data(bytes)
+  #expect(throws: JSONError.self) { try JSON.fromBSON(data) }
+}
+
+@Test func bsonBinaryLenExceedsDataThrows() throws {
+  // BSON binary with length > available data should throw
+  var bytes: [UInt8] = [0x05, 0x78, 0x00, 0x64, 0x00, 0x00, 0x00, 0x00]
+  let data = Data(bytes)
+  #expect(throws: JSONError.self) { try JSON.fromBSON(data) }
+}
+
+@Test func bsonBinaryMissingSubtypeThrows() throws {
+  // BSON binary with no subtype byte should throw
+  var bytes: [UInt8] = [0x05, 0x78, 0x00, 0x01, 0x00, 0x00, 0x00]
+  let data = Data(bytes)
+  #expect(throws: JSONError.self) { try JSON.fromBSON(data) }
+}
+
+@Test func bsonArrayLenTooSmallThrows() throws {
+  // BSON array with length < 5 should throw
+  var bytes: [UInt8] = [0x03, 0x00, 0x00, 0x00]
+  let data = Data(bytes)
+  #expect(throws: JSONError.self) { try JSON.fromBSON(data) }
+}
+
+@Test func ubjsonStringLenInt16NegativeThrows() throws {
+  // UBJSON string with Int16 length = -1 should throw
+  var bytes: [UInt8] = [0x53, 0x49, 0xFF, 0xFF, 0x41]
+  let data = Data(bytes)
+  #expect(throws: JSONError.self) { try JSON.fromUBJSON(data) }
+}
+
+@Test func ubjsonStringLenInt32NegativeThrows() throws {
+  // UBJSON string with Int32 length = -1 should throw
+  var bytes: [UInt8] = [0x53, 0x6C, 0xFF, 0xFF, 0xFF, 0xFF, 0x41]
+  let data = Data(bytes)
+  #expect(throws: JSONError.self) { try JSON.fromUBJSON(data) }
+}
+
+@Test func ubjsonCountInt16NegativeThrows() throws {
+  // UBJSON array with Int16 count = -1 should throw
+  var bytes: [UInt8] = [0x5B, 0x49, 0xFF, 0xFF]
+  let data = Data(bytes)
+  #expect(throws: JSONError.self) { try JSON.fromUBJSON(data) }
+}
+
+@Test func ubjsonStringLenExceedsDataThrows() throws {
+  // UBJSON string with length > available data should throw
+  var bytes: [UInt8] = [0x53, 0x49, 0x64, 0x00]
+  let data = Data(bytes)
+  #expect(throws: JSONError.self) { try JSON.fromUBJSON(data) }
+}
+
+@Test func bjdataStringLenInt16NegativeThrows() throws {
+  // BJData string with Int16 length = -1 should throw
+  var bytes: [UInt8] = [0x53, 0x49, 0xFF, 0xFF, 0x41]
+  let data = Data(bytes)
+  #expect(throws: JSONError.self) { try JSON.fromBJData(data) }
+}
+
+@Test func bjdataStringLenInt32NegativeThrows() throws {
+  // BJData string with Int32 length = -1 should throw
+  var bytes: [UInt8] = [0x53, 0x6C, 0xFF, 0xFF, 0xFF, 0xFF, 0x41]
+  let data = Data(bytes)
+  #expect(throws: JSONError.self) { try JSON.fromBJData(data) }
+}
+
+@Test func bjdataStringLenExceedsDataThrows() throws {
+  // BJData string with length > available data should throw
+  var bytes: [UInt8] = [0x53, 0x49, 0x64, 0x00]
+  let data = Data(bytes)
+  #expect(throws: JSONError.self) { try JSON.fromBJData(data) }
+}

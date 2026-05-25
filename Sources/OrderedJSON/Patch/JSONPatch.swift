@@ -116,6 +116,7 @@ extension JSON {
   private func resolvePointer(segments: [String], in json: JSON) -> JSON? {
     var current = json
     for segment in segments {
+      if segment == "-" { return nil }  // '-' is only valid as add target, not resolve
       if let index = Int(segment) {
         guard case .array(let arr) = current.storage,
           index >= 0, index < arr.count

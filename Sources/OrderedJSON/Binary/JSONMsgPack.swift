@@ -175,6 +175,9 @@ private func decodeMsgPack(_ data: Data, _ pos: inout Int) throws -> JSON {
 }
 
 private func decodeMsgPackString(_ data: Data, _ pos: inout Int, _ len: Int) throws -> JSON {
+  guard len >= 0, pos + len <= data.count else {
+    throw JSONError.invalidMsgPack("String length exceeds data")
+  }
   let body = data[pos..<pos + len]
   pos += len
   guard let str = String(data: body, encoding: .utf8) else {
@@ -192,6 +195,9 @@ private func decodeMsgPackBin(_ data: Data, _ pos: inout Int, _ sizeLen: Int) th
     len = Int(readUInt16(data, &pos))
   } else {
     len = Int(readUInt32(data, &pos))
+  }
+  guard len >= 0, pos + len <= data.count else {
+    throw JSONError.invalidMsgPack("Binary length exceeds data")
   }
   let body = data[pos..<pos + len]
   pos += len

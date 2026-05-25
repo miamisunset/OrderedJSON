@@ -398,7 +398,10 @@ extension JSON {
       return String(unicodeScalar)
     }
 
-    return String(UnicodeScalar(scalar)!)
+    guard let unicodeScalar = UnicodeScalar(scalar) else {
+      throw error(at: ctx, kind: .invalidUnicodeEscape)
+    }
+    return String(unicodeScalar)
   }
 
   /// Reads 4 hex digits from the current position (or fewer if at end).

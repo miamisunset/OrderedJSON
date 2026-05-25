@@ -77,13 +77,21 @@ private func decodeCBOR(_ data: Data, _ pos: inout Int) throws -> JSON {
     }
 
   case 2:  // Byte string
+    guard argument <= UInt64(Int.max) else { throw JSONError.invalidCBOR("String length overflow") }
     let len = Int(argument)
+    guard len >= 0, pos + len <= data.count else {
+      throw JSONError.invalidCBOR("String length exceeds data")
+    }
     let body = data[pos..<pos + len]
     pos += len
     return JSON.string(body.base64EncodedString())
 
   case 3:  // Text string
+    guard argument <= UInt64(Int.max) else { throw JSONError.invalidCBOR("String length overflow") }
     let len = Int(argument)
+    guard len >= 0, pos + len <= data.count else {
+      throw JSONError.invalidCBOR("String length exceeds data")
+    }
     let body = data[pos..<pos + len]
     pos += len
     guard let str = String(data: body, encoding: .utf8) else {
@@ -92,15 +100,21 @@ private func decodeCBOR(_ data: Data, _ pos: inout Int) throws -> JSON {
     return JSON.string(str)
 
   case 4:  // Array
+    guard argument <= UInt64(Int.max) else { throw JSONError.invalidCBOR("Array count overflow") }
+    let count = Int(argument)
+    guard count >= 0 else { throw JSONError.invalidCBOR("Negative array count") }
     var elements: [JSON] = []
-    for _ in 0..<Int(argument) {
+    for _ in 0..<count {
       elements.append(try decodeCBOR(data, &pos))
     }
     return JSON.array(elements)
 
   case 5:  // Map
+    guard argument <= UInt64(Int.max) else { throw JSONError.invalidCBOR("Map count overflow") }
+    let count = Int(argument)
+    guard count >= 0 else { throw JSONError.invalidCBOR("Negative map count") }
     var dict = OrderedDictionary<String, JSON>()
-    for _ in 0..<Int(argument) {
+    for _ in 0..<count {
       let key = try decodeCBOR(data, &pos)
       guard case .string(let str) = key.storage else {
         throw JSONError.invalidCBOR("Non-string CBOR map key")

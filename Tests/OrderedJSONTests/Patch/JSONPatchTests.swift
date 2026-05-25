@@ -295,6 +295,20 @@ import Testing
   #expect(throws: JSONError.self) { try json.patch(patch) }
 }
 
+@Test func patchDashTokenInFromRejected() throws {
+  // Regression: '-' token in 'from' path should be rejected (not treated as object key)
+  let patch = JSON.array([
+    JSON.object([
+      "op": .string("copy"),
+      "from": .string("/-"),
+      "path": .string("/b"),
+      "value": .string("x"),
+    ])
+  ])
+  let json = JSON.object(["a": .string("x")])
+  #expect(throws: JSONError.self) { try json.patch(patch) }
+}
+
 @Test func patchTraverseBeyondAppend() throws {
   let json = JSON.array([JSON.string("a")])
   let patch = JSON.array([

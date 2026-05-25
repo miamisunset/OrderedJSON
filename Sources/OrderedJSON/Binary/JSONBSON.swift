@@ -62,6 +62,9 @@ private func decodeBSONDocument(_ data: Data, _ pos: inout Int) throws -> JSON {
   }
 
   let docLen = Int(readBSONInt32(data, &pos))
+  guard docLen >= 5 else {
+    throw JSONError.invalidBSON("Document length too small")
+  }
   let endPos = pos + docLen - 5  // minus 4 length bytes and 1 null terminator
 
   var dict = OrderedDictionary<String, JSON>()
@@ -95,6 +98,9 @@ private func decodeBSONElement(_ data: Data, _ pos: inout Int) throws -> (String
 
   case 0x02:  // UTF-8 string
     let len = Int(readBSONInt32(data, &pos))
+    guard len > 0, pos + len <= data.count else {
+      throw JSONError.invalidBSON("String length exceeds data")
+    }
     let body = data[pos..<pos + len - 1]  // -1 for null terminator
     pos += len
     guard let str = String(data: body, encoding: .utf8) else {
@@ -112,7 +118,10 @@ private func decodeBSONElement(_ data: Data, _ pos: inout Int) throws -> (String
 
   case 0x05:  // Binary data
     let len = Int(readBSONInt32(data, &pos))
-    let _ = data[pos]
+    guard len >= 0, pos + 1 + len <= data.count else {
+      throw JSONError.invalidBSON("Binary length exceeds data")
+    }
+    let _ = data[pos]  // subtype byte (safe: pos < data.count from guard)
     pos += 1
     let body = data[pos..<pos + len]
     pos += len
@@ -145,6 +154,9 @@ private func decodeBSONArray(_ data: Data, _ pos: inout Int) throws -> JSON {
   }
 
   let docLen = Int(readBSONInt32(data, &pos))
+  guard docLen >= 5 else {
+    throw JSONError.invalidBSON("Array length too small")
+  }
   let endPos = pos + docLen - 1
 
   var elements: [JSON] = []
