@@ -574,7 +574,7 @@ extension JSON {
   #expect(value == 42)
 }
 
-@Test func getUnsupportedTypeThrows() throws {
+@Test func getTypeMismatchThrows() throws {
   let json = JSON.string("hello")
   #expect {
     _ = try json.get(Int64.self)
@@ -582,6 +582,65 @@ extension JSON {
     guard let jsonError = error as? JSONError else { return false }
     // requireInt64() reports expected "integer", not "Int64"
     return jsonError == JSONError.typeError(expected: "integer", actual: "string")
+  }
+}
+
+@Test func getUnsupportedTypeFallbackThrows() throws {
+  // Exercise the final `throw` in get<T>() — an unsupported T type like Date
+  struct MyType: Hashable, Sendable {}
+  let json = JSON.string("hello")
+  #expect {
+    _ = try json.get(MyType.self)
+  } throws: { error in
+    guard let jsonError = error as? JSONError else { return false }
+    // Fallback reports T.self name as the expected type
+    return jsonError == JSONError.typeError(expected: "MyType", actual: "string")
+  }
+}
+
+@Test func getInt8() throws {
+  let json = JSON.number(.integer(42))
+  let value: Int8 = try json.get(Int8.self)
+  #expect(value == 42)
+}
+
+@Test func getInt16() throws {
+  let json = JSON.number(.integer(42))
+  let value: Int16 = try json.get(Int16.self)
+  #expect(value == 42)
+}
+
+@Test func getInt32() throws {
+  let json = JSON.number(.integer(42))
+  let value: Int32 = try json.get(Int32.self)
+  #expect(value == 42)
+}
+
+@Test func getUInt16() throws {
+  let json = JSON.number(.integer(42))
+  let value: UInt16 = try json.get(UInt16.self)
+  #expect(value == 42)
+}
+
+@Test func getUInt32() throws {
+  let json = JSON.number(.integer(42))
+  let value: UInt32 = try json.get(UInt32.self)
+  #expect(value == 42)
+}
+
+@Test func getUInt64() throws {
+  let json = JSON.number(.integer(42))
+  let value: UInt64 = try json.get(UInt64.self)
+  #expect(value == 42)
+}
+
+@Test func getInt8BoundsCheckThrows() throws {
+  let json = JSON.number(.integer(300))  // > Int8.max
+  #expect {
+    _ = try json.get(Int8.self)
+  } throws: { error in
+    guard let jsonError = error as? JSONError else { return false }
+    return jsonError == JSONError.typeError(expected: "int8", actual: "number")
   }
 }
 

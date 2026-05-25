@@ -153,7 +153,8 @@ extension JSON {
   /// Dispatches to the appropriate `require*()` method based on `T`:
   /// - `String` → `requireString()`
   /// - `Bool` → `requireBool()`
-  /// - `Int64`, `Int`, `Int8`, `Int16`, `Int32` → `requireInt64()` with bounds check
+  /// - `Int64`, `Int`, `Int8`, `Int16`, `Int32` → corresponding `requireInt*()`,
+  ///   all delegating to bounds-checked `Int64` extraction
   /// - `UInt`, `UInt8`, `UInt16`, `UInt32`, `UInt64` → `requireUInt*()`
   /// - `Double` → `requireDouble()`
   /// - `Float` → `requireFloat()`
@@ -162,8 +163,8 @@ extension JSON {
   /// - Returns: The value converted to `T`.
   /// - Throws: `JSONError.typeError` on type mismatch.
   public func get<T>(_ type: T.Type) throws -> T {
-    // Use MemoryLayout to distinguish integer widths at runtime.
-    // All integer types are handled via requireInt64() with bounds checks.
+    // Safe: each branch is guarded by `T.self == X.self` above, so the
+    // `as! T` force-cast is guaranteed to succeed.
     if T.self == String.self {
       return try requireString() as! T
     }
