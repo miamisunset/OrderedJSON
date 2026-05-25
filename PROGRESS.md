@@ -322,6 +322,8 @@ All 403 tests pass. Build produces zero errors. CI pipeline passes (SwiftFormat 
 - `jsonErrorInvalidStringThrown` — expects `JSONPointerError.invalidSyntax` now (not `JSONError.invalidString`)
 
 ### Tests
-- 15 new tests: leading zero rejection, `-` token resolve/set, `description`, fragment init, round-trip
-- Total: 36 pointer tests (was 21)
+- **31 new tests**: 24 pointer tests (resolve/set dash, leading zero, description, fragment init, resolveOrThrow) + 4 flatten tests (slash/tilde escaping) + 3 parser tests (Int64 overflow, overflow-to-infinity)
+- Pointer tests: 53 (was 29)
+- Flatten tests: 14 (was 10)
+- Parser tests: 66 (was 63)
 

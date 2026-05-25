@@ -384,6 +384,10 @@ Error kinds:
 - `invalidEncoding` — non-UTF-8 input data
 - `depthExceeded(line:column:depth:maxDepth:)` — nesting exceeded `maxDepth`
 
+**Large integer overflow:** Integers larger than `Int64.max` (`9223372036854775807`) or smaller than `Int64.min` (`-9223372036854775808`) do **not** throw — they are stored as `.float(Double)` values, matching `nlohmann/json` behavior. Values very near the overflow boundary may lose precision when stored as `Double`.
+
+**Overflow-to-infinity:** Numbers that overflow the `Double` range (e.g., `1e400`) throw `invalidNumber` instead of producing `inf` — which would serialize as `null` (silent data loss).
+
 Always wrap untrusted input in `do {} catch {}`.
 
 ---
@@ -565,11 +569,13 @@ let restored = flat.unflatten()
 
 This is useful for serialization to flat formats (e.g., query strings, database columns) while retaining the ability to reconstruct the original hierarchy. The JSON Pointer format matches `nlohmann/json` exactly.
 
+**RFC 6901 escaping:** Keys containing `~` (tilde) or `/` (slash) are properly escaped during `flatten()` — `~` becomes `~0`, `/` becomes `~1`. During `unflatten()`, segments are unescaped in RFC-specified order (`~1`→`/` first, then `~0`→`~`), ensuring correct round-trip for keys with special characters.
+
 ---
 
 ## JSON Pointer
 
-A `JSONPointer` resolves a pointer string against a JSON value to retrieve the referenced element.
+A `JSONPointer` resolves a pointer string against a JSON value to retrieve the referenced element. The implementation follows RFC 6901 with full support for the standard features and error types.
 
 ```swift
 let json = JSON.parse("""
@@ -581,6 +587,109 @@ ptr.resolve(json)  // Optional(JSON.number(.integer(42)))
 ```
 
 JSON Pointer (RFC 6901) is the standard way to reference a specific value within a JSON document. The `/` prefix denotes the root.
+
+### JSONPointerError
+
+JSON Pointer operations throw `JSONPointerError` with three cases:
+
+- `.invalidSyntax(String)` — pointer string is malformed (e.g., doesn't start with `/`)
+- `.missingValue(String)` — pointer references a nonexistent value
+- `.leadingZero(String)` — array index has a leading zero (not allowed per RFC 6901 ABNF)
+
+All cases conform to `CustomStringConvertible`, `Hashable`, and `Sendable`.
+
+### Initialization
+
+```swift
+// Standard pointer — must start with /
+let ptr1 = try JSONPointer("/foo/bar")
+
+// Root pointer (empty string)
+let root = try JSONPointer("")
+root.segments  // [] (empty)
+
+// URI fragment — strips # prefix and percent-decodes
+let ptr2 = try JSONPointer(fragment: "#/c%25d")
+ptr2.segments  // ["c%d"]
+
+// Leading zeros in array indices throw
+// JSONPointerError.leadingZero
+let ptr3 = try JSONPointer("/01")       // throws
+let ptr4 = try JSONPointer("/0")        // OK — single digit "0" is valid
+
+// Invalid syntax throws JSONPointerError.invalidSyntax
+let ptr5 = try JSONPointer("foo")       // throws — no leading /
+let ptr6 = try JSONPointer(fragment: "/foo")  // throws — no #
+```
+
+### Resolution
+
+```swift
+let json = JSON.parse("""
+  {"a": {"b": [1, 2, 3]}}
+  """)
+
+let ptr = try JSONPointer("/a/b/2")
+ptr.resolve(json)  // Optional(JSON.number(.integer(3)))
+
+// Missing key/index returns nil
+let missing = try JSONPointer("/x")
+misssing.resolve(json)  // nil
+
+// "-" token — RFC 6901 array append marker
+// resolve returns nil (nonexistent element after last array element)
+let dash = try JSONPointer("/-/")
+dash.resolve(json)  // nil
+
+// Throwing resolution — throws JSONPointerError.missingValue
+let value = try ptr.resolveOrThrow(json)
+// value == JSON.number(.integer(3))
+```
+
+### Setting values
+
+`set(into:value:)` mutates a JSON value at the pointer path, creating intermediate objects/arrays as needed:
+
+```swift
+var json = JSON.object(["a": JSON.number(.integer(1))])
+
+let ptr = try JSONPointer("/b/c")
+ptr.set(into: &json, value: JSON.string("deep"))
+// json == {"a": 1, "b": {"c": "deep"}}
+
+// Root pointer replaces the entire value
+let root = try JSONPointer("")
+root.set(into: &json, value: JSON.number(.integer(42)))
+// json == 42
+
+// "-" token appends to an array
+var arr = JSON.array([JSON.string("a")])
+let append = try JSONPointer("/-")
+append.set(into: &arr, value: JSON.string("b"))
+// arr == ["a", "b"]
+
+// If the target is not an array, "-" creates one
+var obj = JSON.object([:])
+let force = try JSONPointer("/-")
+force.set(into: &obj, value: JSON.string("first"))
+// obj == ["first"] (was an object, now an array)
+```
+
+### Description (canonical pointer string)
+
+The `description` property returns the canonical JSON Pointer string per RFC 6901 §5, with proper `~0`/`~1` escaping:
+
+```swift
+let ptr = try JSONPointer("/a~1b/m~0n")
+ptr.description   // "/a~1b/m~0n" — segments are escaped canonically
+
+let root = try JSONPointer("")
+root.description   // "" — root pointer has no description
+
+// Round-trip: description → JSONPointer produces equivalent segments
+let roundtrip = try JSONPointer(ptr.description)
+roundtrip.segments == ptr.segments  // true
+```
 
 ---
 
