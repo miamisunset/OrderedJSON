@@ -17,6 +17,11 @@ extension JSON {
   /// Returns `true` if a JSON array contains the given element.
   ///
   /// Uses `==` for comparison. For non-array values, always returns `false`.
+  ///
+  /// - Note: Because `JSON` conforms to `ExpressibleByStringLiteral`, passing a raw
+  ///   string `"foo"` hits the `String` overload (object key lookup). Use
+  ///   `.string("foo")` explicitly for array element containment.
+  ///
   /// - Parameter element: The element to look up.
   /// - Returns: `true` if the element exists in this array.
   public func contains(_ element: JSON) -> Bool {

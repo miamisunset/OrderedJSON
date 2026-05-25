@@ -335,3 +335,20 @@ let indexOutOfBoundsNeg = JSONError.indexOutOfBounds(-1)
   #expect(nested.contains(JSON.array([JSON.number(.integer(1))])))
   #expect(!nested.contains(JSON.array([JSON.number(.integer(2))])))
 }
+
+@Test func arrayContainsCrossType() {
+  let arr = JSON.array([JSON.string("a"), JSON.number(.integer(1))])
+  #expect(!arr.contains(JSON.number(.integer(2))))  // different value, same type
+  #expect(!arr.contains(JSON.boolean(true)))  // different type entirely
+}
+
+@Test func arrayContainsDuplicate() {
+  let arr = JSON.array([
+    JSON.string("a"),
+    JSON.string("b"),
+    JSON.string("a"),
+  ])
+  #expect(arr.contains(JSON.string("a")))  // appears at indices 0 and 2
+  #expect(arr.contains(JSON.string("b")))  // appears once
+  #expect(!arr.contains(JSON.string("c")))
+}

@@ -1320,7 +1320,7 @@ json["count"]?.floatValue   // 42.0 (Double)
 | `intValue` | `.integer` or `.float` (clean integer) | `Int64?` | Not a number, or fractional float |
 | `floatValue` | `.float` or `.integer` (widening) | `Double?` | Not a number |
 | `boolValue` | `.boolean` | `Bool?` | Not a boolean |
-| `numberValue` | `.number` | `JSONNumber?` | Not a number |
+| `numberValue` | `.integer` or `.float` | `JSONNumber?` | Not a number |
 
 ### Round-Trip Example
 

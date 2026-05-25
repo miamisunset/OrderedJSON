@@ -277,11 +277,22 @@ All 403 tests pass. Build produces zero errors. CI pipeline passes (SwiftFormat 
 - Added `func contains(_ element: JSON) -> Bool` for array element containment
 - Uses `==` for comparison; non-arrays return `false`
 
+### Deviations from nlohmann/json
+- nlohmann's `basic_json::contains` for arrays takes a JSON Pointer, not an element. Our `contains(element:)` is closer to `std::find != end()` — a Swift-flavored convenience that doesn't exist in nlohmann's API.
+
+### Documentation
+- README updated: contains section now covers both object key and array element lookup
+- Feature parity table: `get<T>()` changed from ❌ to ✅ (optional value accessors + throwing require*)
+
 ### Tests
-- 5 tests covering existing element, missing element, non-array, empty array, nested array
+- 7 tests covering existing element, missing element, cross-type element, duplicates, non-array, empty array, nested array
 - All pass, lint clean
 
 ## Release
+
+## Phase 1 (docs update)
+- README updated: added Optional Value Accessors section with `intValue`, `floatValue`, `boolValue`, `numberValue`
+- Feature parity table updated for `get<T>()`
 - Merged all 3 PRs (#9, #10, #11) to `main`
 - Tagged and released as **v2.2.0**
 - New features: JSONBuilder, setIfPresent/addIfPresent matrix, objectKeys accessor, README TOC
