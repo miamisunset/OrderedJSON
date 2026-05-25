@@ -563,11 +563,15 @@ let flat = json.flatten()
 //   "/d/0"   -> 1
 //   "/d/1/e" -> "nested"
 
-let restored = flat.unflatten()
+let restored = try flat.unflatten()
 // restored == json (round-trip)
 ```
 
 This is useful for serialization to flat formats (e.g., query strings, database columns) while retaining the ability to reconstruct the original hierarchy. The JSON Pointer format matches `nlohmann/json` exactly.
+
+**Empty containers:** Empty objects and arrays are flattened to `null` values (matching nlohmann/json behavior). After round-trip, empty containers become `null` — they cannot be restored to their original type.
+
+**Input validation:** `unflatten()` validates that the input is a JSON object with primitive values only. It throws `FlattenError.notObject` for non-object input or `FlattenError.notPrimitive(key)` when a value is not a primitive type.
 
 **RFC 6901 escaping:** Keys containing `~` (tilde) or `/` (slash) are properly escaped during `flatten()` — `~` becomes `~0`, `/` becomes `~1`. During `unflatten()`, segments are unescaped in RFC-specified order (`~1`→`/` first, then `~0`→`~`), ensuring correct round-trip for keys with special characters.
 
@@ -1319,5 +1323,5 @@ let roundTripped = try decoder.decode(Person.self, from: parsed)
 - **Error handling**: Wrap parsing from untrusted sources in `do {} catch {}`.
 - **Thread safety**: `JSON` is `Hashable` and `Sendable`, safe to use in collections and across concurrency domains.
 - **Order preservation**: Use `JSON.parse()` for order-preserving parsing and `dump(-1)` for compact serialization.
-- **Flatten round-trip**: `flatten()` followed by `unflatten()` returns the original value.
+- **Flatten round-trip**: `flatten()` followed by `unflatten()` returns the original value. Empty containers become `null` after round-trip — avoid flattening if you need to preserve empty arrays/objects.
 - **Choose access pattern**: Use `[]` for optional access, `at()` for throwing access, `value()` for default-value access.
