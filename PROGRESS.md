@@ -209,6 +209,11 @@ All 403 tests pass. Build produces zero errors. CI pipeline passes (SwiftFormat 
 - `JSONWithExtras` uses a tracking decoder approach: it records which keys `T`'s decoder accesses via a closure, then subtracts those from all keys to find extras. This works with any `Decodable` type without requiring `CodingKeys` reflection.
 - Throwing accessors are methods (not computed properties) to avoid name conflicts with existing optional accessors like `stringValue: String?`.
 
+### Post-Phase-10 Additions
+- **`@dynamicMemberLookup`** added to `JSON` struct — enables dot-notation access (`json.user.name`) as a Swift ergonomic enhancement beyond nlohmann parity. Missing keys return `.null`; setting requires an object target.
+- **`starts(with:)` substring slicing eliminated** in `parseBoolean`/`parseNull` — manual character lookahead avoids creating a `Substring` reference to the entire rest of a large payload.
+- **Empty-collection allocation deferred** in `parseObject`/`parseArray` — `OrderedDictionary`/`Array` allocation moved after the empty `{}`/`[]` check, avoiding unused heap allocations.
+
 ### Next Steps
 1. Consider adding remaining minor gaps from feature parity table (e.g., `contains(element)` for arrays, `merge()` for objects, `is_number_unsigned`, `is_binary`, `is_discarded`, generic `get<T>()`, explicit iterator properties)
 

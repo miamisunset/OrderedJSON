@@ -250,3 +250,53 @@ let indexOutOfBoundsNeg = JSONError.indexOutOfBounds(-1)
   let str = JSON.string("hello")
   #expect(str.value("key", default: JSON.number(.integer(42))) == JSON.number(.integer(42)))
 }
+
+// MARK: - Dynamic member lookup
+
+@Test func dynamicMemberGetObjectKey() {
+  let obj = JSON.object([
+    "user": JSON.object(["name": JSON.string("Alice"), "age": JSON.number(.integer(30))]),
+    "role": JSON.string("admin"),
+  ])
+  // Dot-notation access
+  #expect(
+    obj.user
+      == JSON.object([
+        "name": JSON.string("Alice"),
+        "age": JSON.number(.integer(30)),
+      ]))
+  #expect(obj.user.name == JSON.string("Alice"))
+  #expect(obj.user.age == JSON.number(.integer(30)))
+  #expect(obj.role == JSON.string("admin"))
+}
+
+@Test func dynamicMemberMissingKeyReturnsNull() {
+  let obj = JSON.object(["a": JSON.string("x")])
+  #expect(obj.missing == .null)
+}
+
+@Test func dynamicMemberNonObjectReturnsNull() {
+  let scalar = JSON.number(.integer(42))
+  #expect(scalar.foo == .null)
+  let arr = JSON.array([JSON.string("a")])
+  #expect(arr.nonexistent == .null)
+}
+
+@Test func dynamicMemberSet() {
+  var obj = JSON.object(["a": JSON.number(.integer(1))])
+  obj.b = JSON.number(.integer(2))
+  #expect(obj.a == JSON.number(.integer(1)))
+  #expect(obj.b == JSON.number(.integer(2)))
+}
+
+@Test func dynamicMemberSetNonObjectNoop() {
+  var scalar = JSON.number(.integer(42))
+  scalar.foo = JSON.string("bar")
+  #expect(scalar == JSON.number(.integer(42)))
+}
+
+@Test func dynamicMemberSetOverwrites() {
+  var obj = JSON.object(["x": JSON.number(.integer(1))])
+  obj.x = JSON.number(.integer(2))
+  #expect(obj.x == JSON.number(.integer(2)))
+}

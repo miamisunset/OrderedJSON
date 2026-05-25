@@ -27,6 +27,13 @@ import OrderedCollections
 ///
 /// `isNull`, `isBoolean`, `isNumber`, `isInteger`, `isFloat`, `isString`,
 /// `isObject`, `isArray`, `isPrimitive`, `isStructured`, `type`, `typeName`.
+///
+/// ## Dynamic member lookup
+///
+/// Uses `@dynamicMemberLookup` so you can access object keys via
+/// dot-notation: `json.user.name` instead of `json["user"]["name"]`.
+/// Missing keys return `.null`; setting requires an object target.
+@dynamicMemberLookup
 public struct JSON: Hashable, Sendable {
 
   /// The underlying storage enum.
