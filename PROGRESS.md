@@ -294,8 +294,11 @@ All 403 tests pass. Build produces zero errors. CI pipeline passes (SwiftFormat 
 - Added `func value(_ index: Int, default defaultValue: JSON) -> JSON` for array element access with a fallback
 - Mirrors the existing `value(_ key:default:)` pattern for objects
 
+### Deviations from nlohmann/json
+- nlohmann's `value()` overload for arrays takes a `json_pointer`, not an integer index. Our `value(_ index:default:)` is a safe `Array`-subscript-with-default convenience, closer to Swift conventions.
+
 ### Tests
-- 3 tests covering: valid index, out-of-bounds (positive + negative), non-array receiver
+- 5 tests covering: valid index, out-of-bounds (positive + negative), non-array receiver, empty array, sentinel default verification
 - All pass, lint clean
 
 ## Release

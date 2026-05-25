@@ -113,8 +113,12 @@ extension JSON {
   /// Returns the element at the given array index, or a default value if the
   /// index is out of bounds or if the value is not an array.
   ///
+  /// Negative indices are treated as out-of-bounds (unlike Swift `Array`
+  /// subscript which traps). For object key access with a default, use
+  /// `value(_ key: String, default:)`.
+  ///
   /// - Parameters:
-  ///   - index: The array index.
+  ///   - index: The array index. Must be non-negative.
   ///   - defaultValue: The value to return if the index is out of bounds.
   /// - Returns: The element at the index, or `defaultValue`.
   public func value(_ index: Int, default defaultValue: JSON) -> JSON {

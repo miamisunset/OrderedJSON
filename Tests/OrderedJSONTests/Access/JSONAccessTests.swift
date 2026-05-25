@@ -275,6 +275,21 @@ let indexOutOfBoundsNeg = JSONError.indexOutOfBounds(-1)
   #expect(scalar.value(0, default: JSON.number(.integer(42))) == JSON.number(.integer(42)))
 }
 
+@Test func valueIndexEmptyArray() {
+  let arr = JSON.array([])
+  #expect(arr.value(0, default: JSON.string("default")) == JSON.string("default"))
+}
+
+@Test func valueIndexSentinelDefault() {
+  let sentinel = JSON.object(["marker": JSON.boolean(true)])
+  let arr = JSON.array([JSON.string("a")])
+  let result = arr.value(99, default: sentinel)
+  // Verify the returned value is equal to the sentinel, not a default
+  // that coincidentally equals another value.
+  #expect(result == sentinel)
+  #expect(result["marker"] == JSON.boolean(true))
+}
+
 // MARK: - Dynamic member lookup
 
 @Test func dynamicMemberGetObjectKey() {
