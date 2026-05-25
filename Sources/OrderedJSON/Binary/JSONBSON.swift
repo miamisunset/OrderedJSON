@@ -118,10 +118,10 @@ private func decodeBSONElement(_ data: Data, _ pos: inout Int) throws -> (String
 
   case 0x05:  // Binary data
     let len = Int(readBSONInt32(data, &pos))
-    guard len >= 0, pos + len <= data.count else {
+    guard len >= 0, pos + 1 + len <= data.count else {
       throw JSONError.invalidBSON("Binary length exceeds data")
     }
-    let _ = data[pos]
+    let _ = data[pos]  // subtype byte (safe: pos < data.count from guard)
     pos += 1
     let body = data[pos..<pos + len]
     pos += len

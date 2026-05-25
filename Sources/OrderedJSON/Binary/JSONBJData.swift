@@ -184,7 +184,8 @@ private func decodeBJDataStringLen(_ data: Data, _ pos: inout Int) throws -> Int
     guard pos < data.count else { throw JSONError.invalidBJData("Unexpected end") }
     let len = Int(Int8(bitPattern: data[pos]))
     pos += 1
-    return len >= 0 ? len : 0
+    guard len >= 0 else { throw JSONError.invalidBJData("Negative string length") }
+    return len
   case bjdataMarkerUInt8:
     guard pos < data.count else { throw JSONError.invalidBJData("Unexpected end") }
     let len = Int(data[pos])
@@ -192,10 +193,12 @@ private func decodeBJDataStringLen(_ data: Data, _ pos: inout Int) throws -> Int
     return len
   case bjdataMarkerInt16:
     let len = Int(Int16(bitPattern: readBJDataUInt16(data, &pos)))
-    return len >= 0 ? len : 0
+    guard len >= 0 else { throw JSONError.invalidBJData("Negative string length") }
+    return len
   case bjdataMarkerInt32:
     let len = Int(Int32(bitPattern: readBJDataUInt32(data, &pos)))
-    return len >= 0 ? len : 0
+    guard len >= 0 else { throw JSONError.invalidBJData("Negative string length") }
+    return len
   default:
     throw JSONError.invalidBJData("Expected integer marker for string length")
   }

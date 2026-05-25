@@ -224,6 +224,30 @@ import Testing
   #expect(wrapped.extras.isEmpty)
 }
 
+@Test func jsonWithExtrasContainsMarksAccessed() throws {
+  // Regression: contains(_:) should mark the key as accessed
+  // so that decodeIfPresent probes don't leak keys into extras
+  struct TestStruct: Decodable {
+    let x: String
+    let y: String?
+    enum CodingKeys: String, CodingKey {
+      case x, y
+    }
+    init(from decoder: Decoder) throws {
+      let container = try decoder.container(keyedBy: CodingKeys.self)
+      x = try container.decode(String.self, forKey: .x)
+      y = try container.decodeIfPresent(String.self, forKey: .y)
+    }
+  }
+  let json = JSON.object(["x": .string("hello"), "y": .string("world"), "z": .string("extra")])
+  let decoder = OrderedJSONDecoder()
+  let decoded = try decoder.decode(JSONWithExtras<TestStruct>.self, from: json)
+  #expect(decoded.value.x == "hello")
+  #expect(decoded.value.y == "world")
+  // 'z' was never accessed via contains or decode, so it appears in extras
+  #expect(decoded.extras["z"] == .string("extra"))
+}
+
 // MARK: - Throwing accessors
 
 @Test func requireStringSuccess() throws {
