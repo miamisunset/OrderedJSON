@@ -324,7 +324,7 @@ import Testing
 }
 
 @Test func parseHighSurrogateNotFollowedByBackslash() throws {
-  #expect(throws: JSONParseError.invalidUnicodeEscape(line: 1, column: 13)) {
+  #expect(throws: JSONParseError.invalidUnicodeEscape(line: 1, column: 8)) {
     try JSON.parse("\"\\uD800X\"")
   }
 }
@@ -393,4 +393,24 @@ import Testing
     "age": JSON.number(.integer(30)),
   ])
   #expect(value.dump(indent: -1) == "{\"name\":\"Alice\",\"age\":30}")
+}
+
+@Test func parseLargeIntegerBeyondInt64Max() throws {
+  // Value > Int64.max should be stored as .float(Double)
+  let result = try JSON.parse("9223372036854775808")
+  #expect(result.isFloat)
+  #expect(result == JSON.number(.float(9223372036854775808.0)))
+}
+
+@Test func parseLargeNegativeIntegerBeyondInt64Min() throws {
+  // Value < Int64.min should be stored as .float(Double)
+  let result = try JSON.parse("-9223372036854775809")
+  #expect(result.isFloat)
+}
+
+@Test func parseOverflowToInfinityThrows() throws {
+  // 1e400 overflows Double range → Infinity, must throw
+  #expect(throws: JSONParseError.invalidNumber(line: 1, column: 1)) {
+    try JSON.parse("1e400")
+  }
 }

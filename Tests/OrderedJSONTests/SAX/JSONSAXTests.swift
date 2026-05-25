@@ -275,10 +275,11 @@ final class SAXCollector: JSONSAXEventHandler {
 @Test func saxParseInvalidUnicodeHex() {
   let collector = SAXCollector()
   let result = JSON.saxParse("\"\\uQQQQ\"", handler: collector)
-  // SAX parser is lenient: invalid hex leaves unicode chars in result (no error)
+  // SAX parser is lenient: invalid hex chars are consumed so they don't
+  // end up as literal characters in the string
   #expect(result == true)
   #expect(collector.events[0].0 == "string")
-  #expect(collector.events[0].1 == "QQQ")
+  #expect(collector.events[0].1 == "")
 }
 
 @Test func saxParseIncompleteFloat() {

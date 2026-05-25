@@ -140,3 +140,59 @@ import Testing
   #expect(dict["/0/1"] == JSON.string("y"))
   #expect(dict["/1"] == JSON.string("z"))
 }
+
+@Test func flattenKeyWithSlash() throws {
+  // Keys containing / must be escaped as ~1
+  let json = JSON.object([
+    "a/b": .number(.integer(1)),
+    "c": .number(.integer(2)),
+  ])
+  let flat = json.flatten()
+  guard case .object(let dict) = flat.storage else {
+    Issue.record("Expected object")
+    return
+  }
+  #expect(dict["/a~1b"] == JSON.number(.integer(1)))
+  #expect(dict["/c"] == JSON.number(.integer(2)))
+}
+
+@Test func flattenKeyWithTilde() throws {
+  // Keys containing ~ must be escaped as ~0
+  let json = JSON.object(["a~b": .number(.integer(1))])
+  let flat = json.flatten()
+  guard case .object(let dict) = flat.storage else {
+    Issue.record("Expected object")
+    return
+  }
+  #expect(dict["/a~0b"] == JSON.number(.integer(1)))
+}
+
+@Test func flattenKeyWithTildeAndSlash() throws {
+  // Keys containing ~ and / must escape both
+  let json = JSON.object(["a~/b": .number(.integer(1))])
+  let flat = json.flatten()
+  guard case .object(let dict) = flat.storage else {
+    Issue.record("Expected object")
+    return
+  }
+  #expect(dict["/a~0~1b"] == JSON.number(.integer(1)))
+}
+
+@Test func unflattenEscapedKeys() throws {
+  // Round-trip: flatten with special chars → unflatten preserves values
+  let original = JSON.object([
+    "a/b": .number(.integer(1)),
+    "a~b": .number(.integer(2)),
+    "a~/b": .number(.integer(3)),
+  ])
+  let flat = original.flatten()
+  let unflattened = flat.unflatten()
+  // Verify each key has the correct value (order may differ)
+  guard case .object(let dict) = unflattened.storage else {
+    Issue.record("Expected object")
+    return
+  }
+  #expect(dict["a/b"] == JSON.number(.integer(1)))
+  #expect(dict["a~b"] == JSON.number(.integer(2)))
+  #expect(dict["a~/b"] == JSON.number(.integer(3)))
+}

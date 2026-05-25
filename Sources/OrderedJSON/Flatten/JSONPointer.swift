@@ -1,6 +1,24 @@
 import Foundation
 import OrderedCollections
 
+/// Errors specific to JSON Pointer operations.
+public enum JSONPointerError: Error, Hashable, Sendable, CustomStringConvertible {
+  /// The pointer string has invalid syntax.
+  case invalidSyntax(String)
+  /// The pointer references a nonexistent value and could not resolve.
+  case missingValue(String)
+  /// An array index has a leading zero, which is not allowed per RFC 6901.
+  case leadingZero(String)
+
+  public var description: String {
+    switch self {
+    case .invalidSyntax(let msg): return "Invalid JSON Pointer syntax: \(msg)"
+    case .missingValue(let ptr): return "JSON Pointer '\(ptr)' references a nonexistent value"
+    case .leadingZero(let seg): return "Array index with leading zero: '\(seg)'"
+    }
+  }
+}
+
 /// A JSON Pointer (RFC 6901) reference into a JSON value.
 ///
 /// JSON Pointers are string expressions that identify a specific value
@@ -25,18 +43,30 @@ public struct JSONPointer: Hashable, Sendable {
   /// Escapes `~0` (tilde) and `~1` (forward slash) are decoded.
   ///
   /// - Parameter path: A JSON Pointer string, e.g. `"/foo/bar"`.
-  /// - Throws: `JSONError.invalidString` if the path doesn't start with `/`.
+  /// - Throws: `JSONPointerError.invalidSyntax` if the path doesn't start with `/`.
   public init(_ path: String) throws {
-    // Parse the path into segments
     guard path.hasPrefix("/") || path.isEmpty else {
-      throw JSONError.invalidString  // placeholder — define proper error
+      throw JSONPointerError.invalidSyntax("Pointer must start with '/' or be empty")
     }
     if path.isEmpty {
       segments = []
       return
     }
+    // RFC 6901 §4: decode ~1 (slash) first, then ~0 (tilde).
+    // Order matters: ~01 must decode as ~1→/ → no-op, ~0→~ → "~1"
+    // (not "~0→~ then ~1→/ → "/"", which would be incorrect).
     segments = path.dropFirst().split(separator: "/", omittingEmptySubsequences: false).map {
-      String($0).replacingOccurrences(of: "~1", with: "/").replacingOccurrences(of: "~0", with: "~")
+      unescapeJSONPointerSegment(String($0))
+    }
+    // Validate array indices per RFC 6901 ABNF: no leading zeros
+    for segment in segments {
+      if segment == "-" { continue }  // "-" is a special token, not an index
+      // RFC 6901 §4 ABNF: array-index = %x30 / ( %x31-39 *(%x30-39) ) — ASCII-only.
+      // Use ASCII digit check to avoid false positives on non-ASCII digits (Arabic-Indic, full-width).
+      let isAsciiDigits = segment.unicodeScalars.allSatisfy { ($0 >= "0" && $0 <= "9") }
+      if isAsciiDigits && segment.hasPrefix("0") && segment.count > 1 {
+        throw JSONPointerError.leadingZero(segment)
+      }
     }
   }
 
@@ -46,10 +76,52 @@ public struct JSONPointer: Hashable, Sendable {
     self.segments = segments
   }
 
+  /// Creates a pointer from a URI fragment identifier (RFC 6901 §6).
+  ///
+  /// Fragment identifiers start with `#` and use percent-encoding for
+  /// characters that are not allowed in URI fragments. The `#` prefix is
+  /// stripped before parsing as a JSON Pointer.
+  ///
+  /// - Parameter fragment: A URI fragment identifier, e.g. `"#/foo/bar"`.
+  /// - Throws: `JSONPointerError.invalidSyntax` if the fragment doesn't start with `#`.
+  public init(fragment: String) throws {
+    guard fragment.hasPrefix("#") else {
+      throw JSONPointerError.invalidSyntax("URI fragment must start with '#'")
+    }
+    let pointerStr = String(fragment.dropFirst())  // strip "#"
+    guard let decoded = pointerStr.removingPercentEncoding else {
+      throw JSONPointerError.invalidSyntax("Invalid percent-encoding in URI fragment")
+    }
+    try self.init(decoded)
+  }
+
+  /// The JSON Pointer string representation (RFC 6901 §5).
+  /// Each segment is escaped: `~` → `~0`, `/` → `~1`, then joined with `/`
+  /// and prefixed with `/`. The root pointer (`""`) returns an empty string.
+  public var description: String {
+    guard !segments.isEmpty else { return "" }
+    let joined = segments.map { segment -> String in
+      var escaped = ""
+      for c in segment {
+        if c == "~" {
+          escaped += "~0"
+        } else if c == "/" {
+          escaped += "~1"
+        } else {
+          escaped.append(c)
+        }
+      }
+      return escaped
+    }.joined(separator: "/")
+    return "/" + joined
+  }
+
   /// Resolve this pointer against a JSON value.
   ///
-  /// For each segment, if the segment is parseable as an integer, it's
-  /// used as an array index; otherwise it's used as an object key.
+  /// For each segment:
+  /// - If the segment is a valid array index (non-negative integer digits), it's used as an array index.
+  /// - If the segment is "-" (RFC 6901 append token), resolution fails (nonexistent element).
+  /// - Otherwise it's used as an object key.
   ///
   /// - Parameter json: The JSON value to resolve against.
   /// - Returns: The value at the pointer path, or `nil` if any segment
@@ -57,6 +129,10 @@ public struct JSONPointer: Hashable, Sendable {
   public func resolve(_ json: JSON) -> JSON? {
     var current = json
     for segment in segments {
+      if segment == "-" {
+        // RFC 6901 §4: "-" refers to nonexistent element after last array element
+        return nil
+      }
       if let index = Int(segment) {
         guard case .array(let arr) = current.storage else { return nil }
         guard index >= 0, index < arr.count else { return nil }
@@ -64,6 +140,43 @@ public struct JSONPointer: Hashable, Sendable {
       } else {
         guard case .object(let dict) = current.storage else { return nil }
         guard let value = dict[segment] else { return nil }
+        current = value
+      }
+    }
+    return current
+  }
+
+  /// Resolve this pointer against a JSON value, throwing on failure.
+  ///
+  /// Returns the value at the pointer path, or throws `JSONPointerError.missingValue`
+  /// if any segment doesn't match (nonexistent key, out-of-bounds index, `-` token on array,
+  /// or type mismatch).
+  ///
+  /// - Parameter json: The JSON value to resolve against.
+  /// - Returns: The value at the pointer path.
+  /// - Throws: `JSONPointerError.missingValue` if the pointer can't be resolved.
+  public func resolveOrThrow(_ json: JSON) throws -> JSON {
+    var current = json
+    for segment in segments {
+      if segment == "-" {
+        // RFC 6901 §4: "-" refers to nonexistent element after last array element
+        throw JSONPointerError.missingValue(description)
+      }
+      if let index = Int(segment) {
+        guard case .array(let arr) = current.storage else {
+          throw JSONPointerError.missingValue(description)
+        }
+        guard index >= 0, index < arr.count else {
+          throw JSONPointerError.missingValue(description)
+        }
+        current = arr[index]
+      } else {
+        guard case .object(let dict) = current.storage else {
+          throw JSONPointerError.missingValue(description)
+        }
+        guard let value = dict[segment] else {
+          throw JSONPointerError.missingValue(description)
+        }
         current = value
       }
     }
@@ -105,7 +218,29 @@ extension JSON {
     }
     let rest = Array(parts.dropFirst())
 
-    if let index = Int(first) {
+    if first == "-" {
+      // RFC 6901 §4: "-" appends after the last array element
+      if case .array(var arr) = json.storage {
+        if rest.isEmpty {
+          arr.append(value)
+        } else {
+          var newVal = JSON.object(OrderedDictionary<String, JSON>())
+          setJSONPointerPath(into: &newVal, parts: rest, value: value)
+          arr.append(newVal)
+        }
+        json.storage = .array(arr)
+      } else {
+        var arr = [JSON]()
+        if rest.isEmpty {
+          arr.append(value)
+        } else {
+          var newVal = JSON.object(OrderedDictionary<String, JSON>())
+          setJSONPointerPath(into: &newVal, parts: rest, value: value)
+          arr.append(newVal)
+        }
+        json = .array(arr)
+      }
+    } else if let index = Int(first) {
       // Array path segment
       if case .array(var arr) = json.storage {
         while arr.count <= index {
@@ -147,4 +282,17 @@ extension JSON {
       }
     }
   }
+}
+
+/// Decodes RFC 6901 escape sequences in a single segment.
+///
+/// Per RFC 6901 §4: first replace all `~1` with `/`, then replace all `~0` with `~`.
+/// This order ensures `~01` correctly becomes `~1` (not `/`).
+/// Simple `replacingOccurrences` works because `~1`→`/` never creates new escape
+/// sequences, and `~0`→`~` never creates overlapping matches.
+package func unescapeJSONPointerSegment(_ segment: String) -> String {
+  // Step 1: decode ~1 (escaped slash) to /
+  let step1 = segment.replacingOccurrences(of: "~1", with: "/")
+  // Step 2: decode ~0 (escaped tilde) to ~
+  return step1.replacingOccurrences(of: "~0", with: "~")
 }

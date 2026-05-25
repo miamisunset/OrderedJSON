@@ -502,11 +502,19 @@ extension JSON {
     if let intValue = Int64(numString) {
       return .number(.integer(intValue))
     }
-    throw error(at: ctx, kind: .invalidNumber)
+    // Values > Int64.max or < Int64.min are still valid JSON numbers.
+    // Fall back to Double (matching nlohmann/json's behavior).
+    // Note: values near Int64.max (e.g., 9223372036854775808 = Int64.max + 1)
+    // lose precision when stored as Double(9.22e18) — this is intentional
+    // and documented. Binary format decoders follow the same policy.
+    guard let floatValue = Double(numString) else {
+      throw error(at: ctx, kind: .invalidNumber)
+    }
+    return .number(.float(floatValue))
   }
 
   private static func parseDouble(_ s: String, line: Int, column: Int) throws -> Double {
-    guard let d = Double(s) else {
+    guard let d = Double(s), d.isFinite else {
       throw JSONParseError.invalidNumber(line: line, column: column)
     }
     return d

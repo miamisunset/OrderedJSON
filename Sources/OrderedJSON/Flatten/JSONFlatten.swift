@@ -39,7 +39,12 @@ extension JSON {
     case .object(let dict):
       guard !dict.isEmpty else { return }
       for (key, value) in dict {
-        let fullKey = prefix.isEmpty ? "/\(key)" : "\(prefix)/\(key)"
+        // RFC 6901 §4: escape ~ as ~0 and / as ~1 in key segments
+        let escaped =
+          key
+          .replacingOccurrences(of: "~", with: "~0")
+          .replacingOccurrences(of: "/", with: "~1")
+        let fullKey = prefix.isEmpty ? "/\(escaped)" : "\(prefix)/\(escaped)"
         value.flattenInternal(prefix: fullKey, into: &result)
       }
     }
@@ -75,11 +80,14 @@ extension JSON {
         String.init)
       // If the first segment is empty (key starts with "/"), drop it.
       // Otherwise keep all segments.
-      let parts =
+      var parts =
         segments.first?.isEmpty == true
         ? segments.dropFirst().filter { !$0.isEmpty }
         : segments.filter { !$0.isEmpty }
       guard !parts.isEmpty else { continue }
+      // RFC 6901 §4: unescape ~0 (tilde) and ~1 (slash) in each segment.
+      // Must iterate sequentially to handle overlapping ~00 (double tilde).
+      parts = parts.map { unescapeJSONPointerSegment($0) }
       JSON.setJSONPointerPath(into: &root, parts: Array(parts), value: value)
     }
 

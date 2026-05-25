@@ -35,8 +35,27 @@ import Testing
   #expect(ptr.segments == ["a~b"])
 }
 
+@Test func pointerTildeThenSlashEscaping() throws {
+  // RFC 6901 §4: ~01 correctly becomes "~1" after transformation (not "/").
+  // Order: ~1→/ first (no-op), then ~0→~ gives "~1".
+  let ptr = try JSONPointer("/foo~01bar")
+  #expect(ptr.segments == ["foo~1bar"])
+}
+
+@Test func pointerTildeThenTildeEscaping() throws {
+  // ~00 decodes as ~0→~ then literal 0 → "~0"
+  // (RFC 6901's "~00 represents ~~" refers to escaping, not unescaping)
+  let ptr = try JSONPointer("/foo~00bar")
+  #expect(ptr.segments == ["foo~0bar"])
+}
+
 @Test func pointerNoLeadingSlash() throws {
-  #expect(throws: JSONError.invalidString) { try JSONPointer("foo") }
+  #expect {
+    try JSONPointer("foo")
+  } throws: { error in
+    guard let ptrErr = error as? JSONPointerError else { return false }
+    return ptrErr == .invalidSyntax("Pointer must start with '/' or be empty")
+  }
 }
 
 @Test func pointerInitSegments() {
@@ -113,6 +132,177 @@ import Testing
   ptr.set(into: &json, value: JSON.string("first"))
   #expect(json.isArray)
   #expect(json[0] == JSON.string("first"))
+}
+
+@Test func pointerDescriptionRoot() throws {
+  let ptr = try JSONPointer("")
+  #expect(ptr.description == "")
+}
+
+@Test func pointerDescriptionSimple() throws {
+  let ptr = try JSONPointer("/foo/bar")
+  #expect(ptr.description == "/foo/bar")
+}
+
+@Test func pointerDescriptionEscaped() throws {
+  let ptr = try JSONPointer("/a~1b/m~0n")
+  #expect(ptr.description == "/a~1b/m~0n")
+}
+
+@Test func pointerDescriptionRoundTrip() throws {
+  let path = "/foo~01bar/~0baz"
+  let ptr = try JSONPointer(path)
+  // Description uses canonical ~1 encoding (not ~01), so round-trip is
+  // semantically equivalent but syntactically different.
+  let reparsed = try JSONPointer(ptr.description)
+  #expect(reparsed.segments == ptr.segments)
+}
+
+@Test func pointerResolveDashToken() throws {
+  let json = JSON.array([JSON.string("a"), JSON.string("b")])
+  let ptr = try JSONPointer("/-")
+  // "-" refers to nonexistent element after last array element
+  #expect(ptr.resolve(json) == nil)
+}
+
+@Test func pointerDashTokenOnNonArray() throws {
+  let json = JSON.object(["key": JSON.string("val")])
+  let ptr = try JSONPointer("/-")
+  // "-" on a non-array: resolve treats it as an object key (not found)
+  #expect(ptr.resolve(json) == nil)
+}
+
+@Test func pointerSetDashAppendsToArray() throws {
+  var json = JSON.array([JSON.string("a")])
+  let ptr = try JSONPointer("/-")
+  ptr.set(into: &json, value: JSON.string("b"))
+  #expect(json[0] == JSON.string("a"))
+  #expect(json[1] == JSON.string("b"))
+}
+
+@Test func pointerSetDashCreatesArray() throws {
+  var json = JSON.object([:])  // start with object, "-" forces array
+  let ptr = try JSONPointer("/-")
+  ptr.set(into: &json, value: JSON.string("first"))
+  #expect(json.isArray)
+  #expect(json[0] == JSON.string("first"))
+}
+
+@Test func pointerSetDashAppendsWithRest() throws {
+  var json = JSON.array([JSON.object([:])])
+  let ptr = try JSONPointer("/-/foo")
+  ptr.set(into: &json, value: JSON.string("bar"))
+  #expect(json[0]?.isObject == true)
+  #expect(json[1]?.isObject == true)
+  #expect(json[1]?["foo"] == JSON.string("bar"))
+}
+
+@Test func pointerLeadingZeroRejected() throws {
+  #expect {
+    try JSONPointer("/01")
+  } throws: { error in
+    guard let ptrErr = error as? JSONPointerError else { return false }
+    return ptrErr == .leadingZero("01")
+  }
+}
+
+@Test func pointerLeadingZeroRejectedMultiSegment() throws {
+  #expect {
+    try JSONPointer("/foo/01")
+  } throws: { error in
+    guard let ptrErr = error as? JSONPointerError else { return false }
+    return ptrErr == .leadingZero("01")
+  }
+}
+
+@Test func pointerLeadingZeroAllowedForZero() throws {
+  // "0" is valid per RFC 6901 ABNF (single digit zero)
+  let ptr = try JSONPointer("/0")
+  #expect(ptr.segments == ["0"])
+}
+
+@Test func pointerFragmentInit() throws {
+  let ptr = try JSONPointer(fragment: "#/foo/bar")
+  #expect(ptr.segments == ["foo", "bar"])
+}
+
+@Test func pointerFragmentInitRoot() throws {
+  let ptr = try JSONPointer(fragment: "#")
+  #expect(ptr.segments.isEmpty)
+}
+
+@Test func pointerFragmentInitNoHash() throws {
+  #expect {
+    try JSONPointer(fragment: "/foo")
+  } throws: { error in
+    guard let ptrErr = error as? JSONPointerError else { return false }
+    return ptrErr == .invalidSyntax("URI fragment must start with '#'")
+  }
+}
+
+@Test func pointerFragmentInvalidPercentEncoding() throws {
+  #expect {
+    try JSONPointer(fragment: "#/foo%GGbar")
+  } throws: { error in
+    guard let ptrErr = error as? JSONPointerError else { return false }
+    return ptrErr == .invalidSyntax("Invalid percent-encoding in URI fragment")
+  }
+}
+
+@Test func pointerFragmentPercentDecoded() throws {
+  let ptr = try JSONPointer(fragment: "#/c%25d")
+  #expect(ptr.segments == ["c%d"])
+}
+
+@Test func resolveOrThrowSuccess() throws {
+  let json = JSON.object(["foo": JSON.string("bar")])
+  let ptr = try JSONPointer("/foo")
+  let value = try ptr.resolveOrThrow(json)
+  #expect(value == JSON.string("bar"))
+}
+
+@Test func resolveOrThrowMissingKey() throws {
+  let json = JSON.object(["a": JSON.string("x")])
+  let ptr = try JSONPointer("/missing")
+  #expect {
+    let _ = try ptr.resolveOrThrow(json)
+  } throws: { error in
+    guard let ptrErr = error as? JSONPointerError else { return false }
+    return ptrErr == .missingValue("/missing")
+  }
+}
+
+@Test func resolveOrThrowBadIndex() throws {
+  let json = JSON.array([JSON.string("a")])
+  let ptr = try JSONPointer("/5")
+  #expect {
+    let _ = try ptr.resolveOrThrow(json)
+  } throws: { error in
+    guard let ptrErr = error as? JSONPointerError else { return false }
+    return ptrErr == .missingValue("/5")
+  }
+}
+
+@Test func resolveOrThrowTypeMismatch() throws {
+  let json = JSON.string("scalar")
+  let ptr = try JSONPointer("/foo")
+  #expect {
+    let _ = try ptr.resolveOrThrow(json)
+  } throws: { error in
+    guard let ptrErr = error as? JSONPointerError else { return false }
+    return ptrErr == .missingValue("/foo")
+  }
+}
+
+@Test func resolveOrThrowDashToken() throws {
+  let json = JSON.array([JSON.string("a")])
+  let ptr = try JSONPointer("/-")
+  #expect {
+    let _ = try ptr.resolveOrThrow(json)
+  } throws: { error in
+    guard let ptrErr = error as? JSONPointerError else { return false }
+    return ptrErr == .missingValue("/-")
+  }
 }
 
 // MARK: - Flatten/Unflatten Edge Cases

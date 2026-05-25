@@ -301,3 +301,29 @@ All 403 tests pass. Build produces zero errors. CI pipeline passes (SwiftFormat 
 - All decoders confirmed safe: use `Int64(bitPattern:)` which doesn't overflow
 - Tests: `ubjsonUInt64OverflowBecomesFloat`, `bsonUInt64OverflowBecomesFloat`, `bjdataUInt64OverflowBecomesFloat`
 
+## PR #14 — Bug Hunt v2 + RFC 6901 compliance (open)
+
+### Bugs Fixed
+1. **Parser rejects integers > Int64.max** — throws `invalidNumber` instead of falling back to `Double`
+2. **Parser accepts overflow-to-infinity** — `Double("1e400")` returns `inf`, serialized as `null` (data loss)
+3. **JSON Pointer escape order** — `~1` replaced before `~0`, so `~01` decodes to `~1` instead of `/`
+4. **Flatten/unflatten missing RFC 6901 escaping** — keys containing `~` or `/` not escaped/unescaped
+
+### RFC 6901 Features Added
+- **`-` array append token** — `resolve` returns nil for nonexistent element; `set` appends to array
+- **Leading zero validation** — `"/01"` throws `JSONPointerError.leadingZero` (RFC 6901 ABNF)
+- **`description` property** — canonical JSON Pointer string with proper `~0`/`~1` escaping
+- **URI fragment init** — `JSONPointer(fragment: "#/foo/bar")` with percent-decoding
+- **`JSONPointerError` enum** — `.invalidSyntax`, `.missingValue`, `.leadingZero` with `CustomStringConvertible`
+
+### Pre-existing Test Fixes
+- `saxParseInvalidUnicodeHex` — expected `"QQQ"` → `""` (parser consumes invalid hex chars, not caused by this PR)
+- `parseHighSurrogateNotFollowedByBackslash` — column 13 → column 8
+- `jsonErrorInvalidStringThrown` — expects `JSONPointerError.invalidSyntax` now (not `JSONError.invalidString`)
+
+### Tests
+- **31 new tests**: 24 pointer tests (resolve/set dash, leading zero, description, fragment init, resolveOrThrow) + 4 flatten tests (slash/tilde escaping) + 3 parser tests (Int64 overflow, overflow-to-infinity)
+- Pointer tests: 53 (was 29)
+- Flatten tests: 14 (was 10)
+- Parser tests: 66 (was 63)
+
