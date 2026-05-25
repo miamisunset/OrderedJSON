@@ -225,6 +225,39 @@ import Testing
   #expect(obj["a"]?["y"] == JSON.number(.integer(2)))
 }
 
+@Test func updateMergeObjectsArrayOverwrites() throws {
+  var obj = JSON.object([
+    "a": JSON.object(["x": JSON.number(.integer(1))])
+  ])
+  let other = JSON.object([
+    "a": JSON.array([JSON.number(.integer(99))])  // array, not object — overwrites
+  ])
+  obj.update(with: other, mergeObjects: true)
+  #expect(obj["a"]?.isArray == true)
+  #expect(obj["a"] == JSON.array([JSON.number(.integer(99))]))
+}
+
+@Test func updateMergeObjectsNullOverwrites() throws {
+  var obj = JSON.object([
+    "a": JSON.object(["x": JSON.number(.integer(1))])
+  ])
+  let other = JSON.object([
+    "a": JSON.null
+  ])
+  obj.update(with: other, mergeObjects: true)
+  #expect(obj["a"] == JSON.null)  // null is not an object — overwrites
+}
+
+@Test func updateMergeObjectsSelfMerge() throws {
+  var obj = JSON.object([
+    "a": JSON.object(["x": JSON.number(.integer(1))]),
+    "b": JSON.string("keep"),
+  ])
+  obj.update(with: obj, mergeObjects: true)  // self-merge is safe (value semantics)
+  #expect(obj["a"]?["x"] == JSON.number(.integer(1)))
+  #expect(obj["b"] == JSON.string("keep"))
+}
+
 @Test func swapValues() throws {
   var a = JSON.string("hello")
   var b = JSON.number(.integer(42))

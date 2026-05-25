@@ -106,12 +106,16 @@ extension JSON {
 
   /// Merges the key-value pairs from `other` into this JSON object.
   ///
+  /// Mirrors `nlohmann::basic_json::update(const_reference j, bool merge_objects)`.
+  ///
   /// When `mergeObjects` is `false` (default), existing keys are overwritten
   /// and new keys are added. When `mergeObjects` is `true`, objects at the
   /// same key are recursively merged instead of replaced — useful for merging
   /// nested configuration trees.
   ///
-  /// If either value is not an object, this is a no-op.
+  /// At the top level, if either the receiver or `other` is not an object,
+  /// this is a no-op. Inside recursion, only object-vs-object keys are
+  /// merged; any other type (primitive, array, null) overwrites.
   /// - Parameters:
   ///   - other: The object whose keys to merge in.
   ///   - mergeObjects: If `true`, recursively merge nested objects at the
