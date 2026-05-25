@@ -271,7 +271,7 @@ All 403 tests pass. Build produces zero errors. CI pipeline passes (SwiftFormat 
 - 17 tests covering all accessor paths (success + nil for each)
 - All pass, lint clean
 
-## Phase 2 — Array contains(element:) (PR #21, open)
+## Phase 2 — Array contains(element:) (PR #21, merged)
 
 ### Changes
 - Added `func contains(_ element: JSON) -> Bool` for array element containment
@@ -286,6 +286,19 @@ All 403 tests pass. Build produces zero errors. CI pipeline passes (SwiftFormat 
 
 ### Tests
 - 7 tests covering existing element, missing element, cross-type element, duplicates, non-array, empty array, nested array
+- All pass, lint clean
+
+## Phase 3 — Array value(_ index:default:) (PR #22, open)
+
+### Changes
+- Added `func value(_ index: Int, default defaultValue: JSON) -> JSON` for array element access with a fallback
+- Mirrors the existing `value(_ key:default:)` pattern for objects
+
+### Deviations from nlohmann/json
+- nlohmann's `value()` overload for arrays takes a `json_pointer`, not an integer index. Our `value(_ index:default:)` is a safe `Array`-subscript-with-default convenience, closer to Swift conventions.
+
+### Tests
+- 5 tests covering: valid index, out-of-bounds (positive + negative), non-array receiver, empty array, sentinel default verification
 - All pass, lint clean
 
 ## Release

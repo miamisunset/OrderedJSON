@@ -475,9 +475,14 @@ try json.at("name")      // JSON.string("Alice")
 try json.at(0)            // throws — root is not array
 try json.at("missing")    // throws — key not found
 
-// Value with default — returns default for missing keys
+// Value with default — returns default for missing keys or indices
 json.value("name", default: JSON.null)       // JSON.string("Alice")
 json.value("missing", default: JSON("x"))    // JSON.string("x")
+
+// Array value with default
+let arr = JSON.array([.string("a"), .number(.integer(1))])
+arr.value(0, default: JSON.null)      // JSON.string("a")
+arr.value(99, default: JSON("x"))     // JSON.string("x") — out of bounds
 ```
 
 **When to use each:**
