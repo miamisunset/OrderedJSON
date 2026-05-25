@@ -45,8 +45,6 @@ Swift library that preserves JSON key order with a rich method-based API mirrori
 - Prefer `package` access for testability over `public` on internal helpers
 
 ## Plan Reference
-- All implementation follows `REDESIGN_PLAN.md` — the authoritative design document.
-- Before starting work, read `REDESIGN_PLAN.md` to understand the current phase and file layout.
 - After completing each phase, update `PROGRESS.md` with key outcomes and any deviations from plan.
 
 ## Progress Tracking
