@@ -305,12 +305,13 @@ private func encodeBSONCString(_ str: String, _ bytes: inout [UInt8]) {
 // MARK: - BSON helpers (little-endian)
 
 private func readBSONInt32(_ data: Data, _ pos: inout Int) throws -> Int32 {
+  // Bounds check happens in readBSONUInt32
   let value = Int32(bitPattern: try readBSONUInt32(data, &pos))
   return value
 }
 
 private func readBSONUInt32(_ data: Data, _ pos: inout Int) throws -> UInt32 {
-  guard pos + 4 <= data.count else { throw JSONError.invalidBSON("Unexpected end of BSON element") }
+  guard pos + 4 <= data.count else { throw JSONError.invalidBSON("Unexpected end of BSON data") }
   let value =
     UInt32(data[pos]) | UInt32(data[pos + 1]) << 8 | UInt32(data[pos + 2]) << 16 | UInt32(
       data[pos + 3]) << 24
@@ -319,7 +320,7 @@ private func readBSONUInt32(_ data: Data, _ pos: inout Int) throws -> UInt32 {
 }
 
 private func readBSONUInt64(_ data: Data, _ pos: inout Int) throws -> UInt64 {
-  guard pos + 8 <= data.count else { throw JSONError.invalidBSON("Unexpected end of BSON element") }
+  guard pos + 8 <= data.count else { throw JSONError.invalidBSON("Unexpected end of BSON data") }
   let value =
     UInt64(data[pos]) | UInt64(data[pos + 1]) << 8 | UInt64(data[pos + 2]) << 16 | UInt64(
       data[pos + 3]) << 24 | UInt64(data[pos + 4]) << 32 | UInt64(data[pos + 5]) << 40 | UInt64(

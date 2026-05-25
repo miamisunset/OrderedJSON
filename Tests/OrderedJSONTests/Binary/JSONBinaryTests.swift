@@ -1297,21 +1297,21 @@ private func appendBE(_ value: UInt64, to bytes: inout [UInt8]) {
 
 @Test func cborTruncatedUInt16Argument() throws {
   // CBOR half-float marker (info 25) with only 1 byte of argument (needs 2)
-  let bytes: [UInt8] = [0xFA, 0x00]  // major 7, info 25, 1 byte (need 2)
+  let bytes: [UInt8] = [0xF9, 0x00]  // major 7, info 25, 1 byte (need 2)
   let data = Data(bytes)
   #expect(throws: JSONError.self) { try JSON.fromCBOR(data) }
 }
 
 @Test func cborTruncatedUInt32Argument() throws {
   // CBOR float marker (info 26) with only 2 bytes of argument (needs 4)
-  let bytes: [UInt8] = [0xFB, 0x00, 0x00]  // major 7, info 26, 2 bytes (need 4)
+  let bytes: [UInt8] = [0xFA, 0x00, 0x00]  // major 7, info 26, 2 bytes (need 4)
   let data = Data(bytes)
   #expect(throws: JSONError.self) { try JSON.fromCBOR(data) }
 }
 
 @Test func cborTruncatedUInt64Argument() throws {
   // CBOR double marker (info 27) with only 4 bytes of argument (needs 8)
-  let bytes: [UInt8] = [0xFC, 0x00, 0x00, 0x00, 0x00]  // major 7, info 27, 4 bytes (need 8)
+  let bytes: [UInt8] = [0xFB, 0x00, 0x00, 0x00, 0x00]  // major 7, info 27, 4 bytes (need 8)
   let data = Data(bytes)
   #expect(throws: JSONError.self) { try JSON.fromCBOR(data) }
 }
@@ -1349,4 +1349,59 @@ private func appendBE(_ value: UInt64, to bytes: inout [UInt8]) {
   let bytes: [UInt8] = [0x4C, 0x00, 0x00]  // 'L', 2 bytes (need 4)
   let data = Data(bytes)
   #expect(throws: JSONError.self) { try JSON.fromBJData(data) }
+}
+
+@Test func cborSingleByteArgumentTruncated() throws {
+  // CBOR marker with info 24 (1-byte argument) but no argument byte
+  let bytes: [UInt8] = [0x18]  // major 0 (unsigned), info 24, 0 argument bytes
+  let data = Data(bytes)
+  #expect(throws: JSONError.self) { try JSON.fromCBOR(data) }
+}
+
+@Test func ubjsonStringLenInt16Truncated() throws {
+  // UBJSON string with int16 length prefix, truncated before length
+  // Marker 'S' + 'J' (int16 marker), then only 1 byte of length (needs 2)
+  let bytes: [UInt8] = [0x53, 0x4A, 0x01]  // 'S', 'J', 1 byte (need 2)
+  let data = Data(bytes)
+  #expect(throws: JSONError.self) { try JSON.fromUBJSON(data) }
+}
+
+@Test func ubjsonStringLenInt32Truncated() throws {
+  // UBJSON string with int32 length prefix, truncated before length
+  // Marker 'S' + 'L' (int32 marker), then only 2 bytes of length (needs 4)
+  let bytes: [UInt8] = [0x53, 0x4C, 0x00, 0x00]  // 'S', 'L', 2 bytes (need 4)
+  let data = Data(bytes)
+  #expect(throws: JSONError.self) { try JSON.fromUBJSON(data) }
+}
+
+@Test func bjdataStringLenInt16Truncated() throws {
+  // BJData string with int16 length prefix, truncated
+  let bytes: [UInt8] = [0x53, 0x4A, 0x01]  // 'S', 'J', 1 byte (need 2)
+  let data = Data(bytes)
+  #expect(throws: JSONError.self) { try JSON.fromBJData(data) }
+}
+
+@Test func bjdataStringLenInt32Truncated() throws {
+  // BJData string with int32 length prefix, truncated
+  let bytes: [UInt8] = [0x53, 0x4C, 0x00, 0x00]  // 'S', 'L', 2 bytes (need 4)
+  let data = Data(bytes)
+  #expect(throws: JSONError.self) { try JSON.fromBJData(data) }
+}
+
+@Test func bsonBinarySubtypeZeroLength() throws {
+  // BSON binary data with len=0 — subtype byte at data.count - 1 is safe
+  // Document with one binary element, length 0
+  // BSON: { key: \x00\x00\x00\x00\x00\x05\x00\x00\x00\x00\x00\x00 }
+  // doc length = 0x0C (12), then key "\x00" (null byte), then type 0x05, len 0, subtype byte
+  // Actually this is a valid 0-length binary — the subtype byte exists
+  // But we need to test: truncated before subtype byte when len=0
+  let bytes: [UInt8] = [
+    0x0C, 0x00, 0x00, 0x00,  // doc length = 12
+    0x00,  // key = ""
+    0x05,  // type = binary
+    0x00, 0x00, 0x00, 0x00,  // length = 0
+    // missing subtype byte
+  ]
+  let data = Data(bytes)
+  #expect(throws: JSONError.self) { try JSON.fromBSON(data) }
 }
