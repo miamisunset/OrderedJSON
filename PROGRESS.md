@@ -327,10 +327,33 @@ All 403 tests pass. Build produces zero errors. CI pipeline passes (SwiftFormat 
 - Flatten tests: 14 (was 10)
 - Parser tests: 66 (was 63)
 
-## PR #15 — Bug hunt fixes: crash, binary decoder bounds/overflow, edge cases (open)
+## PR #15 — Bug hunt fixes: crash, binary decoder bounds/overflow, edge cases (merged to main, released v2.3.1)
 
 ### 🔴 CRASH BUGS (Priority 1)
 1. **Low surrogate force-unwrap** — `JSONParser.swift:401` and `JSONSAX.swift:455`
    - `UnicodeScalar(scalar)!` crashes on standalone `\uDC00`–`\uDFFF` escapes
-   - Fixed: guarded return throws `invalidUnicodeEscape` (parser) / returns `
+   - Fixed: guarded return throws `invalidUnicodeEscape` (parser) / returns `""` (SAX)
+
+### 🟡 Binary Decoder Defensive Hardening
+- CBOR: string length/array count overflow beyond `Int64.max` now throws `invalidCBOR`
+- CBOR: string length exceeding available data now throws `invalidCBOR`
+- MessagePack: string/binary length exceeding data now throws `invalidMsgPack`
+- BSON: document length < 5, negative/exceeding string length, binary length exceeding data, and missing subtype byte now throw `invalidBSON`
+- UBJSON/BJData: negative string lengths and container counts now throw `invalidUBJSON`/`invalidBJData` instead of silently clamping to 0
+
+### 🟠 Edge Case Fixes
+- BSON binary subtype off-by-one bounds bug — guard now checks `pos + 1 + len` instead of `pos + len`
+- UBJSON/BJData: Int16/Int32 negative length clamping converted to thrown errors
+- `JSONWithExtras`: `contains(_:)` now marks keys as accessed, preventing `decodeIfPresent` probes from leaking into extras
+- `JSONPatch`: `resolvePointer` rejects the `-` append token in `from` paths with `invalidPatch`
+- Builder test expectation fixed: `42 as Int?` → `42 as Int`
+
+### 🟢 Tests
+- 21 new tests covering all new error paths across binary formats, JSONWithExtras, JSONPatch, and the lone low-surrogate fix
+- All 403 tests pass, formatting clean
+
+### Review Improvements
+- BSON binary subtype bounds: `pos + 1 + len` covers subtype byte + payload
+- UBJSON/BJDA: negative lengths throw instead of silently clamping
+- Tests use `#expect(throws: JSONError.self)` for error-type matching
 
