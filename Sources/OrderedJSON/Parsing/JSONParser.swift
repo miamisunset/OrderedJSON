@@ -504,6 +504,9 @@ extension JSON {
     }
     // Values > Int64.max or < Int64.min are still valid JSON numbers.
     // Fall back to Double (matching nlohmann/json's behavior).
+    // Note: values near Int64.max (e.g., 9223372036854775808 = Int64.max + 1)
+    // lose precision when stored as Double(9.22e18) — this is intentional
+    // and documented. Binary format decoders follow the same policy.
     guard let floatValue = Double(numString) else {
       throw error(at: ctx, kind: .invalidNumber)
     }

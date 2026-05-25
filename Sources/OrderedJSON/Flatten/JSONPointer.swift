@@ -52,16 +52,19 @@ public struct JSONPointer: Hashable, Sendable {
       segments = []
       return
     }
-    // RFC 6901 §4: decode ~0 (tilde) first, then ~1 (slash).
-    // Order matters: ~01 must decode as ~0→~ then ~1→/ → "/"
-    // Uses sequential iteration to handle overlapping ~00 (double tilde).
+    // RFC 6901 §4: decode ~1 (slash) first, then ~0 (tilde).
+    // Order matters: ~01 must decode as ~1→/ → no-op, ~0→~ → "~1"
+    // (not "~0→~ then ~1→/ → "/"", which would be incorrect).
     segments = path.dropFirst().split(separator: "/", omittingEmptySubsequences: false).map {
       unescapeJSONPointerSegment(String($0))
     }
     // Validate array indices per RFC 6901 ABNF: no leading zeros
     for segment in segments {
       if segment == "-" { continue }  // "-" is a special token, not an index
-      if segment.allSatisfy(\.isWholeNumber) && segment.hasPrefix("0") && segment.count > 1 {
+      // RFC 6901 §4 ABNF: array-index = %x30 / ( %x31-39 *(%x30-39) ) — ASCII-only.
+      // Use ASCII digit check to avoid false positives on non-ASCII digits (Arabic-Indic, full-width).
+      let isAsciiDigits = segment.unicodeScalars.allSatisfy { ($0 >= "0" && $0 <= "9") }
+      if isAsciiDigits && segment.hasPrefix("0") && segment.count > 1 {
         throw JSONPointerError.leadingZero(segment)
       }
     }
@@ -86,7 +89,9 @@ public struct JSONPointer: Hashable, Sendable {
       throw JSONPointerError.invalidSyntax("URI fragment must start with '#'")
     }
     let pointerStr = String(fragment.dropFirst())  // strip "#"
-    let decoded = pointerStr.removingPercentEncoding ?? pointerStr
+    guard let decoded = pointerStr.removingPercentEncoding else {
+      throw JSONPointerError.invalidSyntax("Invalid percent-encoding in URI fragment")
+    }
     try self.init(decoded)
   }
 
@@ -135,6 +140,43 @@ public struct JSONPointer: Hashable, Sendable {
       } else {
         guard case .object(let dict) = current.storage else { return nil }
         guard let value = dict[segment] else { return nil }
+        current = value
+      }
+    }
+    return current
+  }
+
+  /// Resolve this pointer against a JSON value, throwing on failure.
+  ///
+  /// Returns the value at the pointer path, or throws `JSONPointerError.missingValue`
+  /// if any segment doesn't match (nonexistent key, out-of-bounds index, `-` token on array,
+  /// or type mismatch).
+  ///
+  /// - Parameter json: The JSON value to resolve against.
+  /// - Returns: The value at the pointer path.
+  /// - Throws: `JSONPointerError.missingValue` if the pointer can't be resolved.
+  public func resolveOrThrow(_ json: JSON) throws -> JSON {
+    var current = json
+    for segment in segments {
+      if segment == "-" {
+        // RFC 6901 §4: "-" refers to nonexistent element after last array element
+        throw JSONPointerError.missingValue(description)
+      }
+      if let index = Int(segment) {
+        guard case .array(let arr) = current.storage else {
+          throw JSONPointerError.missingValue(description)
+        }
+        guard index >= 0, index < arr.count else {
+          throw JSONPointerError.missingValue(description)
+        }
+        current = arr[index]
+      } else {
+        guard case .object(let dict) = current.storage else {
+          throw JSONPointerError.missingValue(description)
+        }
+        guard let value = dict[segment] else {
+          throw JSONPointerError.missingValue(description)
+        }
         current = value
       }
     }
@@ -242,37 +284,15 @@ extension JSON {
   }
 }
 
-/// Decodes RFC 6901 escape sequences (~0 → ~, ~1 → /) in a single segment.
-/// Uses sequential iteration to handle overlapping sequences like ~00.
-internal func unescapeJSONPointerSegment(_ segment: String) -> String {
-  // First pass: decode ~0 to ~, leave ~1 untouched
-  var decoded = ""
-  var i = segment.startIndex
-  while i < segment.endIndex {
-    let remaining = segment[i...]
-    if remaining.hasPrefix("~0") {
-      decoded.append("~")
-      segment.formIndex(&i, offsetBy: 2)
-    } else if remaining.hasPrefix("~1") {
-      decoded.append("~1")
-      segment.formIndex(&i, offsetBy: 2)
-    } else {
-      decoded.append(segment[i])
-      segment.formIndex(&i, offsetBy: 1)
-    }
-  }
-  // Second pass: decode ~1 to /
-  i = decoded.startIndex
-  var result = ""
-  while i < decoded.endIndex {
-    let remaining = decoded[i...]
-    if remaining.hasPrefix("~1") {
-      result.append("/")
-      decoded.formIndex(&i, offsetBy: 2)
-    } else {
-      result.append(decoded[i])
-      decoded.formIndex(&i, offsetBy: 1)
-    }
-  }
-  return result
+/// Decodes RFC 6901 escape sequences in a single segment.
+///
+/// Per RFC 6901 §4: first replace all `~1` with `/`, then replace all `~0` with `~`.
+/// This order ensures `~01` correctly becomes `~1` (not `/`).
+/// Simple `replacingOccurrences` works because `~1`→`/` never creates new escape
+/// sequences, and `~0`→`~` never creates overlapping matches.
+package func unescapeJSONPointerSegment(_ segment: String) -> String {
+  // Step 1: decode ~1 (escaped slash) to /
+  let step1 = segment.replacingOccurrences(of: "~1", with: "/")
+  // Step 2: decode ~0 (escaped tilde) to ~
+  return step1.replacingOccurrences(of: "~0", with: "~")
 }

@@ -272,8 +272,13 @@ import Testing
 }
 
 @Test func jsonErrorInvalidStringThrown() throws {
-  // JSONPointer.init throws JSONError.invalidString for paths without leading /
-  #expect(throws: JSONError.invalidString) { try JSONPointer("foo") }
+  // JSONPointer.init now throws JSONPointerError.invalidSyntax
+  #expect {
+    try JSONPointer("foo")
+  } throws: { error in
+    guard let ptrErr = error as? JSONPointerError else { return false }
+    return ptrErr == .invalidSyntax("Pointer must start with '/' or be empty")
+  }
 }
 
 @Test func jsonErrorExpectedObjectNotThrown() {

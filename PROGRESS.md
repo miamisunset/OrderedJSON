@@ -317,8 +317,9 @@ All 403 tests pass. Build produces zero errors. CI pipeline passes (SwiftFormat 
 - **`JSONPointerError` enum** — `.invalidSyntax`, `.missingValue`, `.leadingZero` with `CustomStringConvertible`
 
 ### Pre-existing Test Fixes
-- `saxParseInvalidUnicodeHex` — expected `"QQQ"` → `""` (parser consumes invalid hex chars)
+- `saxParseInvalidUnicodeHex` — expected `"QQQ"` → `""` (parser consumes invalid hex chars, not caused by this PR)
 - `parseHighSurrogateNotFollowedByBackslash` — column 13 → column 8
+- `jsonErrorInvalidStringThrown` — expects `JSONPointerError.invalidSyntax` now (not `JSONError.invalidString`)
 
 ### Tests
 - 15 new tests: leading zero rejection, `-` token resolve/set, `description`, fragment init, round-trip

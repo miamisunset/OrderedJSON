@@ -36,9 +36,10 @@ import Testing
 }
 
 @Test func pointerTildeThenSlashEscaping() throws {
-  // RFC 6901 §4: ~01 must decode as ~0→~ then ~1→/ → "/"
+  // RFC 6901 §4: ~01 correctly becomes "~1" after transformation (not "/").
+  // Order: ~1→/ first (no-op), then ~0→~ gives "~1".
   let ptr = try JSONPointer("/foo~01bar")
-  #expect(ptr.segments == ["foo/bar"])
+  #expect(ptr.segments == ["foo~1bar"])
 }
 
 @Test func pointerTildeThenTildeEscaping() throws {
@@ -236,6 +237,71 @@ import Testing
   } throws: { error in
     guard let ptrErr = error as? JSONPointerError else { return false }
     return ptrErr == .invalidSyntax("URI fragment must start with '#'")
+  }
+}
+
+@Test func pointerFragmentInvalidPercentEncoding() throws {
+  #expect {
+    try JSONPointer(fragment: "#/foo%GGbar")
+  } throws: { error in
+    guard let ptrErr = error as? JSONPointerError else { return false }
+    return ptrErr == .invalidSyntax("Invalid percent-encoding in URI fragment")
+  }
+}
+
+@Test func pointerFragmentPercentDecoded() throws {
+  let ptr = try JSONPointer(fragment: "#/c%25d")
+  #expect(ptr.segments == ["c%d"])
+}
+
+@Test func resolveOrThrowSuccess() throws {
+  let json = JSON.object(["foo": JSON.string("bar")])
+  let ptr = try JSONPointer("/foo")
+  let value = try ptr.resolveOrThrow(json)
+  #expect(value == JSON.string("bar"))
+}
+
+@Test func resolveOrThrowMissingKey() throws {
+  let json = JSON.object(["a": JSON.string("x")])
+  let ptr = try JSONPointer("/missing")
+  #expect {
+    let _ = try ptr.resolveOrThrow(json)
+  } throws: { error in
+    guard let ptrErr = error as? JSONPointerError else { return false }
+    return ptrErr == .missingValue("/missing")
+  }
+}
+
+@Test func resolveOrThrowBadIndex() throws {
+  let json = JSON.array([JSON.string("a")])
+  let ptr = try JSONPointer("/5")
+  #expect {
+    let _ = try ptr.resolveOrThrow(json)
+  } throws: { error in
+    guard let ptrErr = error as? JSONPointerError else { return false }
+    return ptrErr == .missingValue("/5")
+  }
+}
+
+@Test func resolveOrThrowTypeMismatch() throws {
+  let json = JSON.string("scalar")
+  let ptr = try JSONPointer("/foo")
+  #expect {
+    let _ = try ptr.resolveOrThrow(json)
+  } throws: { error in
+    guard let ptrErr = error as? JSONPointerError else { return false }
+    return ptrErr == .missingValue("/foo")
+  }
+}
+
+@Test func resolveOrThrowDashToken() throws {
+  let json = JSON.array([JSON.string("a")])
+  let ptr = try JSONPointer("/-")
+  #expect {
+    let _ = try ptr.resolveOrThrow(json)
+  } throws: { error in
+    guard let ptrErr = error as? JSONPointerError else { return false }
+    return ptrErr == .missingValue("/-")
   }
 }
 
