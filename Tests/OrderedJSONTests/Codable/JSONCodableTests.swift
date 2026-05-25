@@ -267,6 +267,38 @@ import Testing
   #expect(decoded.extras["extra"] == .string("extra_key"))
 }
 
+@Test func jsonWithExtrasDataStrategyPropagated() throws {
+  // Regression: data decoding strategy must propagate to the tracking decoder
+  struct Container: Decodable {
+    let data: Data
+  }
+  let json = JSON.object([
+    "data": .string("SGVsbG8="),  // base64-encoded "Hello"
+    "extra": .number(.integer(42)),
+  ])
+  var decoder = OrderedJSONDecoder()
+  decoder.dataDecodingStrategy = .base64
+  let decoded = try decoder.decode(JSONWithExtras<Container>.self, from: json)
+  #expect(decoded.value.data == Data([72, 101, 108, 108, 111]))  // "Hello" bytes
+  #expect(decoded.extras["extra"] == .number(.integer(42)))
+}
+
+@Test func jsonWithExtrasDecimalStrategyPropagated() throws {
+  // Regression: decimal decoding strategy must propagate to the tracking decoder
+  struct Container: Decodable {
+    let amount: Decimal
+  }
+  let json = JSON.object([
+    "amount": .number(.float(3.14)),
+    "extra": .string("extra_key"),
+  ])
+  var decoder = OrderedJSONDecoder()
+  decoder.decimalDecodingStrategy = .asNumber
+  let decoded = try decoder.decode(JSONWithExtras<Container>.self, from: json)
+  #expect(decoded.value.amount == Decimal(string: "3.14"))
+  #expect(decoded.extras["extra"] == .string("extra_key"))
+}
+
 // MARK: - Throwing accessors
 
 @Test func requireStringSuccess() throws {
@@ -1138,7 +1170,7 @@ extension JSON {
   #expect(back.amount == decimal)
 }
 
-@Test func foundationDecimalAsNumberHugeDoesNotCrash() throws {
+@Test func foundationDecimalAsNumberHugeThrows() throws {
   // Regression test: Decimal with huge exponent must not cause Int64(Double.infinity) crash
   struct Container: Codable {
     let amount: Decimal
@@ -1147,10 +1179,10 @@ extension JSON {
   let huge = Decimal(string: "1e400")!
   var encoder = OrderedJSONEncoder()
   encoder.decimalEncodingStrategy = .asNumber
-  // Should not crash — should encode as float (which will serialize as null per NaN policy)
-  let json = try encoder.encode(Container(amount: huge))
-  // The value should be a number (float), not a crash
-  #expect(json["amount"]?.isNumber == true)
+  // Should throw EncodingError, not crash
+  #expect(throws: EncodingError.self) {
+    try encoder.encode(Container(amount: huge))
+  }
 }
 
 @Test func foundationDateCustomStrategy() throws {

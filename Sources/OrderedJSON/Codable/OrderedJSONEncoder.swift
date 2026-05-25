@@ -249,7 +249,9 @@ private func encodeData(
   }
 }
 
-private func encodeDecimal(_ decimal: Decimal, with strategy: DecimalEncodingStrategy) -> JSON {
+private func encodeDecimal(_ decimal: Decimal, with strategy: DecimalEncodingStrategy) throws
+  -> JSON
+{
   switch strategy {
   case .asString:
     return .string(decimal.description)
@@ -258,10 +260,15 @@ private func encodeDecimal(_ decimal: Decimal, with strategy: DecimalEncodingStr
     // For integer-representable Decimals, emit .integer(Int64). For others, emit .float(Double).
     let double = Double(decimal.description) ?? 0
     // Guard against Double overflow to infinity (e.g., Decimal with huge exponent)
-    // Infinity is not representable as a JSON number — store as-is; the
-    // serializer will emit null (matching NaN/Infinity policy elsewhere).
+    // Infinity is not representable as a JSON number — throw instead of
+    // silently producing a value that serializes to null.
     guard double.isFinite else {
-      return .number(.float(double))
+      throw EncodingError.invalidValue(
+        decimal,
+        EncodingError.Context(
+          codingPath: [],
+          debugDescription:
+            "Decimal value overflows Double range and cannot be represented as a JSON number"))
     }
     if Decimal(string: "\(Int64(double))") == decimal && double == Double(Int64(double)) {
       return .number(.integer(Int64(double)))
@@ -319,7 +326,7 @@ final class _JSONKeyedEncodingContainer<Key: CodingKey>: KeyedEncodingContainerP
       return
     }
     if let decimal = value as? Decimal {
-      ref.dict[key.stringValue] = encodeDecimal(decimal, with: impl.decimalEncodingStrategy)
+      ref.dict[key.stringValue] = try encodeDecimal(decimal, with: impl.decimalEncodingStrategy)
       impl.syncKeyed()
       return
     }
@@ -544,7 +551,7 @@ final class _JSONUnkeyedEncodingContainer: UnkeyedEncodingContainer {
       return
     }
     if let decimal = value as? Decimal {
-      ref.elements.append(encodeDecimal(decimal, with: impl.decimalEncodingStrategy))
+      ref.elements.append(try encodeDecimal(decimal, with: impl.decimalEncodingStrategy))
       impl.syncUnkeyed()
       return
     }
@@ -780,7 +787,7 @@ struct _JSONSingleValueEncodingContainer: SingleValueEncodingContainer {
       return
     }
     if let decimal = value as? Decimal {
-      impl.json = encodeDecimal(decimal, with: impl.decimalEncodingStrategy)
+      impl.json = try encodeDecimal(decimal, with: impl.decimalEncodingStrategy)
       impl.syncKeyed()
       return
     }

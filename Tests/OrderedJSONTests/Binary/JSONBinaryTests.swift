@@ -1202,7 +1202,7 @@ private func appendBE(_ value: UInt64, to bytes: inout [UInt8]) {
 }
 
 @Test func bsonTruncatedStringNoNullTerminatorThrows() throws {
-  // BSON string without null terminator should throw
+  // BSON string element (type 0x02) without null terminator should throw
   // Document: [length][type=0x02][key "a"][string length][string without null]
   let bytes: [UInt8] = [
     0x10, 0x00, 0x00, 0x00,  // doc length = 16
@@ -1210,6 +1210,21 @@ private func appendBE(_ value: UInt64, to bytes: inout [UInt8]) {
     0x61, 0x00,  // key "a" + null
     0x06, 0x00, 0x00, 0x00,  // string length = 6 (including null)
     0x48, 0x65, 0x6C, 0x6C, 0x6F,  // "Hello" without null terminator
+    0x00,  // doc null terminator
+  ]
+  let data = Data(bytes)
+  #expect(throws: JSONError.self) { try JSON.fromBSON(data) }
+}
+
+@Test func bsonCStringKeyNoNullTerminatorThrows() throws {
+  // BSON C-string key without null terminator should throw (decodeBSONCString)
+  // Document: [length][type=0x10][key without null][int32][null]
+  // The key "ab" has no null terminator — decodeBSONCString must throw
+  let bytes: [UInt8] = [
+    0x10, 0x00, 0x00, 0x00,  // doc length = 16
+    0x10,  // type = int32
+    0x61, 0x62,  // key "ab" WITHOUT null terminator
+    0x01, 0x00, 0x00, 0x00,  // int32 value 1
     0x00,  // doc null terminator
   ]
   let data = Data(bytes)
