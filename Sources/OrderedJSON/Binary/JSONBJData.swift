@@ -398,10 +398,10 @@ private func appendBJDataUInt64(_ value: UInt64, _ bytes: inout [UInt8]) {
 // MARK: - Error
 
 extension JSONError {
-  /// Creates a BJData-specific error wrapped in `invalidPatch`.
+  /// Creates a BJData-specific error wrapped in `formatError`.
   /// - Parameter reason: A description of the error.
-  /// - Returns: A `JSONError.invalidPatch` with the BJData prefix.
+  /// - Returns: A `JSONError.formatError` with the BJData prefix.
   public static func invalidBJData(_ reason: String = "") -> JSONError {
-    return .invalidPatch("BJData: \(reason)")
+    return .formatError("BJData: \(reason)")
   }
 }

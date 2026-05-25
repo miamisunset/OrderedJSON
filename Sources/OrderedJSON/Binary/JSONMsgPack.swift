@@ -403,10 +403,10 @@ private func appendUInt64(_ value: UInt64, _ bytes: inout [UInt8]) {
 // MARK: - Error
 
 extension JSONError {
-  /// Creates a MessagePack-specific error wrapped in `invalidPatch`.
+  /// Creates a MessagePack-specific error wrapped in `formatError`.
   /// - Parameter reason: A description of the error.
-  /// - Returns: A `JSONError.invalidPatch` with the MessagePack prefix.
+  /// - Returns: A `JSONError.formatError` with the MessagePack prefix.
   public static func invalidMsgPack(_ reason: String = "") -> JSONError {
-    return .invalidPatch("MsgPack: \(reason)")
+    return .formatError("MsgPack: \(reason)")
   }
 }

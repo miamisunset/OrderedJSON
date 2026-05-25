@@ -351,10 +351,10 @@ private func appendBSONUInt64(_ value: UInt64, _ bytes: inout [UInt8]) {
 // MARK: - Error
 
 extension JSONError {
-  /// Creates a BSON-specific error wrapped in `invalidPatch`.
+  /// Creates a BSON-specific error wrapped in `formatError`.
   /// - Parameter reason: A description of the error.
-  /// - Returns: A `JSONError.invalidPatch` with the BSON prefix.
+  /// - Returns: A `JSONError.formatError` with the BSON prefix.
   public static func invalidBSON(_ reason: String = "") -> JSONError {
-    return .invalidPatch("BSON: \(reason)")
+    return .formatError("BSON: \(reason)")
   }
 }

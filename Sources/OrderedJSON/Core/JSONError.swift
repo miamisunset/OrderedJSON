@@ -146,7 +146,7 @@ public struct JSONParseError: Error, CustomStringConvertible, Hashable, Sendable
 /// - `keyNotFound(String)` — a key was not found in a JSON object.
 /// - `indexOutOfBounds(Int)` — an index was out of bounds for a JSON array.
 /// - `typeError(expected:, actual:)` — type mismatch between expected and actual types.
-/// - `invalidPatch(String)` — a JSON Patch or binary format error with a message.
+/// - `formatError(String)` — a JSON Patch or binary format error with a message.
 public enum JSONError: Error, Sendable, Hashable {
   /// Invalid JSON pointer string format.
   case invalidString
@@ -159,5 +159,5 @@ public enum JSONError: Error, Sendable, Hashable {
   /// A type mismatch occurred: `expected` and `actual` describe the conflict.
   case typeError(expected: String, actual: String)
   /// A JSON Patch or binary format error with a human-readable message.
-  case invalidPatch(String)
+  case formatError(String)
 }

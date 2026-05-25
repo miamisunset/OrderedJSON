@@ -244,12 +244,12 @@ import Testing
   let indexErr = JSONError.indexOutOfBounds(42)
   let invalidStr = JSONError.invalidString
   let expectedObj = JSONError.expectedObject
-  let invalidPatch = JSONError.invalidPatch("bad patch")
+  let formatError = JSONError.formatError("bad patch")
   // Ensure these compile and are Sendable/Hashable
   #expect(typeErr != keyErr)
   #expect(keyErr != indexErr)
   #expect(invalidStr != expectedObj)
-  #expect(invalidPatch != invalidStr)
+  #expect(formatError != invalidStr)
 }
 
 @Test func jsonParseErrorDescriptions() {
