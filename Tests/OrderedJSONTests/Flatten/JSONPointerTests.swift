@@ -357,7 +357,8 @@ import Testing
     _ = try scalar.unflatten()
   } throws: { error in
     guard let flattenErr = error as? FlattenError else { return false }
-    return flattenErr == .notObject
+    if case .notObject = flattenErr { return true }
+    return false
   }
 }
 
@@ -377,6 +378,9 @@ import Testing
 }
 
 @Test func unflattenEmptyObject() throws {
+  // An empty input object unflattens to an empty object — not null.
+  // The "empty containers → null" rule applies on the flatten side
+  // only; unflatten does not apply a symmetric reverse.
   let flat = JSON.object([:])
   let result = try flat.unflatten()
   #expect(result.isObject)

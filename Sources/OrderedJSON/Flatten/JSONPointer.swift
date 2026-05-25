@@ -207,6 +207,8 @@ extension JSON {
   /// Recursively sets a value at a path of segments, creating intermediate objects/arrays.
   ///
   /// This is the same logic used by `unflatten()` and is shared with `JSONPointer`.
+  /// When paths conflict (e.g., one creates an array, another creates an object),
+  /// the last path wins — unlike nlohmann/json which throws `type_error.313`.
   /// - Parameters:
   ///   - json: The JSON value to modify (in-out).
   ///   - parts: The remaining path segments.

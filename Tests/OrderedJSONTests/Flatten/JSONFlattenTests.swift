@@ -262,7 +262,8 @@ import Testing
     _ = try scalar.unflatten()
   } throws: { error in
     guard let flattenErr = error as? FlattenError else { return false }
-    return flattenErr == .notObject
+    if case .notObject = flattenErr { return true }
+    return false
   }
 }
 
@@ -274,8 +275,8 @@ import Testing
     _ = try flat.unflatten()
   } throws: { error in
     guard let flattenErr = error as? FlattenError else { return false }
-    if case .notPrimitive(let key) = flattenErr {
-      return key == "/a"
+    if case .notPrimitive(let key, let type) = flattenErr {
+      return key == "/a" && type == "object"
     }
     return false
   }

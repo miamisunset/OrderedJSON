@@ -6,14 +6,16 @@ public enum FlattenError: Error, Hashable, Sendable, CustomStringConvertible {
   /// The input to unflatten() is not a JSON object.
   case notObject
   /// A value in the flattened object is not a primitive type.
-  case notPrimitive(String)
+  /// - `key`: The JSON Pointer key whose value is non-primitive.
+  /// - `type`: The actual JSON type of the offending value (e.g., "object").
+  case notPrimitive(key: String, type: String)
 
   public var description: String {
     switch self {
     case .notObject:
       return "only objects can be unflattened"
-    case .notPrimitive(let key):
-      return "values in object must be primitive; key '\(key)' has a non-primitive value"
+    case .notPrimitive(let key, let type):
+      return "values in object must be primitive; key '\(key)' has a \(type) value"
     }
   }
 }
@@ -22,8 +24,9 @@ extension JSON {
   /// Flattens nested JSON into a flat object with JSON Pointer keys (`/a/b/c`).
   ///
   /// Each leaf value is mapped to a JSON Pointer path. Empty objects and
-  /// arrays are flattened to `null`. Non-object roots are returned as an
-  /// object with a single `""` key.
+  /// arrays are flattened to `null`. Non-object roots (scalars, null,
+  /// and empty containers) are returned as an object with a single `""`
+  /// key — the empty string represents the root pointer per RFC 6901.
   ///
   /// - Returns: A `JSON` object where each key is a JSON Pointer path and
   ///   each value is a leaf value.
@@ -108,7 +111,7 @@ extension JSON {
     // Validate all values are primitive (mirrors nlohmann/json behavior)
     for (key, value) in dict {
       guard value.isPrimitive else {
-        throw FlattenError.notPrimitive(key)
+        throw FlattenError.notPrimitive(key: key, type: value.typeName)
       }
     }
 
