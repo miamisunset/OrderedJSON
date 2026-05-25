@@ -1226,7 +1226,7 @@ wrapped.extras["city"]   // .string("NYC")
 3. Treating unaccessed keys as extras
 
 **Known limitations:**
-- `contains(_:)` does **not** mark keys as accessed — use `decodeIfPresent` for optional fields
+- All key access methods (`decode(...)`, `decodeNil(forKey:)`, and `contains(_:)`) mark keys as "accessed". This prevents `decodeIfPresent` probes from leaking into extras. Use `decodeIfPresent` for optional fields rather than `contains` + `decodeNil`.
 - `T` must encode/decode as a keyed object; single-value and unkeyed containers are not supported
 - Extras must be a JSON object when encoding; non-object extras throw `EncodingError.invalidValue`
 
