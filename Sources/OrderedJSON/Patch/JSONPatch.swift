@@ -10,7 +10,7 @@ extension JSON {
   ///
   /// - Parameter patchValue: A JSON array of patch operations.
   /// - Returns: A new `JSON` value with all patch operations applied.
-  /// - Throws: `JSONError.invalidPatch` if the patch is malformed or an operation fails.
+  /// - Throws: `JSONError.formatError` if the patch is malformed or an operation fails.
   ///
   /// ## Example
   ///
@@ -30,10 +30,10 @@ extension JSON {
   /// Applies a JSON Patch (RFC 6902) in-place, mutating this value.
   ///
   /// - Parameter patchValue: A JSON array of patch operations.
-  /// - Throws: `JSONError.invalidPatch` if the patch is malformed or an operation fails.
+  /// - Throws: `JSONError.formatError` if the patch is malformed or an operation fails.
   public mutating func patchInPlace(_ patchValue: JSON) throws {
     guard case .array(let operations) = patchValue.storage else {
-      throw JSONError.invalidPatch("Patch must be an array of operations")
+      throw JSONError.formatError("Patch must be an array of operations")
     }
     for operation in operations {
       try applyPatchOperation(operation)
@@ -42,13 +42,13 @@ extension JSON {
 
   private mutating func applyPatchOperation(_ op: JSON) throws {
     guard case .object(let dict) = op.storage else {
-      throw JSONError.invalidPatch("Each operation must be an object")
+      throw JSONError.formatError("Each operation must be an object")
     }
     guard let opStr = dict["op"]?.stringValue else {
-      throw JSONError.invalidPatch("Missing 'op' field")
+      throw JSONError.formatError("Missing 'op' field")
     }
     guard let pathStr = dict["path"]?.stringValue else {
-      throw JSONError.invalidPatch("Missing 'path' field")
+      throw JSONError.formatError("Missing 'path' field")
     }
 
     let segments = parsePatchPath(pathStr)
@@ -56,7 +56,7 @@ extension JSON {
     switch opStr {
     case "add":
       guard let value = dict["value"] else {
-        throw JSONError.invalidPatch("Missing 'value' field for add")
+        throw JSONError.formatError("Missing 'value' field for add")
       }
       self = try settingValue(at: segments, value: value, in: self, isAdd: true)
 
@@ -65,20 +65,20 @@ extension JSON {
 
     case "replace":
       guard let value = dict["value"] else {
-        throw JSONError.invalidPatch("Missing 'value' field for replace")
+        throw JSONError.formatError("Missing 'value' field for replace")
       }
       self = try settingValue(at: segments, value: value, in: self, isAdd: false)
 
     case "copy":
       guard let fromStr = dict["from"]?.stringValue else {
-        throw JSONError.invalidPatch("Missing 'from' field for copy")
+        throw JSONError.formatError("Missing 'from' field for copy")
       }
       let fromValue = try resolveRequiredPointer(segments: parsePatchPath(fromStr), in: self)
       self = try settingValue(at: segments, value: fromValue, in: self, isAdd: true)
 
     case "move":
       guard let fromStr = dict["from"]?.stringValue else {
-        throw JSONError.invalidPatch("Missing 'from' field for move")
+        throw JSONError.formatError("Missing 'from' field for move")
       }
       let fromSegments = parsePatchPath(fromStr)
       let fromValue = try resolveRequiredPointer(segments: fromSegments, in: self)
@@ -87,15 +87,15 @@ extension JSON {
 
     case "test":
       guard let value = dict["value"] else {
-        throw JSONError.invalidPatch("Missing 'value' field for test")
+        throw JSONError.formatError("Missing 'value' field for test")
       }
       let current = try resolveRequiredPointer(segments: segments, in: self)
       if current != value {
-        throw JSONError.invalidPatch("Test failed: value mismatch")
+        throw JSONError.formatError("Test failed: value mismatch")
       }
 
     default:
-      throw JSONError.invalidPatch("Unknown operation: \(opStr)")
+      throw JSONError.formatError("Unknown operation: \(opStr)")
     }
   }
 
@@ -108,7 +108,7 @@ extension JSON {
 
   private func resolveRequiredPointer(segments: [String], in json: JSON) throws -> JSON {
     guard let value = resolvePointer(segments: segments, in: json) else {
-      throw JSONError.invalidPatch("Path not found")
+      throw JSONError.formatError("Path not found")
     }
     return value
   }
@@ -159,26 +159,26 @@ extension JSON {
 
     if segment == "-" {
       guard case .array(let arr) = json.storage else {
-        throw JSONError.invalidPatch("Cannot append to non-array")
+        throw JSONError.formatError("Cannot append to non-array")
       }
       if isLast {
         var copy = arr
         copy.append(value)
         return .array(copy)
       } else {
-        throw JSONError.invalidPatch("Cannot traverse beyond '-' append marker")
+        throw JSONError.formatError("Cannot traverse beyond '-' append marker")
       }
     }
 
     if let idx = Int(segment) {
       guard case .array(let arr) = json.storage else {
-        throw JSONError.invalidPatch("Cannot index into non-array")
+        throw JSONError.formatError("Cannot index into non-array")
       }
       if isLast {
         var copy = arr
         if isAdd {
           if idx > copy.count {
-            throw JSONError.invalidPatch("Array index out of bounds for add")
+            throw JSONError.formatError("Array index out of bounds for add")
           } else if idx == copy.count {
             copy.append(value)
           } else {
@@ -186,14 +186,14 @@ extension JSON {
           }
         } else {
           guard idx >= 0, idx < copy.count else {
-            throw JSONError.invalidPatch("Array index out of bounds for replace")
+            throw JSONError.formatError("Array index out of bounds for replace")
           }
           copy[idx] = value
         }
         return .array(copy)
       } else {
         guard idx >= 0, idx < arr.count else {
-          throw JSONError.invalidPatch("Array index out of bounds")
+          throw JSONError.formatError("Array index out of bounds")
         }
         let updatedChild = try traverseAndSet(
           arr[idx], segments: segments, index: index + 1, value: value, isAdd: isAdd)
@@ -203,14 +203,14 @@ extension JSON {
       }
     } else {
       guard case .object(var dict) = json.storage else {
-        throw JSONError.invalidPatch("Cannot key into non-object")
+        throw JSONError.formatError("Cannot key into non-object")
       }
       if isLast {
         dict[segment] = value
         return .object(dict)
       } else {
         guard let child = dict[segment] else {
-          throw JSONError.invalidPatch("Key not found: \(segment)")
+          throw JSONError.formatError("Key not found: \(segment)")
         }
         let updatedChild = try traverseAndSet(
           child, segments: segments, index: index + 1, value: value, isAdd: isAdd)
@@ -227,10 +227,10 @@ extension JSON {
 
     if let idx = Int(segment) {
       guard case .array(let arr) = json.storage else {
-        throw JSONError.invalidPatch("Cannot index into non-array for remove")
+        throw JSONError.formatError("Cannot index into non-array for remove")
       }
       guard idx >= 0, idx < arr.count else {
-        throw JSONError.invalidPatch("Array index out of bounds for remove")
+        throw JSONError.formatError("Array index out of bounds for remove")
       }
       if isLast {
         var copy = arr
@@ -244,17 +244,17 @@ extension JSON {
       }
     } else {
       guard case .object(var dict) = json.storage else {
-        throw JSONError.invalidPatch("Cannot key into non-object for remove")
+        throw JSONError.formatError("Cannot key into non-object for remove")
       }
       if isLast {
         guard dict.keys.contains(segment) else {
-          throw JSONError.invalidPatch("Key not found: \(segment)")
+          throw JSONError.formatError("Key not found: \(segment)")
         }
         dict.removeValue(forKey: segment)
         return .object(dict)
       } else {
         guard let child = dict[segment] else {
-          throw JSONError.invalidPatch("Key not found: \(segment)")
+          throw JSONError.formatError("Key not found: \(segment)")
         }
         let updatedChild = try traverseAndRemove(child, segments: segments, index: index + 1)
         dict[segment] = updatedChild

@@ -315,10 +315,10 @@ private func appendUInt64(_ value: UInt64, _ bytes: inout [UInt8]) {
 // MARK: - Error
 
 extension JSONError {
-  /// Creates a CBOR-specific error wrapped in `invalidPatch`.
+  /// Creates a CBOR-specific error wrapped in `formatError`.
   /// - Parameter reason: A description of the error.
-  /// - Returns: A `JSONError.invalidPatch` with the CBOR prefix.
+  /// - Returns: A `JSONError.formatError` with the CBOR prefix.
   public static func invalidCBOR(_ reason: String = "") -> JSONError {
-    return .invalidPatch("CBOR: \(reason)")
+    return .formatError("CBOR: \(reason)")
   }
 }
