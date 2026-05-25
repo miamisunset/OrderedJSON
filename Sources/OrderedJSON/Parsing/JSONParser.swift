@@ -130,31 +130,38 @@ extension JSON {
 
   // MARK: - Internal parse context
 
-  /// Tracks parser state: current position, line/column, depth, and options.
+  /// Tracks parser state: cursor position, depth, and options.
   internal struct ParseContext {
-    /// The source string being parsed.
-    let string: String
-    /// Current position in the string.
-    var pos: String.Index
+    /// Shared position cursor.
+    var cursor: ParseCursor
     /// Parser options.
     let options: ParserOptions
-    /// Current line number (1-based).
-    private(set) var line: Int
-    /// Current column number (1-based).
-    private(set) var column: Int
     /// Current nesting depth (0 = root).
     var depth: Int
 
+    /// The source string being parsed.
+    var string: String { cursor.string }
+    /// Current position in the string.
+    var pos: String.Index { cursor.pos }
+    /// Current line number (1-based).
+    var line: Int { cursor.line }
+    /// Current column number (1-based).
+    var column: Int { cursor.column }
+
     /// Advance one character, updating line/column.
-    mutating func advance() {
-      let c = string[pos]
-      pos = string.index(after: pos)
-      if c == "\n" {
-        line += 1
-        column = 1
-      } else {
-        column += 1
-      }
+    mutating func advance() { cursor.advance() }
+
+    /// Creates a parse context from a source string.
+    init(
+      string: String, pos: String.Index,
+      options: ParserOptions, line: Int, column: Int, depth: Int
+    ) {
+      self.cursor = ParseCursor(string: string)
+      self.cursor.pos = pos
+      self.cursor.line = line
+      self.cursor.column = column
+      self.options = options
+      self.depth = depth
     }
   }
 
@@ -364,7 +371,7 @@ extension JSON {
 
   private static func parseUnicodeEscape(_ ctx: inout ParseContext) throws -> String {
     ctx.advance()  // skip 'u'
-    let hexDigits = readHexDigits(&ctx)
+    let hexDigits = ctx.cursor.readHexDigits()
     guard hexDigits.count == 4, let scalar = UInt16(hexDigits, radix: 16) else {
       throw error(at: ctx, kind: .invalidUnicodeEscape)
     }
@@ -372,15 +379,15 @@ extension JSON {
     // Check for high surrogate (U+D800..U+DBFF)
     if scalar >= 0xD800 && scalar <= 0xDBFF {
       // Expect a low surrogate (U+DC00..U+DFFF) following as \uXXXX
-      guard ctx.pos < ctx.string.endIndex, ctx.string[ctx.pos] == "\\" else {
+      guard ctx.cursor.hasMore, ctx.cursor.current == "\\" else {
         throw error(at: ctx, kind: .invalidUnicodeEscape)
       }
-      ctx.advance()
-      guard ctx.pos < ctx.string.endIndex, ctx.string[ctx.pos] == "u" else {
+      ctx.cursor.advance()
+      guard ctx.cursor.hasMore, ctx.cursor.current == "u" else {
         throw error(at: ctx, kind: .invalidUnicodeEscape)
       }
-      ctx.advance()
-      let lowHex = readHexDigits(&ctx)
+      ctx.cursor.advance()
+      let lowHex = ctx.cursor.readHexDigits()
       guard lowHex.count == 4, let low = UInt16(lowHex, radix: 16) else {
         throw error(at: ctx, kind: .invalidUnicodeEscape)
       }
@@ -406,15 +413,7 @@ extension JSON {
 
   /// Reads 4 hex digits from the current position (or fewer if at end).
   private static func readHexDigits(_ ctx: inout ParseContext) -> String {
-    var result = ""
-    for _ in 0..<4 {
-      guard ctx.pos < ctx.string.endIndex else { break }
-      let c = ctx.string[ctx.pos]
-      guard c.isHexDigit else { break }
-      result.append(c)
-      ctx.advance()
-    }
-    return result
+    ctx.cursor.readHexDigits()
   }
 
   // MARK: - Boolean
@@ -526,14 +525,7 @@ extension JSON {
   // MARK: - Whitespace
 
   private static func skipWhitespace(_ ctx: inout ParseContext) {
-    while ctx.pos < ctx.string.endIndex {
-      switch ctx.string[ctx.pos] {
-      case " ", "\n", "\r", "\t":
-        ctx.advance()
-      default:
-        return
-      }
-    }
+    ctx.cursor.skipWhitespace()
   }
 }
 
