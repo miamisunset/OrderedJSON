@@ -217,6 +217,23 @@ All 403 tests pass. Build produces zero errors. CI pipeline passes (SwiftFormat 
 ### Next Steps
 1. Consider adding remaining minor gaps from feature parity table (e.g., `contains(element)` for arrays, `merge()` for objects, `is_number_unsigned`, `is_binary`, `is_discarded`, generic `get<T>()`, explicit iterator properties)
 
+## Flatten Improvements — RFC 6901 parity with nlohmann/json (complete)
+
+### Changes
+- **Empty containers flattened to `null`** (was: silently dropped). `flatten()` now emits `null` for empty arrays/objects, matching nlohmann/json behavior. Round-trip `j.flatten().unflatten()` no longer loses empty containers (they become `null`).
+- **`unflatten()` input validation**. Now throws `FlattenError.notObject` if input is not a JSON object, and `FlattenError.notPrimitive(key)` if any value is a non-primitive (object/array). Mirrors nlohmann/json's type_error.314/315.
+- **`FlattenError` enum** added with `Hashable`/`Sendable`/`CustomStringConvertible` conformance.
+- **`unflatten()` is now throwing** — all call sites updated to `try`.
+
+### Tests
+- 8 new tests: `flattenEmptyArray`, `flattenNestedEmptyObject`, `flattenNestedEmptyArray`, `flattenUnflattenRoundTripWithEmptyContainers`, `flattenUnflattenNonObjectThrows`, `unflattenNonPrimitiveValueThrows`, `unflattenNonObjectThrows`
+- Existing `flattenEmptyObject` test updated (now expects `{"": null}` instead of `{}`)
+- All 68 flatten/pointer tests pass
+
+### Deviations from nlohmann/json (kept our approach)
+- **Conflicting paths**: nlohmann throws `type_error.313` during traversal. Our implementation gracefully resolves conflicts (last path wins) — more permissive and arguably better for real-world use.
+- **`setJSONPointerPath`** unchanged — starts from empty object, converts to array on numeric index. Used by both `unflatten()` and `JSONPointer.set()`. nlohmann starts from `null`, but our approach handles more edge cases.
+
 ## Phase 12 — JSONBuilder fluent construction API (PR #9)
 
 ### What shipped
