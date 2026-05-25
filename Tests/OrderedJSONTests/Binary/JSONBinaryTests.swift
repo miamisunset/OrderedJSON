@@ -764,6 +764,36 @@ private func appendBE(_ value: UInt64, to bytes: inout [UInt8]) {
   #expect(decoded.isFloat)
 }
 
+@Test func cborHalfFloatDenormalizedValue() throws {
+  // Half-float denormalized: 0x0001 = 2^(-24) ≈ 5.96e-8
+  let bytes: [UInt8] = [0xFA, 0x00, 0x01]  // major 7, info 25, value=0x0001
+  let data = Data(bytes)
+  let decoded = try JSON.fromCBOR(data)
+  #expect(decoded.isNumber)
+  // 2^(-24) = 1 / 16777216 ≈ 5.960464477539063e-8
+  #expect(decoded == JSON.number(.float(1.0 / 16777216.0)))
+}
+
+@Test func cborHalfFloatDenormalizedMax() throws {
+  // Half-float denormalized max: 0x03FF = 2^(-14) * (1023/1024) ≈ 6.1e-5
+  let bytes: [UInt8] = [0xFA, 0x03, 0xFF]  // major 7, info 25, value=0x03FF
+  let data = Data(bytes)
+  let decoded = try JSON.fromCBOR(data)
+  #expect(decoded.isNumber)
+  // Max denormalized = 2^(-14) * (1023/1024) = 1023 / (16384 * 1024) = 1023 / 16777216
+  #expect(decoded == JSON.number(.float(1023.0 / 16777216.0)))
+}
+
+@Test func cborHalfFloatNormalizedMin() throws {
+  // Half-float normalized min: 0x0400 = 2^(-14) * (1024/1024) = 2^(-14) ≈ 6.1e-5
+  let bytes: [UInt8] = [0xFA, 0x04, 0x00]  // major 7, info 25, value=0x0400
+  let data = Data(bytes)
+  let decoded = try JSON.fromCBOR(data)
+  #expect(decoded.isNumber)
+  // Min normalized = 2^(-14) = 1 / 16384
+  #expect(decoded == JSON.number(.float(1.0 / 16384.0)))
+}
+
 // MARK: - UBJSON Edge Cases
 
 @Test func ubjsonCharMarker() throws {
@@ -1137,6 +1167,51 @@ private func appendBE(_ value: UInt64, to bytes: inout [UInt8]) {
 @Test func bsonArrayLenTooSmallThrows() throws {
   // BSON array with length < 5 should throw
   var bytes: [UInt8] = [0x03, 0x00, 0x00, 0x00]
+  let data = Data(bytes)
+  #expect(throws: JSONError.self) { try JSON.fromBSON(data) }
+}
+
+@Test func bsonEmbeddedArrayRoundTrip() throws {
+  // Test decodeBSONArray (embedded BSON array) with correct endPos calculation.
+  // Before the fix, endPos used docLen-1 instead of docLen-5, causing the
+  // decoder to read past the null terminator into garbage bytes.
+  //
+  // Inner array: [length=12][int32 type][key "0"][int32 1][null]
+  //   length = 4 (len) + 1 (type) + 2 (key "0"+null) + 4 (int32) + 1 (null) = 12
+  // Outer doc: [length][type=0x04][key "arr"][inner array][null]
+  //   length = 4 (len) + 1 (type) + 4 (key "arr"+null) + 12 (inner) + 1 (null) = 22
+
+  let bytes: [UInt8] = [
+    0x16, 0x00, 0x00, 0x00,  // outer doc length = 22
+    0x04,  // type = array
+    0x61, 0x72, 0x72, 0x00,  // key "arr" + null
+    0x0C, 0x00, 0x00, 0x00,  // inner array length = 12
+    0x10,  // type = int32
+    0x30, 0x00,  // key "0" + null
+    0x01, 0x00, 0x00, 0x00,  // int32 value 1
+    0x00,  // inner array null terminator
+    0x00,  // outer doc null terminator
+  ]
+
+  let data = Data(bytes)
+  let decoded = try JSON.fromBSON(data)
+  #expect(decoded.isObject)
+  #expect(decoded["arr"] != nil)
+  #expect(decoded["arr"]!.isArray)
+  #expect(decoded["arr"]![0] == JSON.number(.integer(1)))
+}
+
+@Test func bsonTruncatedStringNoNullTerminatorThrows() throws {
+  // BSON string without null terminator should throw
+  // Document: [length][type=0x02][key "a"][string length][string without null]
+  let bytes: [UInt8] = [
+    0x10, 0x00, 0x00, 0x00,  // doc length = 16
+    0x02,  // type = UTF-8 string
+    0x61, 0x00,  // key "a" + null
+    0x06, 0x00, 0x00, 0x00,  // string length = 6 (including null)
+    0x48, 0x65, 0x6C, 0x6C, 0x6F,  // "Hello" without null terminator
+    0x00,  // doc null terminator
+  ]
   let data = Data(bytes)
   #expect(throws: JSONError.self) { try JSON.fromBSON(data) }
 }

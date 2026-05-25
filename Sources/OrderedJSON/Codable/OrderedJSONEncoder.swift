@@ -257,6 +257,12 @@ private func encodeDecimal(_ decimal: Decimal, with strategy: DecimalEncodingStr
     // Route through the underlying Decimal value directly without String → Double round-trip.
     // For integer-representable Decimals, emit .integer(Int64). For others, emit .float(Double).
     let double = Double(decimal.description) ?? 0
+    // Guard against Double overflow to infinity (e.g., Decimal with huge exponent)
+    // Infinity is not representable as a JSON number — store as-is; the
+    // serializer will emit null (matching NaN/Infinity policy elsewhere).
+    guard double.isFinite else {
+      return .number(.float(double))
+    }
     if Decimal(string: "\(Int64(double))") == decimal && double == Double(Int64(double)) {
       return .number(.integer(Int64(double)))
     }

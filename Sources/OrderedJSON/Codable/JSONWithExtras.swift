@@ -28,10 +28,10 @@ import OrderedCollections
 ///
 /// ## Known Limitations
 ///
-/// - **Tracking granularity**: Only `decode(...)` and `decodeNil(forKey:)` calls
-///   mark keys as "accessed". `contains(_:)` does **not** mark keys, so a `T`
-///   that checks `container.contains("x")` without later decoding `"x"` will
-///   leak `"x"` into `extras`. Use `decodeIfPresent` instead.
+/// - **Tracking granularity**: All key access methods (`decode(...)`,
+///   `decodeNil(forKey:)`, and `contains(_:)`) mark keys as "accessed".
+///   This prevents `decodeIfPresent` probes from leaking into extras.
+///   Use `decodeIfPresent` for optional fields rather than `contains` + `decodeNil`.
 /// - **Optional fields**: `decodeNil(forKey:)` marks the key as accessed even
 ///   when the key is absent in JSON. This means an absent optional field is
 ///   correctly excluded from extras.
@@ -59,6 +59,16 @@ public struct JSONWithExtras<T: Decodable>: Decodable {
   /// Uses a tracking decoder that records which keys `T` accesses,
   /// then treats unaccessed keys as extras.
   public init(from decoder: Decoder) throws {
+    // Extract strategies from the outer decoder if it's our impl
+    var dateDecodingStrategy: DateDecodingStrategy = .deferredToDate
+    var dataDecodingStrategy: DataDecodingStrategy = .base64
+    var decimalDecodingStrategy: DecimalDecodingStrategy = .asString
+    if let impl = decoder as? _JSONDecodeImpl {
+      dateDecodingStrategy = impl.dateDecodingStrategy
+      dataDecodingStrategy = impl.dataDecodingStrategy
+      decimalDecodingStrategy = impl.decimalDecodingStrategy
+    }
+
     // Step 1: Decode all values as JSON
     let allValues = try decoder.container(keyedBy: _ExtrasKey.self)
     let keys = allValues.allKeys
@@ -73,7 +83,10 @@ public struct JSONWithExtras<T: Decodable>: Decodable {
     let trackingDecoder = _TrackingDecoder(
       json: jsonObject,
       onAccess: { usedKeys.insert($0) },
-      codingPath: decoder.codingPath)
+      codingPath: decoder.codingPath,
+      dateDecodingStrategy: dateDecodingStrategy,
+      dataDecodingStrategy: dataDecodingStrategy,
+      decimalDecodingStrategy: decimalDecodingStrategy)
     value = try T(from: trackingDecoder)
 
     // Step 3: Remaining keys are extras
@@ -129,16 +142,33 @@ private struct _TrackingDecoder: Decoder {
   let onAccess: (String) -> Void
   let codingPath: [CodingKey]
   let userInfo: [CodingUserInfoKey: Any] = [:]
+  let dateDecodingStrategy: DateDecodingStrategy
+  let dataDecodingStrategy: DataDecodingStrategy
+  let decimalDecodingStrategy: DecimalDecodingStrategy
 
-  init(json: JSON, onAccess: @escaping (String) -> Void, codingPath: [CodingKey] = []) {
+  init(
+    json: JSON,
+    onAccess: @escaping (String) -> Void,
+    codingPath: [CodingKey] = [],
+    dateDecodingStrategy: DateDecodingStrategy = .deferredToDate,
+    dataDecodingStrategy: DataDecodingStrategy = .base64,
+    decimalDecodingStrategy: DecimalDecodingStrategy = .asString
+  ) {
     self.json = json
     self.onAccess = onAccess
     self.codingPath = codingPath
+    self.dateDecodingStrategy = dateDecodingStrategy
+    self.dataDecodingStrategy = dataDecodingStrategy
+    self.decimalDecodingStrategy = decimalDecodingStrategy
   }
 
   func container<Key: CodingKey>(keyedBy keyType: Key.Type) throws -> KeyedDecodingContainer<Key> {
     return KeyedDecodingContainer(
-      _TrackingKeyedDecodingContainer<Key>(json: json, onAccess: onAccess, pathPrefix: codingPath))
+      _TrackingKeyedDecodingContainer<Key>(
+        json: json, onAccess: onAccess, pathPrefix: codingPath,
+        dateDecodingStrategy: dateDecodingStrategy,
+        dataDecodingStrategy: dataDecodingStrategy,
+        decimalDecodingStrategy: decimalDecodingStrategy))
   }
 
   func unkeyedContainer() throws -> UnkeyedDecodingContainer {
@@ -165,11 +195,24 @@ private struct _TrackingKeyedDecodingContainer<Key: CodingKey>: KeyedDecodingCon
   let json: JSON
   let onAccess: (String) -> Void
   let codingPath: [CodingKey]
+  let dateDecodingStrategy: DateDecodingStrategy
+  let dataDecodingStrategy: DataDecodingStrategy
+  let decimalDecodingStrategy: DecimalDecodingStrategy
 
-  init(json: JSON, onAccess: @escaping (String) -> Void, pathPrefix: [CodingKey]) {
+  init(
+    json: JSON,
+    onAccess: @escaping (String) -> Void,
+    pathPrefix: [CodingKey],
+    dateDecodingStrategy: DateDecodingStrategy = .deferredToDate,
+    dataDecodingStrategy: DataDecodingStrategy = .base64,
+    decimalDecodingStrategy: DecimalDecodingStrategy = .asString
+  ) {
     self.json = json
     self.onAccess = onAccess
     self.codingPath = pathPrefix
+    self.dateDecodingStrategy = dateDecodingStrategy
+    self.dataDecodingStrategy = dataDecodingStrategy
+    self.decimalDecodingStrategy = decimalDecodingStrategy
   }
 
   var allKeys: [Key] {
@@ -271,7 +314,11 @@ private struct _TrackingKeyedDecodingContainer<Key: CodingKey>: KeyedDecodingCon
           codingPath: codingPath,
           debugDescription: "Key '\(key.stringValue)' not found"))
     }
-    let decoder = _JSONDecodeImpl(json: val, userInfo: [:], codingPath: codingPath + [key])
+    let decoder = _JSONDecodeImpl(
+      json: val, userInfo: [:], codingPath: codingPath + [key],
+      dateDecodingStrategy: dateDecodingStrategy,
+      dataDecodingStrategy: dataDecodingStrategy,
+      decimalDecodingStrategy: decimalDecodingStrategy)
     return try T(from: decoder)
   }
 
@@ -288,7 +335,10 @@ private struct _TrackingKeyedDecodingContainer<Key: CodingKey>: KeyedDecodingCon
     }
     return KeyedDecodingContainer(
       _TrackingKeyedDecodingContainer<NestedKey>(
-        json: val, onAccess: onAccess, pathPrefix: codingPath + [key]))
+        json: val, onAccess: onAccess, pathPrefix: codingPath + [key],
+        dateDecodingStrategy: dateDecodingStrategy,
+        dataDecodingStrategy: dataDecodingStrategy,
+        decimalDecodingStrategy: decimalDecodingStrategy))
   }
 
   func nestedUnkeyedContainer(forKey key: Key) throws -> UnkeyedDecodingContainer {
@@ -309,7 +359,11 @@ private struct _TrackingKeyedDecodingContainer<Key: CodingKey>: KeyedDecodingCon
     }
     return _JSONUnkeyedDecodingContainer(
       elements: elements,
-      impl: _JSONDecodeImpl(json: val, userInfo: [:], codingPath: codingPath + [key]),
+      impl: _JSONDecodeImpl(
+        json: val, userInfo: [:], codingPath: codingPath + [key],
+        dateDecodingStrategy: dateDecodingStrategy,
+        dataDecodingStrategy: dataDecodingStrategy,
+        decimalDecodingStrategy: decimalDecodingStrategy),
       pathPrefix: codingPath + [key])
   }
 
@@ -322,11 +376,19 @@ private struct _TrackingKeyedDecodingContainer<Key: CodingKey>: KeyedDecodingCon
           codingPath: codingPath,
           debugDescription: "Key '\(key.stringValue)' not found"))
     }
-    return _TrackingDecoder(json: val, onAccess: onAccess, codingPath: codingPath + [key])
+    return _TrackingDecoder(
+      json: val, onAccess: onAccess, codingPath: codingPath + [key],
+      dateDecodingStrategy: dateDecodingStrategy,
+      dataDecodingStrategy: dataDecodingStrategy,
+      decimalDecodingStrategy: decimalDecodingStrategy)
   }
 
   func superDecoder() throws -> Decoder {
-    _TrackingDecoder(json: json, onAccess: onAccess, codingPath: codingPath)
+    _TrackingDecoder(
+      json: json, onAccess: onAccess, codingPath: codingPath,
+      dateDecodingStrategy: dateDecodingStrategy,
+      dataDecodingStrategy: dataDecodingStrategy,
+      decimalDecodingStrategy: decimalDecodingStrategy)
   }
 
   /// Helper: extract a value for a key, with key-not-found handling.

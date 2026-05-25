@@ -248,6 +248,25 @@ import Testing
   #expect(decoded.extras["z"] == .string("extra"))
 }
 
+@Test func jsonWithExtrasDateStrategyPropagated() throws {
+  // Regression: date/data/decimal strategies must propagate to the tracking decoder
+  struct Person: Decodable {
+    let name: String
+    let birth: Date
+  }
+  let json = JSON.object([
+    "name": .string("Alice"),
+    "birth": .number(.float(1234567890.0)),  // seconds since 1970
+    "extra": .string("extra_key"),
+  ])
+  var decoder = OrderedJSONDecoder()
+  decoder.dateDecodingStrategy = .secondsSince1970
+  let decoded = try decoder.decode(JSONWithExtras<Person>.self, from: json)
+  #expect(decoded.value.name == "Alice")
+  #expect(decoded.value.birth.timeIntervalSince1970 == 1234567890.0)
+  #expect(decoded.extras["extra"] == .string("extra_key"))
+}
+
 // MARK: - Throwing accessors
 
 @Test func requireStringSuccess() throws {
@@ -1117,6 +1136,21 @@ extension JSON {
   decoder.decimalDecodingStrategy = .asNumber
   let back = try decoder.decode(Container.self, from: json)
   #expect(back.amount == decimal)
+}
+
+@Test func foundationDecimalAsNumberHugeDoesNotCrash() throws {
+  // Regression test: Decimal with huge exponent must not cause Int64(Double.infinity) crash
+  struct Container: Codable {
+    let amount: Decimal
+  }
+  // A Decimal with exponent that overflows Double to infinity
+  let huge = Decimal(string: "1e400")!
+  var encoder = OrderedJSONEncoder()
+  encoder.decimalEncodingStrategy = .asNumber
+  // Should not crash — should encode as float (which will serialize as null per NaN policy)
+  let json = try encoder.encode(Container(amount: huge))
+  // The value should be a number (float), not a crash
+  #expect(json["amount"]?.isNumber == true)
 }
 
 @Test func foundationDateCustomStrategy() throws {

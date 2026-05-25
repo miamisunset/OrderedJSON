@@ -200,8 +200,9 @@ private func halfToFloat(_ bits: UInt16) -> Double {
   let mant = UInt16(bits & 0x3FF)
 
   if exp == 0 {
-    // Denormalized
-    return sign * Double(mant) / 16384.0
+    // Denormalized: value = (-1)^sign * 2^(1-15) * mant/2^10
+    // = sign * mant * 2^(-24) = sign * mant / 16777216
+    return sign * Double(mant) / 16777216.0
   } else if exp == 31 {
     // NaN or Inf
     return mant == 0 ? (sign * Double.infinity) : Double.nan
