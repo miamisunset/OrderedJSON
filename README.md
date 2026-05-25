@@ -508,7 +508,17 @@ json.find("b")       // Optional(JSON.number(.integer(2)))  — value for key
 json.find("missing") // nil
 ```
 
-On objects, `contains` checks key existence. `find` retrieves the value for a key. `first`/`last` give you the first and last values in insertion order.
+On objects, `contains` checks key existence. For arrays, `contains(element)` checks element presence using `==`. `find` retrieves the value for a key. `first`/`last` give you the first and last values in insertion order.
+
+```swift
+let arr = JSON.array([
+  .string("a"),
+  .number(.integer(1)),
+  .boolean(true)
+])
+arr.contains(.string("a"))     // true — element exists
+arr.contains(.string("z"))     // false — element missing
+```
 
 ---
 
@@ -924,7 +934,7 @@ OrderedJSON covers ~95% of `nlohmann::basic_json`'s API surface. Here are the ga
 |---------|---------------|-------------|--------|---------|
 | **`is_number_unsigned`** | Detects `uint64_t` integers | ❌ Not implemented | Swift uses `Int64` for all integers; `UInt64` isn't needed since JSON numbers have no unsigned concept per RFC 7159 | Unlikely |
 | **`is_binary` / `is_discarded`** | Binary byte array type / SAX discarded state | ❌ Not implemented | Binary CBOR/msgpack data decoded as base64 strings; discarded state is internal to SAX parsing | Possible later |
-| **`get<T>()`, `get_to()`, `get_ptr()`, `get_ref()`** | Template-based value extraction | ❌ Not implemented | Swift's static type system makes this less critical — use `stringValue`, `isInteger`, subscript access, etc. | Possible later |
+| **`get<T>()`, `get_to()`, `get_ptr()`, `get_ref()`** | Template-based value extraction | ✅ Optional value accessors (`stringValue`, `intValue`, `floatValue`, `boolValue`, `numberValue`) + throwing `require*()` | Swift's static type system makes templates less critical; use optional properties or throwing accessors | Low priority |
 | **`push_back`** | Named `push_back` for arrays | ❌ Named `append` instead | Swift convention uses `append`; semantics are identical | Low priority |
 | **`operator+=`** | Compound assignment for array/object addition | ❌ Not implemented | Swift uses `append` / `+=` on arrays directly | Unlikely |
 | **`emplace_back`** | Emplace back for arrays | ❌ Covered by `emplace` | `emplace` for arrays is identical to `append` | Low priority |
@@ -1283,6 +1293,34 @@ Available accessors:
 | `requireUInt64()` | `.integer` or `.float` (clean integer) | `UInt64` | Not a number, or negative |
 
 > **Note:** `requireFloat()` uses lossless conversion (`Float(exactly:)`). Values like `0.1` that are not exactly representable as `Float` throw `JSONError.typeError`. For Foundation-compatible lossy narrowing, use `requireDouble()` and cast manually.
+
+### Optional Value Accessors
+
+For non-throwing optional access, `JSON` provides computed properties that return `nil` on type mismatch:
+
+```swift
+let json = JSON.parse(#"{"name": "Alice", "count": 42, "pi": 3.14, "ok": true}"#)
+
+json["name"]?.stringValue   // "Alice" — String?
+json["count"]?.intValue     // 42 — Int64?
+json["pi"]?.floatValue      // 3.14 — Double?
+json["ok"]?.boolValue       // true — Bool?
+json["count"]?.numberValue  // .integer(42) — JSONNumber?
+
+// For floats that are clean integers, intValue works:
+json["count"]?.intValue     // 42 (Int64)
+
+// For integers widened to Double:
+json["count"]?.floatValue   // 42.0 (Double)
+```
+
+| Property | Accepts | Returns | Returns nil if |
+|----------|---------|---------|----------------|
+| `stringValue` | `.string` | `String?` | Not a string |
+| `intValue` | `.integer` or `.float` (clean integer) | `Int64?` | Not a number, or fractional float |
+| `floatValue` | `.float` or `.integer` (widening) | `Double?` | Not a number |
+| `boolValue` | `.boolean` | `Bool?` | Not a boolean |
+| `numberValue` | `.integer` or `.float` | `JSONNumber?` | Not a number |
 
 ### Round-Trip Example
 

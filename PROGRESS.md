@@ -259,7 +259,40 @@ All 403 tests pass. Build produces zero errors. CI pipeline passes (SwiftFormat 
 - Tightened `@unchecked Sendable` doc comment to cite COW-avoidance (accurate)
 - 50 tests total (all passing)
 
+## Phase 1 — Missing value accessors (PR #20, merged)
+
+### Changes
+- Added `intValue: Int64?`, `floatValue: Double?`, `boolValue: Bool?`, `numberValue: JSONNumber?` computed properties
+- Each returns nil when the underlying storage doesn't match the expected type
+- `intValue` accepts clean floats (e.g., `1.0` → `1`), rejects fractional floats
+- `floatValue` widens integers to Double
+
+### Tests
+- 17 tests covering all accessor paths (success + nil for each)
+- All pass, lint clean
+
+## Phase 2 — Array contains(element:) (PR #21, open)
+
+### Changes
+- Added `func contains(_ element: JSON) -> Bool` for array element containment
+- Uses `==` for comparison; non-arrays return `false`
+
+### Deviations from nlohmann/json
+- nlohmann's `basic_json::contains` for arrays takes a JSON Pointer, not an element. Our `contains(element:)` is closer to `std::find != end()` — a Swift-flavored convenience that doesn't exist in nlohmann's API.
+
+### Documentation
+- README updated: contains section now covers both object key and array element lookup
+- Feature parity table: `get<T>()` changed from ❌ to ✅ (optional value accessors + throwing require*)
+
+### Tests
+- 7 tests covering existing element, missing element, cross-type element, duplicates, non-array, empty array, nested array
+- All pass, lint clean
+
 ## Release
+
+## Phase 1 (docs update)
+- README updated: added Optional Value Accessors section with `intValue`, `floatValue`, `boolValue`, `numberValue`
+- Feature parity table updated for `get<T>()`
 - Merged all 3 PRs (#9, #10, #11) to `main`
 - Tagged and released as **v2.2.0**
 - New features: JSONBuilder, setIfPresent/addIfPresent matrix, objectKeys accessor, README TOC

@@ -300,3 +300,55 @@ let indexOutOfBoundsNeg = JSONError.indexOutOfBounds(-1)
   obj.x = JSON.number(.integer(2))
   #expect(obj.x == JSON.number(.integer(2)))
 }
+
+// MARK: - Array contains Tests
+
+@Test func arrayContainsExistingElement() {
+  let arr = JSON.array([
+    JSON.string("a"),
+    JSON.number(.integer(1)),
+    JSON.boolean(true),
+  ])
+  #expect(arr.contains(JSON.string("a")))
+  #expect(arr.contains(JSON.number(.integer(1))))
+  #expect(arr.contains(JSON.boolean(true)))
+}
+
+@Test func arrayContainsMissingElement() {
+  let arr = JSON.array([JSON.string("a"), JSON.number(.integer(1))])
+  #expect(!arr.contains(JSON.string("b")))
+  #expect(!arr.contains(JSON.number(.integer(2))))
+}
+
+@Test func arrayContainsOnNonArrayReturnsFalse() {
+  let scalar = JSON.string("hello")
+  #expect(!scalar.contains(JSON.string("hello")))
+}
+
+@Test func arrayContainsEmptyArray() {
+  let arr = JSON.array([])
+  #expect(!arr.contains(JSON.string("a")))
+}
+
+@Test func arrayContainsNestedArray() {
+  let nested = JSON.array([JSON.array([JSON.number(.integer(1))])])
+  #expect(nested.contains(JSON.array([JSON.number(.integer(1))])))
+  #expect(!nested.contains(JSON.array([JSON.number(.integer(2))])))
+}
+
+@Test func arrayContainsCrossType() {
+  let arr = JSON.array([JSON.string("a"), JSON.number(.integer(1))])
+  #expect(!arr.contains(JSON.number(.integer(2))))  // different value, same type
+  #expect(!arr.contains(JSON.boolean(true)))  // different type entirely
+}
+
+@Test func arrayContainsDuplicate() {
+  let arr = JSON.array([
+    JSON.string("a"),
+    JSON.string("b"),
+    JSON.string("a"),
+  ])
+  #expect(arr.contains(JSON.string("a")))  // appears at indices 0 and 2
+  #expect(arr.contains(JSON.string("b")))  // appears once
+  #expect(!arr.contains(JSON.string("c")))
+}
