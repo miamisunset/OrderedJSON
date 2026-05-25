@@ -518,6 +518,73 @@ extension JSON {
   #expect(try json.requireInt64() == 42)
 }
 
+// MARK: - Generic get<T>() Tests
+
+@Test func getString() throws {
+  let json = JSON.string("hello")
+  let value: String = try json.get(String.self)
+  #expect(value == "hello")
+}
+
+@Test func getBool() throws {
+  let json = JSON.boolean(true)
+  let value: Bool = try json.get(Bool.self)
+  #expect(value == true)
+}
+
+@Test func getInt64() throws {
+  let json = JSON.number(.integer(42))
+  let value: Int64 = try json.get(Int64.self)
+  #expect(value == 42)
+}
+
+@Test func getInt() throws {
+  let json = JSON.number(.integer(42))
+  let value: Int = try json.get(Int.self)
+  #expect(value == 42)
+}
+
+@Test func getDouble() throws {
+  let json = JSON.number(.float(3.14))
+  let value: Double = try json.get(Double.self)
+  #expect(value == 3.14)
+}
+
+@Test func getDoubleFromInteger() throws {
+  let json = JSON.number(.integer(42))
+  let value: Double = try json.get(Double.self)
+  #expect(value == 42.0)
+}
+
+@Test func getFloat() throws {
+  let json = JSON.number(.integer(42))
+  let value: Float = try json.get(Float.self)
+  #expect(value == 42.0)
+}
+
+@Test func getUInt() throws {
+  let json = JSON.number(.integer(42))
+  let value: UInt = try json.get(UInt.self)
+  #expect(value == 42)
+}
+
+@Test func getUInt8() throws {
+  let json = JSON.number(.integer(42))
+  let value: UInt8 = try json.get(UInt8.self)
+  #expect(value == 42)
+}
+
+@Test func getUnsupportedTypeThrows() throws {
+  let json = JSON.string("hello")
+  #expect {
+    _ = try json.get(Int64.self)
+  } throws: { error in
+    guard let jsonError = error as? JSONError else { return false }
+    // requireInt64() reports expected "integer", not "Int64"
+    return jsonError == JSONError.typeError(expected: "integer", actual: "string")
+  }
+}
+
 @Test func requireInt64FromFloatThrows() throws {
   // Fractional float should throw
   let json = JSON.number(.float(3.14))
