@@ -224,13 +224,13 @@ extension JSON {
     if ctx.depth > ctx.options.maxDepth {
       throw error(at: ctx, kind: .depthExceeded)
     }
-    var object = OrderedDictionary<String, JSON>()
     skipWhitespace(&ctx)
     if ctx.pos < ctx.string.endIndex, ctx.string[ctx.pos] == "}" {
       ctx.depth -= 1
       ctx.advance()
-      return .object(object)
+      return .object(OrderedDictionary<String, JSON>())
     }
+    var object = OrderedDictionary<String, JSON>()
     repeat {
       skipWhitespace(&ctx)
       let key = try parseString(&ctx)
@@ -269,13 +269,13 @@ extension JSON {
     if ctx.depth > ctx.options.maxDepth {
       throw error(at: ctx, kind: .depthExceeded)
     }
-    var elements: [JSON] = []
     skipWhitespace(&ctx)
     if ctx.pos < ctx.string.endIndex, ctx.string[ctx.pos] == "]" {
       ctx.depth -= 1
       ctx.advance()
-      return .array(elements)
+      return .array([])
     }
+    var elements: [JSON] = []
     repeat {
       elements.append(try parseValue(&ctx))
       skipWhitespace(&ctx)
@@ -420,8 +420,20 @@ extension JSON {
   // MARK: - Boolean
 
   private static func parseBoolean(_ ctx: inout ParseContext) throws -> JSON {
+    let end = ctx.string.endIndex
     if ctx.string[ctx.pos] == "t" {
-      guard ctx.string[ctx.pos...].starts(with: "true") else {
+      // Manual lookahead for "true" — no Substring creation
+      var idx = ctx.pos
+      idx = ctx.string.index(after: idx)
+      guard idx < end && ctx.string[idx] == "r" else {
+        throw error(at: ctx, kind: .unexpectedToken)
+      }
+      idx = ctx.string.index(after: idx)
+      guard idx < end && ctx.string[idx] == "u" else {
+        throw error(at: ctx, kind: .unexpectedToken)
+      }
+      idx = ctx.string.index(after: idx)
+      guard idx < end && ctx.string[idx] == "e" else {
         throw error(at: ctx, kind: .unexpectedToken)
       }
       ctx.advance()
@@ -430,9 +442,16 @@ extension JSON {
       ctx.advance()
       return .boolean(true)
     }
-    guard ctx.string[ctx.pos...].starts(with: "false") else {
-      throw error(at: ctx, kind: .unexpectedToken)
-    }
+    // Manual lookahead for "false" — no Substring creation
+    var idx = ctx.pos
+    idx = ctx.string.index(after: idx)
+    guard idx < end && ctx.string[idx] == "a" else { throw error(at: ctx, kind: .unexpectedToken) }
+    idx = ctx.string.index(after: idx)
+    guard idx < end && ctx.string[idx] == "l" else { throw error(at: ctx, kind: .unexpectedToken) }
+    idx = ctx.string.index(after: idx)
+    guard idx < end && ctx.string[idx] == "s" else { throw error(at: ctx, kind: .unexpectedToken) }
+    idx = ctx.string.index(after: idx)
+    guard idx < end && ctx.string[idx] == "e" else { throw error(at: ctx, kind: .unexpectedToken) }
     ctx.advance()
     ctx.advance()
     ctx.advance()
@@ -444,9 +463,14 @@ extension JSON {
   // MARK: - Null
 
   private static func parseNull(_ ctx: inout ParseContext) throws -> JSON {
-    guard ctx.string[ctx.pos...].starts(with: "null") else {
-      throw error(at: ctx, kind: .unexpectedToken)
-    }
+    let end = ctx.string.endIndex
+    var idx = ctx.pos
+    idx = ctx.string.index(after: idx)
+    guard idx < end && ctx.string[idx] == "u" else { throw error(at: ctx, kind: .unexpectedToken) }
+    idx = ctx.string.index(after: idx)
+    guard idx < end && ctx.string[idx] == "l" else { throw error(at: ctx, kind: .unexpectedToken) }
+    idx = ctx.string.index(after: idx)
+    guard idx < end && ctx.string[idx] == "l" else { throw error(at: ctx, kind: .unexpectedToken) }
     ctx.advance()
     ctx.advance()
     ctx.advance()

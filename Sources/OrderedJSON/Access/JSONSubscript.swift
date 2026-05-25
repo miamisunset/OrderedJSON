@@ -109,4 +109,27 @@ extension JSON {
     guard case .object(let dict) = storage else { return defaultValue }
     return dict[key] ?? defaultValue
   }
+
+  // MARK: - Dynamic member lookup
+
+  /// Dynamic member lookup for dot-notation access to object keys.
+  ///
+  /// Enables `json.user.name` syntax instead of `json["user"]["name"]`.
+  /// Missing keys return `.null` (matching nlohmann/json's behavior where
+  /// accessing a non-existent key yields `null`). Setting a key only works
+  /// if the value is a JSON object.
+  ///
+  /// - Parameter member: The object key name.
+  /// - Returns: The value at `member`, or `.null` if missing or not an object.
+  public subscript(dynamicMember member: String) -> JSON {
+    get {
+      guard case .object(let dict) = storage else { return .null }
+      return dict[member] ?? .null
+    }
+    set {
+      guard case .object(var dict) = storage else { return }
+      dict[member] = newValue
+      storage = .object(dict)
+    }
+  }
 }
