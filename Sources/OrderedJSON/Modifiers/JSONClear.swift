@@ -106,14 +106,31 @@ extension JSON {
 
   /// Merges the key-value pairs from `other` into this JSON object.
   ///
-  /// Existing keys are overwritten; new keys are added.
+  /// When `mergeObjects` is `false` (default), existing keys are overwritten
+  /// and new keys are added. When `mergeObjects` is `true`, objects at the
+  /// same key are recursively merged instead of replaced — useful for merging
+  /// nested configuration trees.
+  ///
   /// If either value is not an object, this is a no-op.
-  /// - Parameter other: The object whose keys to merge in.
-  public mutating func update(with other: JSON) {
+  /// - Parameters:
+  ///   - other: The object whose keys to merge in.
+  ///   - mergeObjects: If `true`, recursively merge nested objects at the
+  ///     same key. Defaults to `false`.
+  public mutating func update(with other: JSON, mergeObjects: Bool = false) {
     guard case .object(var dict) = storage else { return }
     guard case .object(let otherDict) = other.storage else { return }
     for (key, value) in otherDict {
-      dict[key] = value
+      if mergeObjects,
+        let existing = dict[key],
+        existing.isObject,
+        value.isObject
+      {
+        var merged = existing
+        merged.update(with: value, mergeObjects: true)
+        dict[key] = merged
+      } else {
+        dict[key] = value
+      }
     }
     storage = .object(dict)
   }

@@ -169,6 +169,62 @@ import Testing
   #expect(obj.count == 1)
 }
 
+@Test func updateMergeObjectsSimple() throws {
+  var obj = JSON.object([
+    "a": JSON.object(["x": JSON.number(.integer(1))]),
+    "b": JSON.string("keep"),
+  ])
+  let other = JSON.object([
+    "a": JSON.object(["y": JSON.number(.integer(2))]),
+    "c": JSON.string("new"),
+  ])
+  obj.update(with: other, mergeObjects: true)
+  #expect(obj["a"]?.isObject == true)
+  #expect(obj["a"]?["x"] == JSON.number(.integer(1)))  // preserved
+  #expect(obj["a"]?["y"] == JSON.number(.integer(2)))  // added
+  #expect(obj["b"] == JSON.string("keep"))  // unchanged
+  #expect(obj["c"] == JSON.string("new"))  // added
+}
+
+@Test func updateMergeObjectsDeep() throws {
+  var obj = JSON.object([
+    "a": JSON.object([
+      "b": JSON.object(["c": JSON.number(.integer(1))])
+    ])
+  ])
+  let other = JSON.object([
+    "a": JSON.object([
+      "b": JSON.object(["d": JSON.number(.integer(2))])
+    ])
+  ])
+  obj.update(with: other, mergeObjects: true)
+  #expect(obj["a"]?["b"]?["c"] == JSON.number(.integer(1)))  // preserved
+  #expect(obj["a"]?["b"]?["d"] == JSON.number(.integer(2)))  // added
+}
+
+@Test func updateMergeObjectsNonObjectOverwrites() throws {
+  var obj = JSON.object([
+    "a": JSON.object(["x": JSON.number(.integer(1))])
+  ])
+  let other = JSON.object([
+    "a": JSON.string("replaced")  // not an object — overwrites entirely
+  ])
+  obj.update(with: other, mergeObjects: true)
+  #expect(obj["a"] == JSON.string("replaced"))
+}
+
+@Test func updateMergeObjectsDefaultIsFalse() throws {
+  var obj = JSON.object([
+    "a": JSON.object(["x": JSON.number(.integer(1))])
+  ])
+  let other = JSON.object([
+    "a": JSON.object(["y": JSON.number(.integer(2))])
+  ])
+  obj.update(with: other)  // default: mergeObjects=false
+  #expect(obj["a"]?["x"] == nil)  // overwritten, not merged
+  #expect(obj["a"]?["y"] == JSON.number(.integer(2)))
+}
+
 @Test func swapValues() throws {
   var a = JSON.string("hello")
   var b = JSON.number(.integer(42))

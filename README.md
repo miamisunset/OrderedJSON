@@ -553,6 +553,18 @@ obj.emplace(key: "y", default: JSON(2))   // adds if key absent
 obj.emplace(key: "x", default: JSON(99))  // no-op — key exists
 obj.update(with: JSON.object(["y": JSON(3), "z": JSON(4)]))  // merge keys
 
+// Recursive merge — nested objects are merged, not replaced
+var config = JSON.object([
+  "app": JSON.object(["theme": JSON.string("dark"), "lang": JSON.string("en")])
+])
+let patch = JSON.object([
+  "app": JSON.object(["lang": JSON.string("fr")])  // only override lang
+])
+config.update(with: patch, mergeObjects: true)
+// config["app"]["theme"] == "dark"  (preserved)
+// config["app"]["lang"] == "fr"    (updated)
+// Without mergeObjects: app would be replaced entirely, losing "theme"
+
 // Swap two values
 var a = JSON(1), b = JSON(2)
 a.swap(with: &b)  // a == 2, b == 1

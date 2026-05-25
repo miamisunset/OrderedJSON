@@ -288,7 +288,7 @@ All 403 tests pass. Build produces zero errors. CI pipeline passes (SwiftFormat 
 - 7 tests covering existing element, missing element, cross-type element, duplicates, non-array, empty array, nested array
 - All pass, lint clean
 
-## Phase 3 — Array value(_ index:default:) (PR #22, open)
+## Phase 3 — Array value(_ index:default:) (PR #22, merged)
 
 ### Changes
 - Added `func value(_ index: Int, default defaultValue: JSON) -> JSON` for array element access with a fallback
@@ -299,6 +299,17 @@ All 403 tests pass. Build produces zero errors. CI pipeline passes (SwiftFormat 
 
 ### Tests
 - 5 tests covering: valid index, out-of-bounds (positive + negative), non-array receiver, empty array, sentinel default verification
+- All pass, lint clean
+
+## Phase 4 — Recursive merge in update(with:mergeObjects:) (PR #23, open)
+
+### Changes
+- Added `mergeObjects: Bool = false` parameter to `update(with:)`
+- When `true`, objects at the same key are recursively merged instead of replaced
+- Default `false` preserves backward compatibility
+
+### Tests
+- 4 tests: simple recursive merge, deep nested merge, non-object overwrite, default-is-false
 - All pass, lint clean
 
 ## Release
