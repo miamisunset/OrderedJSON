@@ -157,7 +157,7 @@ private func decodeBSONArray(_ data: Data, _ pos: inout Int) throws -> JSON {
   guard docLen >= 5 else {
     throw JSONError.invalidBSON("Array length too small")
   }
-  let endPos = pos + docLen - 1
+  let endPos = pos + docLen - 5  // minus 4 length bytes and 1 null terminator
 
   var elements: [JSON] = []
   while pos < endPos {
@@ -175,13 +175,23 @@ private func decodeBSONArray(_ data: Data, _ pos: inout Int) throws -> JSON {
 
 private func decodeBSONCString(_ data: Data, _ pos: inout Int) throws -> String {
   var bytes: [UInt8] = []
+  var foundNull = false
   while pos < data.count {
     let ch = data[pos]
     pos += 1
-    if ch == 0 { break }
+    if ch == 0 {
+      foundNull = true
+      break
+    }
     bytes.append(ch)
   }
-  return String(bytes: bytes, encoding: .utf8) ?? ""
+  guard foundNull else {
+    throw JSONError.invalidBSON("Truncated BSON string — no null terminator")
+  }
+  guard let result = String(bytes: bytes, encoding: .utf8) else {
+    throw JSONError.invalidBSON("Invalid UTF-8 string in BSON")
+  }
+  return result
 }
 
 // MARK: - BSON encode

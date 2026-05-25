@@ -533,7 +533,7 @@ extension JSON {
     // Note: values near Int64.max (e.g., 9223372036854775808 = Int64.max + 1)
     // lose precision when stored as Double(9.22e18) — this is intentional
     // and documented. Binary format decoders follow the same policy.
-    guard let floatValue = Double(numString) else {
+    guard let floatValue = Double(numString), floatValue.isFinite else {
       throw error(at: ctx, kind: .invalidNumber)
     }
     return .number(.float(floatValue))

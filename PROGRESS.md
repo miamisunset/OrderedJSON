@@ -251,6 +251,30 @@ All 403 tests pass. Build produces zero errors. CI pipeline passes (SwiftFormat 
 - Tagged and released as **v2.1.0**
 - README updated with Codable documentation, performance section, throwing accessor table
 
+## Bug Hunt v3 — Bugs Fixed
+
+### 🔴 CRASH BUGS
+1. **BSON array endPos overflow** — `decodeBSONArray` used `pos + docLen - 1` instead of `pos + docLen - 5` for the end-of-elements marker. The formula was off by 4 bytes, causing the element loop to read past the null terminator into trailing garbage (potential out-of-bounds crash or incorrect decoding). Fixed to match the document decoder's correct formula.
+
+2. **CBOR half-precision denormalized wrong formula** — `halfToFloat` used `mant / 16384.0` instead of `mant / 16777216.0` for denormalized values. Off by a factor of 1024 (2^10), making denormalized values 1024× too large.
+
+3. **`encodeDecimal` Int64(Double.infinity) crash** — When `Decimal` with huge exponent (e.g., `1e400`) is encoded with `.asNumber` strategy, `Double(decimal.description)` returns `infinity`, then `Int64(infinity)` crashes. Added `isFinite` guard.
+
+### 🟡 DATA LOSS BUGS
+4. **Parser accepts overflow-to-infinity** — Non-float numbers that overflow Double range (e.g., `999999999999999999999999999999999999999`) were accepted and stored as `inf`, which serializes as `null`. Added `floatValue.isFinite` check in the Int64 overflow fallback path.
+
+### 🟠 DEFENSIVE HARDENING
+5. **BSON null-terminated string silently returns empty** — `decodeBSONCString` returned `""` on truncated data (no null terminator) or invalid UTF-8, instead of throwing. Now throws `invalidBSON` for both cases.
+
+### 📝 DOCUMENTATION
+6. **JSONWithExtras stale docs** — Documentation said `contains(_:)` does NOT mark keys as accessed, but PR #15 changed it to DO mark keys. Updated docs to reflect current behavior.
+
+### 🟢 STRATEGY PROPAGATION
+7. **JSONWithExtras missing strategy propagation** — `_TrackingDecoder` and `_TrackingKeyedDecodingContainer` created `_JSONDecodeImpl` instances with default date/data/decimal strategies, ignoring the outer decoder's configuration. Added strategy storage and propagation throughout the tracking decoder chain.
+
+### Tests
+- 9 new tests covering all fixed paths (half-float denormalized values, parser overflow-to-infinity, BSON array embedded round-trip, BSON truncated string, encodeDecimal non-crash, JSONWithExtras date strategy propagation)
+
 ## Review Fixes Applied (PR #8)
 
 ### Issues Addressed

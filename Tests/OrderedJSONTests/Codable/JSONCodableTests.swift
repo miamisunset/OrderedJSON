@@ -248,6 +248,57 @@ import Testing
   #expect(decoded.extras["z"] == .string("extra"))
 }
 
+@Test func jsonWithExtrasDateStrategyPropagated() throws {
+  // Regression: date/data/decimal strategies must propagate to the tracking decoder
+  struct Person: Decodable {
+    let name: String
+    let birth: Date
+  }
+  let json = JSON.object([
+    "name": .string("Alice"),
+    "birth": .number(.float(1234567890.0)),  // seconds since 1970
+    "extra": .string("extra_key"),
+  ])
+  var decoder = OrderedJSONDecoder()
+  decoder.dateDecodingStrategy = .secondsSince1970
+  let decoded = try decoder.decode(JSONWithExtras<Person>.self, from: json)
+  #expect(decoded.value.name == "Alice")
+  #expect(decoded.value.birth.timeIntervalSince1970 == 1234567890.0)
+  #expect(decoded.extras["extra"] == .string("extra_key"))
+}
+
+@Test func jsonWithExtrasDataStrategyPropagated() throws {
+  // Regression: data decoding strategy must propagate to the tracking decoder
+  struct Container: Decodable {
+    let data: Data
+  }
+  let json = JSON.object([
+    "data": .string("SGVsbG8="),  // base64-encoded "Hello"
+    "extra": .number(.integer(42)),
+  ])
+  var decoder = OrderedJSONDecoder()
+  decoder.dataDecodingStrategy = .base64
+  let decoded = try decoder.decode(JSONWithExtras<Container>.self, from: json)
+  #expect(decoded.value.data == Data([72, 101, 108, 108, 111]))  // "Hello" bytes
+  #expect(decoded.extras["extra"] == .number(.integer(42)))
+}
+
+@Test func jsonWithExtrasDecimalStrategyPropagated() throws {
+  // Regression: decimal decoding strategy must propagate to the tracking decoder
+  struct Container: Decodable {
+    let amount: Decimal
+  }
+  let json = JSON.object([
+    "amount": .number(.float(3.14)),
+    "extra": .string("extra_key"),
+  ])
+  var decoder = OrderedJSONDecoder()
+  decoder.decimalDecodingStrategy = .asNumber
+  let decoded = try decoder.decode(JSONWithExtras<Container>.self, from: json)
+  #expect(decoded.value.amount == Decimal(string: "3.14"))
+  #expect(decoded.extras["extra"] == .string("extra_key"))
+}
+
 // MARK: - Throwing accessors
 
 @Test func requireStringSuccess() throws {
@@ -1117,6 +1168,21 @@ extension JSON {
   decoder.decimalDecodingStrategy = .asNumber
   let back = try decoder.decode(Container.self, from: json)
   #expect(back.amount == decimal)
+}
+
+@Test func foundationDecimalAsNumberHugeThrows() throws {
+  // Regression test: Decimal with huge exponent must not cause Int64(Double.infinity) crash
+  struct Container: Codable {
+    let amount: Decimal
+  }
+  // A Decimal with exponent that overflows Double to infinity
+  let huge = Decimal(string: "1e400")!
+  var encoder = OrderedJSONEncoder()
+  encoder.decimalEncodingStrategy = .asNumber
+  // Should throw EncodingError, not crash
+  #expect(throws: EncodingError.self) {
+    try encoder.encode(Container(amount: huge))
+  }
 }
 
 @Test func foundationDateCustomStrategy() throws {
