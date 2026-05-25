@@ -300,3 +300,75 @@ import Testing
   #expect(JSON.null == JSON.null)
   #expect(JSON.string("a") != JSON.null)
 }
+
+// MARK: - Value Accessor Tests
+
+@Test func stringValueReturnsString() {
+  let json = JSON.string("hello")
+  #expect(json.stringValue == "hello")
+}
+
+@Test func stringValueOnNonStringReturnsNil() {
+  let json = JSON.number(.integer(42))
+  #expect(json.stringValue == nil)
+}
+
+@Test func intValueOnInteger() {
+  let json = JSON.number(.integer(42))
+  #expect(json.intValue == 42)
+}
+
+@Test func intValueOnCleanFloat() {
+  let json = JSON.number(.float(1.0))
+  #expect(json.intValue == 1)
+}
+
+@Test func intValueOnFloatWithFractionReturnsNil() {
+  let json = JSON.number(.float(1.5))
+  #expect(json.intValue == nil)
+}
+
+@Test func intValueOnNonNumberReturnsNil() {
+  let json = JSON.string("hello")
+  #expect(json.intValue == nil)
+}
+
+@Test func floatValueOnFloat() {
+  let json = JSON.number(.float(3.14))
+  #expect(json.floatValue == 3.14)
+}
+
+@Test func floatValueOnIntegerWidens() {
+  let json = JSON.number(.integer(42))
+  #expect(json.floatValue == 42.0)
+}
+
+@Test func floatValueOnNonNumberReturnsNil() {
+  let json = JSON.boolean(true)
+  #expect(json.floatValue == nil)
+}
+
+@Test func boolValueOnBoolean() {
+  let json = JSON.boolean(true)
+  #expect(json.boolValue == true)
+}
+
+@Test func boolValueOnNonBooleanReturnsNil() {
+  let json = JSON.number(.integer(1))
+  #expect(json.boolValue == nil)
+}
+
+@Test func numberValueOnInteger() {
+  let json = JSON.number(.integer(42))
+  #expect(json.numberValue == .integer(42))
+}
+
+@Test func numberValueOnFloat() {
+  let json = JSON.number(.float(1.5))
+  #expect(json.numberValue == .float(1.5))
+}
+
+@Test func numberValueOnNonNumberReturnsNil() {
+  let json = JSON.string("hello")
+  #expect(json.numberValue == nil)
+}

@@ -251,6 +251,44 @@ public struct JSON: Hashable, Sendable {
     guard case .string(let s) = storage else { return nil }
     return s
   }
+
+  /// Returns the integer value if this JSON value is an integer (or clean float),
+  /// otherwise nil.
+  ///
+  /// Accepts both `.integer` and `.float` where the float is a clean integer
+  /// (e.g., `1.0` → `1`). Rejects floats with fractional parts.
+  public var intValue: Int64? {
+    switch storage {
+    case .number(.integer(let i)): return i
+    case .number(.float(let d)):
+      guard let i = Int64(exactly: d) else { return nil }
+      return i
+    default: return nil
+    }
+  }
+
+  /// Returns the float value if this JSON value is a float (or integer widened
+  /// to Double), otherwise nil.
+  public var floatValue: Double? {
+    switch storage {
+    case .number(.float(let d)): return d
+    case .number(.integer(let i)): return Double(i)
+    default: return nil
+    }
+  }
+
+  /// Returns the boolean value if this JSON value is a boolean, otherwise nil.
+  public var boolValue: Bool? {
+    guard case .boolean(let b) = storage else { return nil }
+    return b
+  }
+
+  /// Returns the underlying `JSONNumber` enum if this value is a number,
+  /// otherwise nil.
+  public var numberValue: JSONNumber? {
+    guard case .number(let num) = storage else { return nil }
+    return num
+  }
 }
 
 // MARK: - Hashable conformance
