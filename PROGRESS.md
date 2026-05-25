@@ -301,7 +301,7 @@ All 403 tests pass. Build produces zero errors. CI pipeline passes (SwiftFormat 
 - 5 tests covering: valid index, out-of-bounds (positive + negative), non-array receiver, empty array, sentinel default verification
 - All pass, lint clean
 
-## Phase 4 — Recursive merge in update(with:mergeObjects:) (PR #23, open)
+## Phase 4 — Recursive merge in update(with:mergeObjects:) (PR #23, merged)
 
 ### Changes
 - Added `mergeObjects: Bool = false` parameter to `update(with:)`
@@ -309,7 +309,18 @@ All 403 tests pass. Build produces zero errors. CI pipeline passes (SwiftFormat 
 - Default `false` preserves backward compatibility
 
 ### Tests
-- 4 tests: simple recursive merge, deep nested merge, non-object overwrite, default-is-false
+- 10 tests covering simple merge, deep merge, array overwrite, null overwrite, self-merge, default-false regression
+- All pass, lint clean
+
+## Phase 5 — Generic get<T>() accessor (PR #24, open)
+
+### Changes
+- Added `func get<T>(_ type: T.Type) throws -> T` — dispatches to `require*()` based on T
+- Supports String, Bool, Int64, Int, Int8, Int16, Int32, UInt, UInt8, UInt16, UInt32, UInt64, Double, Float
+- Unsupported T throws `JSONError.typeError`
+
+### Tests
+- 12 tests covering all supported types plus unsupported type throws
 - All pass, lint clean
 
 ## Release

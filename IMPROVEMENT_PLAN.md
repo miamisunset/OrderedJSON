@@ -76,6 +76,7 @@ Below are the gaps I've identified, ranked by impact. Each gets its own phase.
 - `func get<T>(_: T.Type) throws -> T` where `T` is one of `String`, `Bool`, `Int64`, `Int`, `Double`, `Float`, `UInt`, `UInt8`, `UInt16`, `UInt32`, `UInt64`, `Int8`, `Int16`, `Int32`
 - Internally dispatches to existing `require*()` methods
 - Tests for each type, type mismatch throws
+- **Future**: `func get<T>(into: inout T) throws` (Swift-idiomatic `get_to()` equivalent)
 
 **Files**: `JSONAccessors.swift` (add method), `JSONAccessTests.swift` (add tests)
 
