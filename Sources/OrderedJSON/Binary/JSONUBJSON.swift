@@ -84,23 +84,23 @@ private func decodeUBJSON(_ data: Data, _ pos: inout Int) throws -> JSON {
     return JSON.number(.integer(value))
 
   case ubjsonMarkerInt16:
-    let value = Int64(Int16(bitPattern: readUBJSONUInt16(data, &pos)))
+    let value = Int64(Int16(bitPattern: try readUBJSONUInt16(data, &pos)))
     return JSON.number(.integer(value))
 
   case ubjsonMarkerInt32:
-    let value = Int64(Int32(bitPattern: readUBJSONUInt32(data, &pos)))
+    let value = Int64(Int32(bitPattern: try readUBJSONUInt32(data, &pos)))
     return JSON.number(.integer(value))
 
   case ubjsonMarkerInt64:
-    let value = Int64(bitPattern: readUBJSONUInt64(data, &pos))
+    let value = Int64(bitPattern: try readUBJSONUInt64(data, &pos))
     return JSON.number(.integer(value))
 
   case ubjsonMarkerFloat32:
-    let value = Double(Float(bitPattern: readUBJSONUInt32(data, &pos)))
+    let value = Double(Float(bitPattern: try readUBJSONUInt32(data, &pos)))
     return JSON.number(.float(value))
 
   case ubjsonMarkerFloat64:
-    let value = Double(bitPattern: readUBJSONUInt64(data, &pos))
+    let value = Double(bitPattern: try readUBJSONUInt64(data, &pos))
     return JSON.number(.float(value))
 
   case ubjsonMarkerChar:
@@ -156,11 +156,11 @@ private func decodeUBJSONStringLen(_ data: Data, _ pos: inout Int) throws -> Int
     guard len >= 0 else { throw JSONError.invalidUBJSON("Negative string length") }
     return len
   case ubjsonMarkerInt16:
-    let len = Int(Int16(bitPattern: readUBJSONUInt16(data, &pos)))
+    let len = Int(Int16(bitPattern: try readUBJSONUInt16(data, &pos)))
     guard len >= 0 else { throw JSONError.invalidUBJSON("Negative string length") }
     return len
   case ubjsonMarkerInt32:
-    let len = Int(Int32(bitPattern: readUBJSONUInt32(data, &pos)))
+    let len = Int(Int32(bitPattern: try readUBJSONUInt32(data, &pos)))
     guard len >= 0 else { throw JSONError.invalidUBJSON("Negative string length") }
     return len
   default:
@@ -181,11 +181,11 @@ private func decodeUBJSONCount(_ data: Data, _ pos: inout Int) throws -> Int {
     guard count >= 0 else { throw JSONError.invalidUBJSON("Negative container count") }
     return count
   case ubjsonMarkerInt16:
-    let count = Int(Int16(bitPattern: readUBJSONUInt16(data, &pos)))
+    let count = Int(Int16(bitPattern: try readUBJSONUInt16(data, &pos)))
     guard count >= 0 else { throw JSONError.invalidUBJSON("Negative container count") }
     return count
   case ubjsonMarkerInt32:
-    let count = Int(Int32(bitPattern: readUBJSONUInt32(data, &pos)))
+    let count = Int(Int32(bitPattern: try readUBJSONUInt32(data, &pos)))
     guard count >= 0 else { throw JSONError.invalidUBJSON("Negative container count") }
     return count
   default:
@@ -318,14 +318,20 @@ private func encodeUBJSONString(_ str: String, _ bytes: inout [UInt8]) {
 
 // MARK: - UBJSON helpers (little-endian)
 
-private func readUBJSONUInt16(_ data: Data, _ pos: inout Int) -> UInt16 {
+private func readUBJSONUInt16(_ data: Data, _ pos: inout Int) throws -> UInt16 {
+  guard pos + 2 <= data.count else {
+    throw JSONError.invalidUBJSON("Unexpected end of UBJSON data")
+  }
   // UBJSON uses little-endian for multi-byte integers
   let value = UInt16(data[pos]) | UInt16(data[pos + 1]) << 8
   pos += 2
   return value
 }
 
-private func readUBJSONUInt32(_ data: Data, _ pos: inout Int) -> UInt32 {
+private func readUBJSONUInt32(_ data: Data, _ pos: inout Int) throws -> UInt32 {
+  guard pos + 4 <= data.count else {
+    throw JSONError.invalidUBJSON("Unexpected end of UBJSON data")
+  }
   let value =
     UInt32(data[pos]) | UInt32(data[pos + 1]) << 8 | UInt32(data[pos + 2]) << 16 | UInt32(
       data[pos + 3]) << 24
@@ -333,7 +339,10 @@ private func readUBJSONUInt32(_ data: Data, _ pos: inout Int) -> UInt32 {
   return value
 }
 
-private func readUBJSONUInt64(_ data: Data, _ pos: inout Int) -> UInt64 {
+private func readUBJSONUInt64(_ data: Data, _ pos: inout Int) throws -> UInt64 {
+  guard pos + 8 <= data.count else {
+    throw JSONError.invalidUBJSON("Unexpected end of UBJSON data")
+  }
   let value =
     UInt64(data[pos]) | UInt64(data[pos + 1]) << 8 | UInt64(data[pos + 2]) << 16 | UInt64(
       data[pos + 3]) << 24 | UInt64(data[pos + 4]) << 32 | UInt64(data[pos + 5]) << 40 | UInt64(
