@@ -724,4 +724,84 @@ struct CompiledSchemaNestedAnnotationTests {
     #expect(compiled.resources["/child"]?.defs["A"] == nil)
   }
 
+  // MARK: - $id scoping validation tests
+
+  @Test("$ref from inside embedded $id resource resolves to that resource's $defs")
+  func refFromEmbeddedResource() throws {
+    // $ref: "#/$defs/A" inside a resource with $id: "/child"
+    // should resolve to /child's $defs/A, not /root's $defs/A.
+    let schema = try JSONSchema(
+      schema: .object([
+        "$id": .string("/root"),
+        "$defs": .object([
+          "A": .object(["type": .string("string")])
+        ]),
+        "properties": .object([
+          "child": .object([
+            "$id": .string("/child"),
+            "$defs": .object([
+              "A": .object(["type": .string("number")])
+            ]),
+            "properties": .object([
+              "x": .object(["$ref": .string("#/$defs/A")])
+            ]),
+          ])
+        ]),
+      ]))
+    #expect(schema.validation(of: .object(["child": .object(["x": .number(.integer(42))])])).valid)
+    // The root resource has $defs/A as string type, but the child resource
+    // has $defs/A as number type. The $ref from inside child should use
+    // the child's $defs/A, so number(42) should pass.
+  }
+
+  @Test("$ref from root still resolves to root's $defs")
+  func refFromRootResource() throws {
+    // $ref at root level should still use root's $defs
+    let schema = try JSONSchema(
+      schema: .object([
+        "$id": .string("/root"),
+        "$defs": .object([
+          "A": .object(["type": .string("string")])
+        ]),
+        "$ref": .string("#/$defs/A"),
+      ]))
+    #expect(schema.validation(of: .string("hello")).valid)
+    #expect(!schema.validation(of: .number(.integer(42))).valid)
+  }
+
+  @Test("duplicate $id throws at init")
+  func duplicateIdThrows() throws {
+    do {
+      let _ = try JSONSchema(
+        schema: .object([
+          "$id": .string("/dup"),
+          "properties": .object([
+            "child": .object(["$id": .string("/dup")])
+          ]),
+        ]))
+      #expect(false, "Expected throw but succeeded")
+    } catch {
+      #expect(true)
+    }
+  }
+
+  @Test("anchor from root not reachable via #anchor from inside child resource")
+  func anchorNotReachableFromChild() throws {
+    // Root has $anchor: "rootAnchor". A child resource with $id should
+    // not find it via bare #anchor from inside the child.
+    let schema = try JSONSchema(
+      schema: .object([
+        "$anchor": .string("rootAnchor"),
+        "properties": .object([
+          "child": .object([
+            "$id": .string("/child"),
+            "$ref": .string("#rootAnchor"),
+          ])
+        ]),
+      ]))
+    // #rootAnchor from inside /child should NOT resolve to root's anchor
+    // because the current resource URI is "/child", and /child has no
+    // anchor named "rootAnchor". The $ref should fail.
+    #expect(!schema.validation(of: .object(["child": .object([:])])).valid)
+  }
 }

@@ -7,6 +7,9 @@ import OrderedCollections
 internal struct ResourceScope: Hashable, Sendable {
   /// The base URI for this resource (the `$id` value, or empty for root).
   var baseURI: String
+  /// The schema JSON node where this resource was declared.
+  /// Used as the root for JSON Pointer fallback in `resolveRef`.
+  var scopeSchema: JSON
   /// Local anchors from `$anchor` keywords: anchor name → schema JSON.
   var anchors: OrderedDictionary<String, JSON>
   /// Dynamic anchors from `$dynamicAnchor` keywords: anchor name → schema JSON.
@@ -37,6 +40,15 @@ internal struct CompiledSchema: Hashable, Sendable {
     self.resources = try CompiledSchema.collectResources(from: schema)
   }
 
+  /// Returns the root resource scope (empty-string key).
+  /// - Parameter resources: The resources dictionary.
+  /// - Returns: The root `ResourceScope`.
+  internal static func rootResource(_ resources: OrderedDictionary<String, ResourceScope>)
+    -> ResourceScope?
+  {
+    return resources[""]
+  }
+
   /// Collects per-resource annotations by walking the schema tree.
   private static func collectResources(from schema: JSON) throws -> OrderedDictionary<
     String, ResourceScope
@@ -62,13 +74,22 @@ internal struct CompiledSchema: Hashable, Sendable {
       baseURI = currentBaseURI
     }
 
-    // Ensure a resource scope exists for this base URI
+    // Ensure a resource scope exists for this base URI.
+    // Duplicate $id is an authoring error per spec.
     if resources[baseURI] == nil {
       resources[baseURI] = ResourceScope(
         baseURI: baseURI,
+        scopeSchema: schema,
         anchors: [:],
         dynamicAnchors: [:],
         defs: [:]
+      )
+    } else if schema["$id"]?.stringValue != nil {
+      throw JSONSchemaError(
+        instancePath: "",
+        schemaPath: "/$id",
+        keyword: "$id",
+        message: "duplicate $id '\(baseURI)'"
       )
     }
 
@@ -223,18 +244,24 @@ internal struct CompiledSchema: Hashable, Sendable {
   ///
   /// Supports:
   /// - `#` → root schema
-  /// - `#anchorName` → anchor in the root resource
-  /// - `#/$defs/key` → `$defs` entry in the root resource
+  /// - `#anchorName` → anchor in the current resource
+  /// - `#/$defs/key` → `$defs` entry in the current resource
   /// - `#/$defs/key/tail` → deep pointer into a `$defs` entry
-  /// - `#/foo/bar` → JSON Pointer into root schema
+  /// - `#/foo/bar` → JSON Pointer into the current resource's schema
   /// - `resourceURI#` or `resourceURI#/path` → external resource
   ///
   /// External references without a `#` fragment currently return `nil`.
   ///
-  /// - Parameter pointer: A `$ref` pointer string (may include URI).
+  /// - Parameters:
+  ///   - pointer: A `$ref` pointer string (may include URI).
+  ///   - currentResourceURI: The base URI of the resource from which this
+  ///     `$ref` is being resolved. Local `#…` refs resolve against this
+  ///     resource's annotation tables, not the root.
   /// - Returns: The resolved schema JSON, or `nil` if unresolvable.
-  func resolveRef(_ pointer: String) -> JSON? {
-    // Split on '#' to separate URI from fragment
+  func resolveRef(_ pointer: String, currentResourceURI: String = "") -> JSON? {
+    // Split on '#' to separate URI from fragment.
+    // TODO: bare URIs without # (e.g., "foo.json") are external-resource refs
+    // that should resolve to the resource root. Currently returns nil.
     let parts = pointer.split(separator: "#", maxSplits: 1, omittingEmptySubsequences: false)
     guard parts.count == 2 else { return nil }
 
@@ -244,11 +271,10 @@ internal struct CompiledSchema: Hashable, Sendable {
     // Determine which resource scope to use
     let resourceBaseURI: String
     if uriPart.isEmpty {
-      // Local reference — use root resource
-      resourceBaseURI = ""
+      // Local reference — use the current resource scope
+      resourceBaseURI = currentResourceURI
     } else {
       // External reference — try to find matching resource
-      // For now, only supports resources that match the URI exactly
       guard resources[uriPart] != nil else { return nil }
       resourceBaseURI = uriPart
     }
@@ -257,11 +283,7 @@ internal struct CompiledSchema: Hashable, Sendable {
 
     // Root reference # with no fragment — root of the resource
     if fragmentPart.isEmpty {
-      if resourceBaseURI.isEmpty {
-        return schemaJSON
-      }
-      // External resource with bare # — not yet supported
-      return nil
+      return resource.scopeSchema
     }
 
     // Check for $anchor references: #anchorName (no slash after #)
@@ -290,11 +312,11 @@ internal struct CompiledSchema: Hashable, Sendable {
     }
 
     // Build a JSON Pointer from the fragment (e.g., #/foo/bar → /foo/bar).
-    // For external resources, resolve against the resource's schema JSON.
-    // For the root resource, resolve against schemaJSON.
-    let fragment = fragmentPart.hasPrefix("/") ? fragmentPart : "/" + fragmentPart
-    guard let ptr = try? JSONPointer(fragment: "#" + fragment) else { return nil }
-    return ptr.resolve(schemaJSON)
+    // The fragment always has a leading / at this point (anchor-name case
+    // returned above), so we prepend # to form a fragment identifier.
+    // Resolve against the resource's scope schema, not the root schemaJSON.
+    guard let ptr = try? JSONPointer(fragment: "#" + fragmentPart) else { return nil }
+    return ptr.resolve(resource.scopeSchema)
   }
 
   /// Resolves a `$dynamicRef` pointer against the dynamic scope.
@@ -302,16 +324,19 @@ internal struct CompiledSchema: Hashable, Sendable {
   /// Per Draft 2020-12, `$dynamicRef` with a fragment like `#myAnchor`
   /// resolves against the nearest `$dynamicAnchor` with that name in the
   /// validation chain. If no dynamic anchor is found, falls back to normal
-  /// `$ref` resolution against the schema's own anchors.
+  /// `$ref` resolution against the current resource's anchors.
   ///
   /// - Parameters:
   ///   - pointer: The `$dynamicRef` pointer string.
   ///   - dynamicScope: The current stack of dynamic anchor tuples (name, schema),
   ///     innermost first.
+  ///   - currentResourceURI: The base URI of the resource from which this
+  ///     `$dynamicRef` is being resolved.
   /// - Returns: The resolved schema JSON, or `nil` if unresolvable.
   func resolveDynamicRef(
     _ pointer: String,
-    dynamicScope: [(String, JSON)]
+    dynamicScope: [(String, JSON)],
+    currentResourceURI: String = ""
   ) -> JSON? {
     guard pointer.hasPrefix("#") else { return nil }
 
@@ -330,13 +355,17 @@ internal struct CompiledSchema: Hashable, Sendable {
       }
     }
 
-    // Fall back to the root resource's dynamic anchors
-    if let resource = resources[""], let target = resource.dynamicAnchors[anchorName] {
+    // Fall back to the current resource's dynamic anchors
+    if let resource = resources[currentResourceURI],
+      let target = resource.dynamicAnchors[anchorName]
+    {
       return target
     }
 
-    // Final fallback: treat as normal $ref (static anchor from root resource)
-    if let resource = resources[""], let target = resource.anchors[anchorName] {
+    // Final fallback: treat as normal $ref (static anchor from current resource)
+    if let resource = resources[currentResourceURI],
+      let target = resource.anchors[anchorName]
+    {
       return target
     }
 
