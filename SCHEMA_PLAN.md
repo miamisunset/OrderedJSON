@@ -214,7 +214,23 @@ The `recursionDepth` parameter had a default of `0`, so every validator call tha
 
 ---
 
-## Phase 4d — External `$ref`, `$id` Scoping, Schema Compilation Keyword Tree
+## Phase 4d — `$id` Scoping (✅ PR #36)
+
+### What shipped
+- `ResourceScope` struct with per-`$id` annotation tables
+- `collectResourcesRecursive` groups annotations by base URI
+- `resolveRef` splits on `#`, resolves against appropriate resource scope
+- `CompiledSchema.resources["baseURI"]` replaces flat dicts
+- 214 schema tests — all passing, lint clean
+
+### Remaining (deferred to Phase 4e)
+- External `$ref` (URIs without local resource match)
+- Schema compilation keyword tree
+- `$dynamicRef` resource-scope awareness
+
+---
+
+## Phase 4e — External `$ref`, Keyword Tree Compilation, `$dynamicRef` Resource Scoping
 
 ## Phase 5 — Format Validation
 

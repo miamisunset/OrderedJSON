@@ -9,7 +9,8 @@ extension JSONSchema {
   /// of the allowed types. Integers are allowed for `number` type.
   internal func validateType(
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
-    errors: inout [JSONSchemaError], recursionDepth: Int, dynamicScope: [(String, JSON)] = []
+    errors: inout [JSONSchemaError], recursionDepth: Int, currentResourceURI: String = "",
+    dynamicScope: [(String, JSON)] = []
   ) {
     guard let typeSpec = subschema["type"] else { return }
 
@@ -57,7 +58,8 @@ extension JSONSchema {
   /// against its corresponding subschema. Non-object values are skipped.
   internal func validateProperties(
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
-    errors: inout [JSONSchemaError], recursionDepth: Int, dynamicScope: [(String, JSON)] = []
+    errors: inout [JSONSchemaError], recursionDepth: Int, currentResourceURI: String = "",
+    dynamicScope: [(String, JSON)] = []
   ) {
     guard let properties = subschema["properties"], properties.isObject, value.isObject else {
       return
@@ -71,7 +73,7 @@ extension JSONSchema {
         validateValue(
           childValue, against: propSchema, instancePath: childInstancePath,
           schemaPath: childSchemaPath, errors: &errors, recursionDepth: recursionDepth,
-          dynamicScope: dynamicScope)
+          currentResourceURI: currentResourceURI, dynamicScope: dynamicScope)
       }
     }
   }
@@ -82,7 +84,8 @@ extension JSONSchema {
   /// keys are present (presence only, not null-rejecting).
   internal func validateRequired(
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
-    errors: inout [JSONSchemaError], recursionDepth: Int, dynamicScope: [(String, JSON)] = []
+    errors: inout [JSONSchemaError], recursionDepth: Int, currentResourceURI: String = "",
+    dynamicScope: [(String, JSON)] = []
   ) {
     guard let required = subschema["required"], required.isArray, value.isObject else { return }
 
@@ -108,7 +111,8 @@ extension JSONSchema {
   /// Validates the `minimum` keyword — checks that the numeric value is >= minimum.
   internal func validateMinimum(
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
-    errors: inout [JSONSchemaError], recursionDepth: Int, dynamicScope: [(String, JSON)] = []
+    errors: inout [JSONSchemaError], recursionDepth: Int, currentResourceURI: String = "",
+    dynamicScope: [(String, JSON)] = []
   ) {
     guard let minVal = subschema["minimum"] else { return }
 
@@ -136,7 +140,8 @@ extension JSONSchema {
   /// Validates the `maximum` keyword — checks that the numeric value is <= maximum.
   internal func validateMaximum(
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
-    errors: inout [JSONSchemaError], recursionDepth: Int, dynamicScope: [(String, JSON)] = []
+    errors: inout [JSONSchemaError], recursionDepth: Int, currentResourceURI: String = "",
+    dynamicScope: [(String, JSON)] = []
   ) {
     guard let maxVal = subschema["maximum"] else { return }
 
@@ -165,7 +170,8 @@ extension JSONSchema {
   /// (strictly greater than), Draft 7 uses a boolean modifier on `minimum`.
   internal func validateExclusiveMinimum(
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
-    errors: inout [JSONSchemaError], recursionDepth: Int, dynamicScope: [(String, JSON)] = []
+    errors: inout [JSONSchemaError], recursionDepth: Int, currentResourceURI: String = "",
+    dynamicScope: [(String, JSON)] = []
   ) {
     guard let exclMin = subschema["exclusiveMinimum"] else { return }
 
@@ -221,7 +227,8 @@ extension JSONSchema {
   /// (strictly less than), Draft 7 uses a boolean modifier on `maximum`.
   internal func validateExclusiveMaximum(
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
-    errors: inout [JSONSchemaError], recursionDepth: Int, dynamicScope: [(String, JSON)] = []
+    errors: inout [JSONSchemaError], recursionDepth: Int, currentResourceURI: String = "",
+    dynamicScope: [(String, JSON)] = []
   ) {
     guard let exclMax = subschema["exclusiveMaximum"] else { return }
 
@@ -278,7 +285,8 @@ extension JSONSchema {
   /// ignored per spec.
   internal func validateMultipleOf(
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
-    errors: inout [JSONSchemaError], recursionDepth: Int, dynamicScope: [(String, JSON)] = []
+    errors: inout [JSONSchemaError], recursionDepth: Int, currentResourceURI: String = "",
+    dynamicScope: [(String, JSON)] = []
   ) {
     guard let mVal = subschema["multipleOf"] else { return }
 
@@ -313,7 +321,8 @@ extension JSONSchema {
   /// the given regex. Non-string values are skipped.
   internal func validatePattern(
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
-    errors: inout [JSONSchemaError], recursionDepth: Int, dynamicScope: [(String, JSON)] = []
+    errors: inout [JSONSchemaError], recursionDepth: Int, currentResourceURI: String = "",
+    dynamicScope: [(String, JSON)] = []
   ) {
     guard let patternStr = subschema["pattern"]?.stringValue, let strVal = value.stringValue else {
       return
@@ -335,7 +344,8 @@ extension JSONSchema {
   /// one of the allowed values using schema-aware equality.
   internal func validateEnum(
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
-    errors: inout [JSONSchemaError], recursionDepth: Int, dynamicScope: [(String, JSON)] = []
+    errors: inout [JSONSchemaError], recursionDepth: Int, currentResourceURI: String = "",
+    dynamicScope: [(String, JSON)] = []
   ) {
     guard let enumValues = subschema["enum"], enumValues.isArray else { return }
 
@@ -360,7 +370,8 @@ extension JSONSchema {
   /// to the const value using schema-aware equality.
   internal func validateConst(
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
-    errors: inout [JSONSchemaError], recursionDepth: Int, dynamicScope: [(String, JSON)] = []
+    errors: inout [JSONSchemaError], recursionDepth: Int, currentResourceURI: String = "",
+    dynamicScope: [(String, JSON)] = []
   ) {
     guard let constVal = subschema["const"] else { return }
     if !JSONSchema.schemaEqual(value, constVal) {
@@ -378,7 +389,8 @@ extension JSONSchema {
   /// is measured in code points, not grapheme clusters.
   internal func validateMinLength(
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
-    errors: inout [JSONSchemaError], recursionDepth: Int, dynamicScope: [(String, JSON)] = []
+    errors: inout [JSONSchemaError], recursionDepth: Int, currentResourceURI: String = "",
+    dynamicScope: [(String, JSON)] = []
   ) {
     guard let minLen = subschema["minLength"], let minLenVal = minLen.intValue,
       let strVal = value.stringValue
@@ -398,7 +410,8 @@ extension JSONSchema {
   /// count (`unicodeScalars.count`) does not exceed the maximum.
   internal func validateMaxLength(
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
-    errors: inout [JSONSchemaError], recursionDepth: Int, dynamicScope: [(String, JSON)] = []
+    errors: inout [JSONSchemaError], recursionDepth: Int, currentResourceURI: String = "",
+    dynamicScope: [(String, JSON)] = []
   ) {
     guard let maxLen = subschema["maxLength"], let maxLenVal = maxLen.intValue,
       let strVal = value.stringValue
@@ -419,7 +432,8 @@ extension JSONSchema {
   /// subschemas. Errors from each failing subschema are collected.
   internal func validateAllOf(
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
-    errors: inout [JSONSchemaError], recursionDepth: Int, dynamicScope: [(String, JSON)] = []
+    errors: inout [JSONSchemaError], recursionDepth: Int, currentResourceURI: String = "",
+    dynamicScope: [(String, JSON)] = []
   ) {
     guard let allOf = subschema["allOf"], allOf.isArray else { return }
 
@@ -428,7 +442,8 @@ extension JSONSchema {
       var subErrors: [JSONSchemaError] = []
       validateValue(
         value, against: sub, instancePath: instancePath, schemaPath: subSchemaPath,
-        errors: &subErrors, recursionDepth: recursionDepth, dynamicScope: dynamicScope)
+        errors: &subErrors, recursionDepth: recursionDepth, currentResourceURI: currentResourceURI,
+        dynamicScope: dynamicScope)
       if let firstError = subErrors.first {
         errors.append(
           JSONSchemaError(
@@ -445,7 +460,8 @@ extension JSONSchema {
   /// one subschema. Empty arrays always fail.
   internal func validateAnyOf(
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
-    errors: inout [JSONSchemaError], recursionDepth: Int, dynamicScope: [(String, JSON)] = []
+    errors: inout [JSONSchemaError], recursionDepth: Int, currentResourceURI: String = "",
+    dynamicScope: [(String, JSON)] = []
   ) {
     guard let anyOf = subschema["anyOf"], anyOf.isArray else { return }
 
@@ -454,7 +470,8 @@ extension JSONSchema {
       var subErrors: [JSONSchemaError] = []
       validateValue(
         value, against: sub, instancePath: instancePath, schemaPath: schemaPath, errors: &subErrors,
-        recursionDepth: recursionDepth, dynamicScope: dynamicScope)
+        recursionDepth: recursionDepth, currentResourceURI: currentResourceURI,
+        dynamicScope: dynamicScope)
       if subErrors.isEmpty {
         matched = true
         break
@@ -475,7 +492,8 @@ extension JSONSchema {
   /// one subschema. Early exits on the second match.
   internal func validateOneOf(
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
-    errors: inout [JSONSchemaError], recursionDepth: Int, dynamicScope: [(String, JSON)] = []
+    errors: inout [JSONSchemaError], recursionDepth: Int, currentResourceURI: String = "",
+    dynamicScope: [(String, JSON)] = []
   ) {
     guard let oneOf = subschema["oneOf"], oneOf.isArray else { return }
 
@@ -484,7 +502,8 @@ extension JSONSchema {
       var subErrors: [JSONSchemaError] = []
       validateValue(
         value, against: sub, instancePath: instancePath, schemaPath: schemaPath, errors: &subErrors,
-        recursionDepth: recursionDepth, dynamicScope: dynamicScope)
+        recursionDepth: recursionDepth, currentResourceURI: currentResourceURI,
+        dynamicScope: dynamicScope)
       if subErrors.isEmpty { matchCount += 1 }
       if matchCount > 1 { break }
     }
@@ -503,7 +522,8 @@ extension JSONSchema {
   /// the subschema. Boolean subschemas are supported.
   internal func validateNot(
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
-    errors: inout [JSONSchemaError], recursionDepth: Int, dynamicScope: [(String, JSON)] = []
+    errors: inout [JSONSchemaError], recursionDepth: Int, currentResourceURI: String = "",
+    dynamicScope: [(String, JSON)] = []
   ) {
     guard subschema["not"] != nil else { return }
     let notSchema = subschema["not"]!
@@ -511,7 +531,8 @@ extension JSONSchema {
     var subErrors: [JSONSchemaError] = []
     validateValue(
       value, against: notSchema, instancePath: instancePath, schemaPath: schemaPath + "/not",
-      errors: &subErrors, recursionDepth: recursionDepth, dynamicScope: dynamicScope)
+      errors: &subErrors, recursionDepth: recursionDepth, currentResourceURI: currentResourceURI,
+      dynamicScope: dynamicScope)
 
     if subErrors.isEmpty {
       errors.append(
@@ -528,14 +549,16 @@ extension JSONSchema {
   /// Missing `then`/`else` are skipped per spec.
   internal func validateIfThenElse(
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
-    errors: inout [JSONSchemaError], recursionDepth: Int, dynamicScope: [(String, JSON)] = []
+    errors: inout [JSONSchemaError], recursionDepth: Int, currentResourceURI: String = "",
+    dynamicScope: [(String, JSON)] = []
   ) {
     guard let ifSchema = subschema["if"] else { return }
 
     var ifErrors: [JSONSchemaError] = []
     validateValue(
       value, against: ifSchema, instancePath: instancePath, schemaPath: schemaPath + "/if",
-      errors: &ifErrors, recursionDepth: recursionDepth, dynamicScope: dynamicScope)
+      errors: &ifErrors, recursionDepth: recursionDepth, currentResourceURI: currentResourceURI,
+      dynamicScope: dynamicScope)
 
     let ifValid = ifErrors.isEmpty
 
@@ -544,7 +567,8 @@ extension JSONSchema {
         var thenErrors: [JSONSchemaError] = []
         validateValue(
           value, against: thenSchema, instancePath: instancePath, schemaPath: schemaPath + "/then",
-          errors: &thenErrors, recursionDepth: recursionDepth, dynamicScope: dynamicScope)
+          errors: &thenErrors, recursionDepth: recursionDepth,
+          currentResourceURI: currentResourceURI, dynamicScope: dynamicScope)
         if let firstError = thenErrors.first {
           errors.append(
             JSONSchemaError(
@@ -557,7 +581,8 @@ extension JSONSchema {
         var elseErrors: [JSONSchemaError] = []
         validateValue(
           value, against: elseSchema, instancePath: instancePath, schemaPath: schemaPath + "/else",
-          errors: &elseErrors, recursionDepth: recursionDepth, dynamicScope: dynamicScope)
+          errors: &elseErrors, recursionDepth: recursionDepth,
+          currentResourceURI: currentResourceURI, dynamicScope: dynamicScope)
         if let firstError = elseErrors.first {
           errors.append(
             JSONSchemaError(
@@ -574,7 +599,8 @@ extension JSONSchema {
   /// present, the entire object must validate against the dependent schema.
   internal func validateDependentSchemas(
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
-    errors: inout [JSONSchemaError], recursionDepth: Int, dynamicScope: [(String, JSON)] = []
+    errors: inout [JSONSchemaError], recursionDepth: Int, currentResourceURI: String = "",
+    dynamicScope: [(String, JSON)] = []
   ) {
     guard let depSchemas = subschema["dependentSchemas"], depSchemas.isObject, value.isObject else {
       return
@@ -587,7 +613,8 @@ extension JSONSchema {
         validateValue(
           value, against: depSchema, instancePath: instancePath,
           schemaPath: schemaPath + "/dependentSchemas/" + key, errors: &subErrors,
-          recursionDepth: recursionDepth, dynamicScope: dynamicScope)
+          recursionDepth: recursionDepth, currentResourceURI: currentResourceURI,
+          dynamicScope: dynamicScope)
         if let firstError = subErrors.first {
           errors.append(
             JSONSchemaError(
@@ -605,7 +632,8 @@ extension JSONSchema {
   /// present, other specified property keys must also be present.
   internal func validateDependentRequired(
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
-    errors: inout [JSONSchemaError], recursionDepth: Int, dynamicScope: [(String, JSON)] = []
+    errors: inout [JSONSchemaError], recursionDepth: Int, currentResourceURI: String = "",
+    dynamicScope: [(String, JSON)] = []
   ) {
     guard let depRequired = subschema["dependentRequired"], depRequired.isObject, value.isObject
     else { return }
@@ -635,7 +663,8 @@ extension JSONSchema {
   ///   `prefixItems` does not exist in Draft 7, so `items` always applies to all items.
   internal func validateItems(
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
-    errors: inout [JSONSchemaError], recursionDepth: Int, dynamicScope: [(String, JSON)] = []
+    errors: inout [JSONSchemaError], recursionDepth: Int, currentResourceURI: String = "",
+    dynamicScope: [(String, JSON)] = []
   ) {
     guard let items = subschema["items"], let arr = value.arrayValue else { return }
 
@@ -649,7 +678,7 @@ extension JSONSchema {
         validateValue(
           item, against: tupleSchemas[index], instancePath: childInstancePath,
           schemaPath: childSchemaPath, errors: &errors, recursionDepth: recursionDepth,
-          dynamicScope: dynamicScope)
+          currentResourceURI: currentResourceURI, dynamicScope: dynamicScope)
       }
     } else {
       // Schema mode: apply to all items (Draft 2020-12) or remaining items (Draft 7)
@@ -660,7 +689,7 @@ extension JSONSchema {
         validateValue(
           item, against: items, instancePath: childInstancePath,
           schemaPath: childSchemaPath, errors: &errors, recursionDepth: recursionDepth,
-          dynamicScope: dynamicScope)
+          currentResourceURI: currentResourceURI, dynamicScope: dynamicScope)
       }
     }
   }
@@ -671,7 +700,8 @@ extension JSONSchema {
   /// first N items. Each schema validates the corresponding item index.
   internal func validatePrefixItems(
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
-    errors: inout [JSONSchemaError], recursionDepth: Int, dynamicScope: [(String, JSON)] = []
+    errors: inout [JSONSchemaError], recursionDepth: Int, currentResourceURI: String = "",
+    dynamicScope: [(String, JSON)] = []
   ) {
     guard let prefixItems = subschema["prefixItems"], prefixItems.isArray,
       let arr = value.arrayValue
@@ -685,7 +715,7 @@ extension JSONSchema {
       validateValue(
         item, against: schemas[index], instancePath: childInstancePath,
         schemaPath: childSchemaPath, errors: &errors, recursionDepth: recursionDepth,
-        dynamicScope: dynamicScope)
+        currentResourceURI: currentResourceURI, dynamicScope: dynamicScope)
     }
   }
 
@@ -695,7 +725,8 @@ extension JSONSchema {
   /// the tuple length defined by `items` (when items is an array).
   internal func validateAdditionalItems(
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
-    errors: inout [JSONSchemaError], recursionDepth: Int, dynamicScope: [(String, JSON)] = []
+    errors: inout [JSONSchemaError], recursionDepth: Int, currentResourceURI: String = "",
+    dynamicScope: [(String, JSON)] = []
   ) {
     guard let additionalItems = subschema["additionalItems"], let arr = value.arrayValue
     else { return }
@@ -715,7 +746,7 @@ extension JSONSchema {
       validateValue(
         item, against: additionalItems, instancePath: childInstancePath,
         schemaPath: childSchemaPath, errors: &errors, recursionDepth: recursionDepth,
-        dynamicScope: dynamicScope)
+        currentResourceURI: currentResourceURI, dynamicScope: dynamicScope)
     }
   }
 
@@ -725,7 +756,8 @@ extension JSONSchema {
   /// specified number of items.
   internal func validateMinItems(
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
-    errors: inout [JSONSchemaError], recursionDepth: Int, dynamicScope: [(String, JSON)] = []
+    errors: inout [JSONSchemaError], recursionDepth: Int, currentResourceURI: String = "",
+    dynamicScope: [(String, JSON)] = []
   ) {
     guard let minVal = subschema["minItems"]?.intValue, let arr = value.arrayValue
     else { return }
@@ -741,7 +773,8 @@ extension JSONSchema {
   /// specified number of items.
   internal func validateMaxItems(
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
-    errors: inout [JSONSchemaError], recursionDepth: Int, dynamicScope: [(String, JSON)] = []
+    errors: inout [JSONSchemaError], recursionDepth: Int, currentResourceURI: String = "",
+    dynamicScope: [(String, JSON)] = []
   ) {
     guard let maxVal = subschema["maxItems"]?.intValue, let arr = value.arrayValue
     else { return }
@@ -759,7 +792,8 @@ extension JSONSchema {
   /// unique (using schema-aware equality).
   internal func validateUniqueItems(
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
-    errors: inout [JSONSchemaError], recursionDepth: Int, dynamicScope: [(String, JSON)] = []
+    errors: inout [JSONSchemaError], recursionDepth: Int, currentResourceURI: String = "",
+    dynamicScope: [(String, JSON)] = []
   ) {
     guard subschema["uniqueItems"]?.boolValue == true, let arr = value.arrayValue
     else { return }
@@ -784,7 +818,8 @@ extension JSONSchema {
   /// matches the subschema.
   internal func validateContains(
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
-    errors: inout [JSONSchemaError], recursionDepth: Int, dynamicScope: [(String, JSON)] = []
+    errors: inout [JSONSchemaError], recursionDepth: Int, currentResourceURI: String = "",
+    dynamicScope: [(String, JSON)] = []
   ) {
     guard let containsSchema = subschema["contains"], let arr = value.arrayValue
     else { return }
@@ -794,7 +829,7 @@ extension JSONSchema {
       validateValue(
         item, against: containsSchema, instancePath: instancePath,
         schemaPath: schemaPath + "/contains", errors: &itemErrors, recursionDepth: recursionDepth,
-        dynamicScope: dynamicScope)
+        currentResourceURI: currentResourceURI, dynamicScope: dynamicScope)
       if itemErrors.isEmpty { return }
     }
 
@@ -810,7 +845,8 @@ extension JSONSchema {
   /// specified number of properties.
   internal func validateMinProperties(
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
-    errors: inout [JSONSchemaError], recursionDepth: Int, dynamicScope: [(String, JSON)] = []
+    errors: inout [JSONSchemaError], recursionDepth: Int, currentResourceURI: String = "",
+    dynamicScope: [(String, JSON)] = []
   ) {
     guard let minVal = subschema["minProperties"]?.intValue, value.isObject
     else { return }
@@ -827,7 +863,8 @@ extension JSONSchema {
   /// specified number of properties.
   internal func validateMaxProperties(
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
-    errors: inout [JSONSchemaError], recursionDepth: Int, dynamicScope: [(String, JSON)] = []
+    errors: inout [JSONSchemaError], recursionDepth: Int, currentResourceURI: String = "",
+    dynamicScope: [(String, JSON)] = []
   ) {
     guard let maxVal = subschema["maxProperties"]?.intValue, value.isObject
     else { return }
@@ -846,7 +883,8 @@ extension JSONSchema {
   /// validate against the schema (the schema validates the key string).
   internal func validatePropertyNames(
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
-    errors: inout [JSONSchemaError], recursionDepth: Int, dynamicScope: [(String, JSON)] = []
+    errors: inout [JSONSchemaError], recursionDepth: Int, currentResourceURI: String = "",
+    dynamicScope: [(String, JSON)] = []
   ) {
     guard let pnSchema = subschema["propertyNames"], value.isObject
     else { return }
@@ -860,7 +898,7 @@ extension JSONSchema {
       validateValue(
         keyJSON, against: pnSchema, instancePath: childInstancePath,
         schemaPath: childSchemaPath, errors: &keyErrors, recursionDepth: recursionDepth,
-        dynamicScope: dynamicScope)
+        currentResourceURI: currentResourceURI, dynamicScope: dynamicScope)
       if let firstError = keyErrors.first {
         errors.append(
           JSONSchemaError(
@@ -877,7 +915,8 @@ extension JSONSchema {
   /// have their value validated against the corresponding schema.
   internal func validatePatternProperties(
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
-    errors: inout [JSONSchemaError], recursionDepth: Int, dynamicScope: [(String, JSON)] = []
+    errors: inout [JSONSchemaError], recursionDepth: Int, currentResourceURI: String = "",
+    dynamicScope: [(String, JSON)] = []
   ) {
     guard let pp = subschema["patternProperties"], pp.isObject, value.isObject
     else { return }
@@ -895,7 +934,7 @@ extension JSONSchema {
           validateValue(
             val, against: schema, instancePath: childInstancePath,
             schemaPath: childSchemaPath, errors: &errors, recursionDepth: recursionDepth,
-            dynamicScope: dynamicScope)
+            currentResourceURI: currentResourceURI, dynamicScope: dynamicScope)
         }
       }
     }
@@ -978,7 +1017,8 @@ extension JSONSchema {
   /// not covered by `properties` or `patternProperties`.
   internal func validateAdditionalProperties(
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
-    errors: inout [JSONSchemaError], recursionDepth: Int, dynamicScope: [(String, JSON)] = []
+    errors: inout [JSONSchemaError], recursionDepth: Int, currentResourceURI: String = "",
+    dynamicScope: [(String, JSON)] = []
   ) {
     guard let additionalProperties = subschema["additionalProperties"], value.isObject
     else { return }
@@ -994,7 +1034,7 @@ extension JSONSchema {
         validateValue(
           val, against: additionalProperties, instancePath: childInstancePath,
           schemaPath: childSchemaPath, errors: &errors, recursionDepth: recursionDepth,
-          dynamicScope: dynamicScope)
+          currentResourceURI: currentResourceURI, dynamicScope: dynamicScope)
       }
     }
   }
@@ -1009,7 +1049,8 @@ extension JSONSchema {
   ///   can also evaluate properties — their evaluated keys should be tracked.
   internal func validateUnevaluatedProperties(
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
-    errors: inout [JSONSchemaError], recursionDepth: Int, dynamicScope: [(String, JSON)] = []
+    errors: inout [JSONSchemaError], recursionDepth: Int, currentResourceURI: String = "",
+    dynamicScope: [(String, JSON)] = []
   ) {
     guard let unevaluated = subschema["unevaluatedProperties"], value.isObject
     else { return }
@@ -1025,7 +1066,7 @@ extension JSONSchema {
         validateValue(
           val, against: unevaluated, instancePath: childInstancePath,
           schemaPath: childSchemaPath, errors: &errors, recursionDepth: recursionDepth,
-          dynamicScope: dynamicScope)
+          currentResourceURI: currentResourceURI, dynamicScope: dynamicScope)
       }
     }
   }
@@ -1041,7 +1082,8 @@ extension JSONSchema {
   ///   are also evaluated and should be excluded from `unevaluatedItems`.
   internal func validateUnevaluatedItems(
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
-    errors: inout [JSONSchemaError], recursionDepth: Int, dynamicScope: [(String, JSON)] = []
+    errors: inout [JSONSchemaError], recursionDepth: Int, currentResourceURI: String = "",
+    dynamicScope: [(String, JSON)] = []
   ) {
     guard let unevaluated = subschema["unevaluatedItems"], let arr = value.arrayValue
     else { return }
@@ -1069,7 +1111,7 @@ extension JSONSchema {
       validateValue(
         item, against: unevaluated, instancePath: childInstancePath,
         schemaPath: childSchemaPath, errors: &errors, recursionDepth: recursionDepth,
-        dynamicScope: dynamicScope)
+        currentResourceURI: currentResourceURI, dynamicScope: dynamicScope)
     }
   }
 }

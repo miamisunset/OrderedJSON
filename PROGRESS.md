@@ -638,3 +638,12 @@ The `recursionDepth` parameter had a default of `0`, so every validator call tha
 - Cross-arm anchor separation test
 - RFC 6901 escaping tests for `$defs` keys with `/` and `~`
 - `JSONSchema.init` throwing API consistent with existing `throws` doc
+
+### Phase 4d — `$id` Scoping (PR #36)
+
+### What shipped
+- `ResourceScope` struct with per-`$id` annotation tables
+- `collectResourcesRecursive` groups annotations by base URI
+- `resolveRef` splits on `#`, resolves against appropriate resource scope
+- `CompiledSchema.resources["baseURI"]` replaces flat `defs`/`anchors`/`dynamicAnchors`
+- 214 total schema tests — all passing, lint clean
