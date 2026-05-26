@@ -977,4 +977,51 @@ struct CompiledSchemaNestedAnnotationTests {
     let result2 = schema.validation(of: .number(.integer(42)))
     #expect(!result2.valid)
   }
+
+  @Test("$dynamicRef inside embedded $id resource — falls back to child's dynamicAnchors")
+  func dynamicRefFallbackInsideEmbedded() throws {
+    // Root has no $dynamicAnchor with name "childAnchor".
+    // Child resource has $dynamicAnchor: "childAnchor" → $defs/numberType (type: number).
+    // x has $dynamicRef: "#childAnchor". The dynamic scope at x has no
+    // matching frame, so resolveDynamicRef falls back to the current resource's
+    // dynamicAnchors table, finding child's "childAnchor" → $defs/numberType → number.
+    let schema = try JSONSchema(
+      schema: .object([
+        "$id": .string("/root"),
+        "type": .string("object"),
+        "$defs": .object([
+          "numberType": .object(["type": .string("number")])
+        ]),
+        "properties": .object([
+          "child": .object([
+            "$id": .string("/child"),
+            "$defs": .object([
+              "numberTarget": .object([
+                "$dynamicAnchor": .string("childAnchor"),
+                "type": .string("number"),
+              ])
+            ]),
+            "properties": .object([
+              "x": .object(["$dynamicRef": .string("#childAnchor")])
+            ]),
+          ])
+        ]),
+      ]))
+    // Root schema: type object. Root's $defs/numberType: type number (not used here).
+    // Child resource: $defs/numberTarget has $dynamicAnchor "childAnchor" and type: number.
+    // x: $dynamicRef "#childAnchor" → falls back to child's dynamicAnchors["childAnchor"]
+    // which points to $defs/numberTarget (type: number). So x must be a number.
+    let result = schema.validation(
+      of: .object([
+        "child": .object(["x": .number(.integer(42))])
+      ]))
+    #expect(result.valid)
+
+    // x as object should fail (type number expected)
+    let result2 = schema.validation(
+      of: .object([
+        "child": .object(["x": .object([:])])
+      ]))
+    #expect(!result2.valid)
+  }
 }
