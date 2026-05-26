@@ -238,13 +238,33 @@ struct JSONSchemaOutputModeTests {
       schema: .object([
         "allOf": .array([
           .object(["type": .string("string")]),
-          .object(["type": .string("number")]),
+          .object(["minimum": .number(.integer(100))]),
         ])
       ]))
     let result = schema.verboseValidation(of: .number(.integer(42)))
-    // allOf produces errors grouped under /allOf
     #expect(!result.valid)
-    #expect(result.verboseErrors.count > 0)
+    // allOf produces errors grouped under /allOf
+    #expect(result.verboseErrors.count == 1)
+    // The parent error should have keyword "allOf" (matched by group key)
+    #expect(result.verboseErrors[0].error.keyword == "allOf")
+    // There should be child errors for the second failing subschema
+    #expect(result.verboseErrors[0].children.count == 1)
+  }
+
+  @Test("buildVerboseErrors — keyword mismatch falls back to first error")
+  func buildVerboseErrorsKeywordMismatch() throws {
+    // Errors with schema paths /foo/bar and /foo/baz share group "foo"
+    // but neither has keyword "foo". Should use first alphabetically.
+    let e1 = JSONSchemaError(
+      instancePath: "", schemaPath: "/foo/bar", keyword: "bar",
+      message: "bar failed")
+    let e2 = JSONSchemaError(
+      instancePath: "", schemaPath: "/foo/baz", keyword: "baz",
+      message: "baz failed")
+    let schema = try JSONSchema(schema: .object([:]))
+    let verbose = schema.buildVerboseErrors(from: [e1, e2])
+    #expect(verbose.count == 1)
+    #expect(verbose[0].children.count == 1)
   }
 
   @Test("buildVerboseErrors — single error produces single verbose error")

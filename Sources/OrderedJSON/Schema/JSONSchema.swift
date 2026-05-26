@@ -253,6 +253,10 @@ public struct JSONSchema: Hashable, Sendable {
   /// Builds hierarchical error trees from a flat list of errors.
   /// Groups errors by their first schema path segment (e.g., `/allOf`,
   /// `/properties/name`), nesting child errors under their parent.
+  ///
+  /// Within each group, the error whose keyword best matches the group
+  /// key (e.g., keyword `"allOf"` for group `allOf`) is used as the parent.
+  /// If no keyword matches, the first error alphabetically is used.
   internal func buildVerboseErrors(from errors: [JSONSchemaError]) -> [VerboseError] {
     // Group errors by their first schema-path segment
     var groups: [String: [JSONSchemaError]] = [:]
@@ -272,13 +276,17 @@ public struct JSONSchema: Hashable, Sendable {
     var result: [VerboseError] = []
     for key in sortedKeys {
       let groupErrors = groups[key]!
-      // For each group, create a parent error and nest remaining errors
-      if groupErrors.count == 1 {
-        result.append(VerboseError(error: groupErrors[0]))
+      // Prefer an error whose keyword matches the group key as parent.
+      // This ensures composition keyword errors (e.g., keyword "allOf"
+      // for group "allOf") are used as the parent when present.
+      let parentIndex = groupErrors.firstIndex(where: { $0.keyword == key }) ?? 0
+      let parent = groupErrors[parentIndex]
+      let children = groupErrors.enumerated().filter { $0.offset != parentIndex }.map {
+        VerboseError(error: $0.element)
+      }
+      if children.isEmpty {
+        result.append(VerboseError(error: parent))
       } else {
-        // Use the first error as parent, nest the rest as children
-        let parent = groupErrors[0]
-        let children = groupErrors[1...].map { VerboseError(error: $0) }
         result.append(VerboseError(error: parent, children: children))
       }
     }
