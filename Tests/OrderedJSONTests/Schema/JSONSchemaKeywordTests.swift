@@ -1099,6 +1099,7 @@ struct JSONSchemaContainsTests {
         "minContains": .number(.integer(2)),
       ]))
     // Current: passes with 1 match (deviant — should require 2)
+    // FIXME: flip to expect failure when minContains is implemented
     #expect(schema.validation(of: .array([.number(.integer(1)), .string("hello")])).valid)
   }
 }

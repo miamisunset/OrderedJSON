@@ -946,12 +946,13 @@ extension JSONSchema {
     }
 
     // Keys evaluated by dependentSchemas (key presence triggers evaluation)
+    // A dependent schema key is evaluated if that key exists in the instance.
     if let depSchemas = subschema["dependentSchemas"], depSchemas.isObject {
       guard case .object(let depDict) = depSchemas.storage else {
         preconditionFailure("dependentSchemas.isObject was true but storage pattern match failed")
       }
       for (key, _) in depDict {
-        if subschema[key] != nil {
+        if dict[key] != nil {
           keys.insert(key)
         }
       }
@@ -1032,8 +1033,10 @@ extension JSONSchema {
     guard let unevaluated = subschema["unevaluatedItems"], let arr = value.arrayValue
     else { return }
 
-    // If `items` is present as a schema, it evaluates all items past prefixItems,
-    // so unevaluatedItems has nothing to evaluate.
+    // If `items` is present as a schema (not array/tuple), it evaluates all
+    // items past prefixItems, so unevaluatedItems has nothing to evaluate.
+    // Tuple-mode items (Draft 7 array) only evaluates indices < tuple length,
+    // so unevaluatedItems still applies to items beyond that — no short-circuit.
     if let items = subschema["items"], items.isObject { return }
 
     // Determine which items were evaluated by prefixItems
