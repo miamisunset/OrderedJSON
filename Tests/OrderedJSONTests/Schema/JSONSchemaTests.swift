@@ -1350,4 +1350,127 @@ struct JSONSchemaDependentRequiredTests {
     #expect(result.errors.first?.keyword == "dependentRequired")
     #expect(result.errors.first?.message.contains("b") == true)
   }
+
+  @Test("dependentRequired — two errors when two keys are missing")
+  func depRequiredTwoMissing() throws {
+    let schema = try JSONSchema(
+      schema: .object([
+        "dependentRequired": .object([
+          "credit_card": .array([.string("number"), .string("cvc")])
+        ])
+      ]))
+    let doc: JSON = .object(["credit_card": .string("x")])
+    let result = schema.validation(of: doc)
+    #expect(result.errors.count == 2)
+    #expect(result.errors.allSatisfy { $0.keyword == "dependentRequired" })
+  }
+}
+
+// MARK: - Review edge cases
+
+@Suite("JSONSchema review edge cases")
+struct JSONSchemaReviewEdgeCasesTests {
+
+  @Test("not — with false boolean subschema (passes everything)")
+  func notWithFalseSchema() throws {
+    let schema = try JSONSchema(schema: .object(["not": .boolean(false)]))
+    #expect(schema.validation(of: .string("anything")).valid)
+    #expect(schema.validation(of: .number(.integer(42))).valid)
+  }
+
+  @Test("not — with true boolean subschema (rejects everything)")
+  func notWithTrueSchema() throws {
+    let schema = try JSONSchema(schema: .object(["not": .boolean(true)]))
+    #expect(!schema.validation(of: .string("anything")).valid)
+    #expect(!schema.validation(of: .number(.integer(42))).valid)
+    #expect(!schema.validation(of: .null).valid)
+  }
+
+  @Test("dependentSchemas — with false value (rejects when key present)")
+  func depSchemasWithFalse() throws {
+    let schema = try JSONSchema(
+      schema: .object([
+        "dependentSchemas": .object([
+          "credit_card": .boolean(false)
+        ])
+      ]))
+    // credit_card key absent → no error
+    #expect(schema.validation(of: .object(["name": .string("Alice")])).valid)
+    // credit_card key present → false schema rejects
+    // The keyword is "dependentSchemas" (the wrapping keyword), not "false"
+    // (the nested boolean schema's error keyword).
+    let result = schema.validation(of: .object(["credit_card": .string("1234")]))
+    #expect(!result.valid)
+    #expect(result.errors.first?.keyword == "dependentSchemas")
+  }
+
+  @Test("if/then — with boolean then (false rejects when if passes)")
+  func ifThenBoolean() throws {
+    let schema = try JSONSchema(
+      schema: .object([
+        "if": .object(["type": .string("string")]),
+        "then": .boolean(false),
+      ]))
+    // String → if passes → then (false) rejects
+    #expect(!schema.validation(of: .string("hello")).valid)
+    // Number → if fails → no then applied → passes
+    #expect(schema.validation(of: .number(.integer(42))).valid)
+  }
+
+  @Test("minLength — multi-scalar grapheme (code point semantics)")
+  func minLengthMultiScalar() throws {
+    // "👨‍👩‍👧" is 1 grapheme cluster but 5 Unicode scalars (code points)
+    let familyEmoji = "👨‍👩‍👧"
+    let schema = try JSONSchema(
+      schema: .object(["minLength": .number(.integer(5))]))
+    #expect(schema.validation(of: .string(familyEmoji)).valid)  // 5 code points ≥ 5
+  }
+
+  @Test("maxLength — multi-scalar grapheme (code point semantics)")
+  func maxLengthMultiScalar() throws {
+    let familyEmoji = "👨‍👩‍👧"
+    let schema = try JSONSchema(
+      schema: .object(["maxLength": .number(.integer(4))]))
+    #expect(!schema.validation(of: .string(familyEmoji)).valid)  // 5 code points > 4
+  }
+
+  @Test("boolean schema init — true accepts everything")
+  func booleanTrueInit() throws {
+    let schema = try JSONSchema(schema: .boolean(true))
+    #expect(schema.validation(of: .null).valid)
+    #expect(schema.validation(of: .boolean(false)).valid)
+    #expect(schema.validation(of: .number(.integer(42))).valid)
+  }
+
+  @Test("boolean schema init — false rejects everything")
+  func booleanFalseInit() throws {
+    let schema = try JSONSchema(schema: .boolean(false))
+    #expect(!schema.validation(of: .null).valid)
+    #expect(!schema.validation(of: .string("x")).valid)
+  }
+
+  @Test("nested composition — allOf > anyOf > oneOf")
+  func nestedComposition() throws {
+    let schema = try JSONSchema(
+      schema: .object([
+        "allOf": .array([
+          .object([
+            "anyOf": .array([
+              .object(["type": .string("string")]),
+              .object(["type": .string("number")]),
+            ])
+          ]),
+          .object([
+            "oneOf": .array([
+              .object(["minimum": .number(.integer(10))]),
+              .object(["maximum": .number(.integer(0))]),
+            ])
+          ]),
+        ])
+      ]))
+    // 42: anyOf matches (number) ✅, oneOf: min10(42)✅, max0(42)❌ → exactly 1 ✅ → valid
+    #expect(schema.validation(of: .number(.integer(42))).valid)
+    // 5: anyOf matches (number) ✅, oneOf: min10(5)❌, max0(5)❌ → 0 matches → invalid
+    #expect(!schema.validation(of: .number(.integer(5))).valid)
+  }
 }

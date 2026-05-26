@@ -206,6 +206,14 @@ public struct JSONSchema: Hashable, Sendable {
       try JSONSchema.validatePatterns(elseSchema)
     }
 
+    // Recursively check dependentSchemas values
+    if let depSchemas = schema["dependentSchemas"], depSchemas.isObject {
+      guard case .object(let depDict) = depSchemas.storage else { return }
+      for (_, depSchema) in depDict {
+        try JSONSchema.validatePatterns(depSchema)
+      }
+    }
+
     // Check $defs
     if let defs = schema["$defs"], defs.isObject {
       guard case .object(let dict) = defs.storage else { return }
@@ -274,6 +282,9 @@ public struct JSONSchema: Hashable, Sendable {
   ) {
     // Handle boolean schemas (Draft 2020-12): true accepts everything,
     // false rejects everything.
+    // The error keyword is "false" (the literal schema value) rather than
+    // "boolean" — this is a deliberate choice for debuggability: the keyword
+    // tells the caller exactly which boolean value caused the rejection.
     if let boolVal = subschema.boolValue {
       if !boolVal {
         errors.append(
@@ -847,13 +858,16 @@ public struct JSONSchema: Hashable, Sendable {
     guard let minLen = subschema["minLength"], let minLenVal = minLen.intValue else { return }
     guard let strVal = value.stringValue else { return }
 
-    if strVal.count < minLenVal {
+    // JSON Schema spec mandates length in code points (RFC 8259 Unicode characters).
+    // Use unicodeScalars.count rather than String.count (grapheme clusters).
+    let codePointCount = strVal.unicodeScalars.count
+    if codePointCount < minLenVal {
       errors.append(
         JSONSchemaError(
           instancePath: instancePath,
           schemaPath: schemaPath + "/minLength",
           keyword: "minLength",
-          message: "string length \(strVal.count) is less than minimum \(minLenVal)"
+          message: "string length \(codePointCount) code points is less than minimum \(minLenVal)"
         ))
     }
   }
@@ -868,13 +882,17 @@ public struct JSONSchema: Hashable, Sendable {
     guard let maxLen = subschema["maxLength"], let maxLenVal = maxLen.intValue else { return }
     guard let strVal = value.stringValue else { return }
 
-    if strVal.count > maxLenVal {
+    // JSON Schema spec mandates length in code points (RFC 8259 Unicode characters).
+    // Use unicodeScalars.count rather than String.count (grapheme clusters).
+    let codePointCount = strVal.unicodeScalars.count
+    if codePointCount > maxLenVal {
       errors.append(
         JSONSchemaError(
           instancePath: instancePath,
           schemaPath: schemaPath + "/maxLength",
           keyword: "maxLength",
-          message: "string length \(strVal.count) is greater than maximum \(maxLenVal)"
+          message:
+            "string length \(codePointCount) code points is greater than maximum \(maxLenVal)"
         ))
     }
   }
@@ -899,7 +917,7 @@ public struct JSONSchema: Hashable, Sendable {
       if let firstError = subErrors.first {
         errors.append(
           JSONSchemaError(
-            instancePath: instancePath,
+            instancePath: firstError.instancePath.isEmpty ? instancePath : firstError.instancePath,
             schemaPath: subSchemaPath,
             keyword: "allOf",
             message: "subschema #\(index) failed: \(firstError.message)"
@@ -950,7 +968,7 @@ public struct JSONSchema: Hashable, Sendable {
     guard let oneOf = subschema["oneOf"], oneOf.isArray else { return }
 
     var matchCount = 0
-    for (_, sub) in oneOf.enumerated() {
+    for sub in oneOf {
       var subErrors: [JSONSchemaError] = []
       validateValue(
         value, against: sub, instancePath: instancePath,
@@ -958,6 +976,8 @@ public struct JSONSchema: Hashable, Sendable {
       if subErrors.isEmpty {
         matchCount += 1
       }
+      // Early exit: once 2+ match, exactly-one fails regardless of further subschemas
+      if matchCount > 1 { break }
     }
 
     if matchCount != 1 {
@@ -978,7 +998,8 @@ public struct JSONSchema: Hashable, Sendable {
     schemaPath: String,
     errors: inout [JSONSchemaError]
   ) {
-    guard let notSchema = subschema["not"], notSchema.isObject else { return }
+    guard subschema["not"] != nil else { return }
+    let notSchema = subschema["not"]!
 
     var subErrors: [JSONSchemaError] = []
     validateValue(
