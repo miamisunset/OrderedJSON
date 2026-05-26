@@ -313,16 +313,30 @@ schema.formatOptions = opts
 
 ---
 
-## Phase 6 — String Content Keywords
+## Phase 6 — String Content Keywords (✅ Complete)
+
+**Branch**: `phase-6-json-schema-draft-compat`
 
 **Goal**: String length and content validation.
 
-### Keywords
+### Keywords (all implemented)
 
-- `minLength` / `maxLength` — character count bounds (Swift `String.count`)
-- `contentMediaType` — media type annotation (2020-12 annotation only, not assertion)
-- `contentEncoding` — encoding annotation
-- `contentSchema` — schema for decoded content
+- `minLength` / `maxLength` — character count bounds (Swift `String.count`), already implemented in Phase 1
+- `contentMediaType` — media type annotation (2020-12 annotation only, not assertion), implemented as no-op validator
+- `contentEncoding` — encoding annotation, implemented as no-op validator
+- `contentSchema` — schema for decoded content, with base64 decoding support
+
+### Implementation
+
+- Three validator functions added to `JSONSchemaValidators.swift`:
+  - `validateContentMediaType` — annotation no-op (passes through)
+  - `validateContentEncoding` — annotation no-op (passes through)
+  - `validateContentSchema` — decodes content (base64 support) and validates parsed JSON against subschema
+- Wired into `validateValue` in `JSONSchema.swift` after `validateMaxLength`
+- `contentSchema` supports `contentEncoding: "base64"` — base64-decodes string, parses as JSON, validates against schema
+- Invalid base64 content or unparseable JSON produces validation errors with keyword `"contentSchema"`
+- Non-string values skip `contentSchema` validation
+- 10 tests covering: annotation pass-through, valid/invalid JSON, valid/invalid base64, non-string skip, schema validation of decoded content, absent keyword
 
 ---
 

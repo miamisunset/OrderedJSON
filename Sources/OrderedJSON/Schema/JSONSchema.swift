@@ -343,6 +343,15 @@ public struct JSONSchema: Hashable, Sendable {
     validateMaxLength(
       value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
       errors: &errors, ctx: currentCtx)
+    validateContentMediaType(
+      value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
+      errors: &errors, ctx: currentCtx)
+    validateContentEncoding(
+      value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
+      errors: &errors, ctx: currentCtx)
+    validateContentSchema(
+      value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
+      errors: &errors, ctx: currentCtx)
     validateAllOf(
       value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
       errors: &errors, ctx: currentCtx)
