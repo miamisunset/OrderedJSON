@@ -549,3 +549,25 @@ Split `JSONSchemaTests.swift` (1476 lines) into:
 - `additionalProperties`/`unevaluatedProperties` with boolean `false` produce error keyword `"false"` (from the boolean subschema), not the keyword name — matches general boolean schema behavior
 - `patternProperties` regex key validation throws at init time for invalid regex patterns
 
+### Phase 4a — `$ref` Resolution & Schema Compilation (complete, branch `phase-4-ref-resolution`)
+
+**PR**: [#33](https://github.com/miamisunset/OrderedJSON/pull/33)
+
+### What shipped
+- `CompiledSchema` struct — parses `$defs`, `$id`, `$anchor` at init time
+- `$ref` resolution — resolves local JSON Pointer references (`#`, `#/$defs/name`) at validation time
+- `JSON.resolve(_:)` — RFC 6901 JSON Pointer implementation with `~0`/`~1` escape sequences
+- `$comment` — ignored during validation (naturally skipped)
+- Unresolvable `$ref` produces a validation error with keyword `"$ref"`
+
+### Tests
+- 25 new tests across 3 suites (JSON Pointer resolution, CompiledSchema, $ref validation, $comment)
+- 194 total schema tests across 38 suites — all passing, lint clean
+
+### Known limitations (deferred to Phase 4b)
+- External `$ref` (remote URIs) not supported
+- `$dynamicRef`/`$dynamicAnchor` not implemented
+- `$id` used for base URI extraction but not for URI resolution
+- Schema compilation (keyword tree) deferred — `$ref` resolved at validation time
+- `$defs` for Draft 7 (`definitions` keyword) not supported
+

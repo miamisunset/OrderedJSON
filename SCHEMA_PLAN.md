@@ -135,36 +135,29 @@ Test file `JSONSchemaTests.swift` (1476 lines) split into:
 
 ---
 
-## Phase 4 — `$ref` Resolution & Schema Compilation
+## Phase 4a — `$ref` Resolution + `$defs` + `$id`/`$anchor` (✅ Complete)
 
-**Goal**: Resolve `$ref`, `$defs`, `$dynamicRef` and compile schemas for performance.
+**Branch**: `phase-4-ref-resolution`
+**PR**: [#33](https://github.com/miamisunset/OrderedJSON/pull/33)
 
-### Features
+### What shipped
+- `CompiledSchema` struct — parses `$defs`, `$id`, `$anchor` at init time
+- `$ref` resolution — resolves local JSON Pointer references (`#`, `#/$defs/name`) at validation time
+- `JSON.resolve(_:)` — RFC 6901 JSON Pointer implementation
+- `$comment` — ignored during validation
+- Unresolvable `$ref` produces validation error
+- 25 tests, 194 total schema tests
 
-- `$ref` — JSON Pointer reference to another schema or `$defs` entry
-- `$defs` — reusable schema definitions (replaces `definitions` in Draft 7)
-- `$id` — schema identity for URI resolution
-- `$anchor` — local anchor for `$ref` with fragment
-- `$dynamicRef` / `$dynamicAnchor` — dynamic reference for recursive schemas
-- `$comment` — ignore during validation
-- `$schema` — draft detection
-
-### Resolution algorithm
-
-1. Parse `$id` to establish base URI
-2. Resolve `$ref` against base URI (with JSON Pointer fragment)
-3. Follow `$defs` entries for local definitions
-4. For `$dynamicRef`: resolve against the nearest `$dynamicAnchor` in the validation chain
-5. Handle recursive schemas with cycle detection (depth limit)
-
-### Schema compilation
-
-Pre-parse a JSON Schema into a compiled keyword tree:
-- Avoid re-parsing the schema JSON on every validation
-- Each keyword node stores its parsed parameters
-- `$ref` nodes resolve once and cache the target schema
+### Known limitations (deferred to Phase 4b)
+- External `$ref` (remote URIs) not supported
+- `$dynamicRef`/`$dynamicAnchor` not implemented
+- `$id` used for base URI extraction but not for URI resolution
+- Schema compilation (keyword tree) deferred — `$ref` resolved at validation time
+- `$defs` for Draft 7 (`definitions` keyword) not supported
 
 ---
+
+## Phase 4b — `$dynamicRef`/`$dynamicAnchor`, External `$ref`, Schema Compilation
 
 ## Phase 5 — Format Validation
 
