@@ -93,13 +93,12 @@ internal struct CompiledSchema: Hashable, Sendable {
   ///
   /// - Parameters:
   ///   - pointer: The `$dynamicRef` pointer string.
-  ///   - dynamicScope: The current stack of dynamic anchor schemas, innermost first.
-  ///   - currentSchema: The schema containing the `$dynamicRef` (for self-reference guard).
+  ///   - dynamicScope: The current stack of dynamic anchor tuples (name, schema),
+  ///     innermost first.
   /// - Returns: The resolved schema JSON, or `nil` if unresolvable.
   func resolveDynamicRef(
     _ pointer: String,
-    dynamicScope: [OrderedDictionary<String, JSON>],
-    currentSchema: JSON
+    dynamicScope: [(String, JSON)]
   ) -> JSON? {
     guard pointer.hasPrefix("#") else { return nil }
 
@@ -112,27 +111,18 @@ internal struct CompiledSchema: Hashable, Sendable {
     }
 
     // Check the dynamic scope stack (innermost first)
-    for scope in dynamicScope.reversed() {
-      if let target = scope[anchorName] {
-        // Self-reference guard: if the target is the schema that contains
-        // the $dynamicRef, return nil to avoid infinite recursion.
-        // The depth guard in validateValue will catch remaining cycles.
-        if target == currentSchema { return nil }
+    for (name, target) in dynamicScope.reversed() {
+      if name == anchorName {
         return target
       }
     }
 
     // Fall back to the schema's own dynamic anchors
     if let target = dynamicAnchors[anchorName] {
-      if target == currentSchema { return nil }
       return target
     }
 
     // Final fallback: treat as normal $ref (static anchor)
-    if let target = anchors[anchorName] {
-      if target == currentSchema { return nil }
-      return target
-    }
-    return nil
+    return anchors[anchorName]
   }
 }

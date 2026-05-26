@@ -244,10 +244,8 @@ struct JSONSchemaCommentTests {
 @Suite("JSONSchema $dynamicRef")
 struct JSONSchemaDynamicRefTests {
 
-  @Test("$dynamicRef — self-referential is rejected")
+  @Test("$dynamicRef — self-referential caught by depth guard")
   func dynamicRefSelfReferential() throws {
-    // $dynamicRef pointing to an anchor on the same schema is rejected
-    // by the self-reference guard to prevent infinite recursion.
     let schema = try JSONSchema(
       schema: .object([
         "$dynamicAnchor": .string("node"),
@@ -255,8 +253,7 @@ struct JSONSchemaDynamicRefTests {
       ]))
     let result = schema.validation(of: .string("hello"))
     #expect(!result.valid)
-    // Self-reference guard returns nil, producing unresolvable error
-    #expect(result.errors.first?.keyword == "$dynamicRef")
+    #expect(result.errors.first?.keyword == "schema")
   }
 
   @Test("$dynamicRef — fallback to $anchor creates self-reference")
@@ -268,8 +265,7 @@ struct JSONSchemaDynamicRefTests {
       ]))
     let result = schema.validation(of: .string("hello"))
     #expect(!result.valid)
-    // Self-reference guard catches fallback to $anchor
-    #expect(result.errors.first?.keyword == "$dynamicRef")
+    #expect(result.errors.first?.keyword == "schema")
   }
 
   @Test("$dynamicRef — unresolvable produces error")
@@ -294,6 +290,7 @@ struct JSONSchemaDynamicRefTests {
   @Test("$dynamicRef — via $defs without recursion (single level)")
   func dynamicRefViaDefs() throws {
     // $dynamicRef resolves $dynamicAnchor in the schema's own dynamicAnchors.
+    // The allOf subschema creates a self-reference cycle caught by depth guard.
     let schema = try JSONSchema(
       schema: .object([
         "$defs": .object([
@@ -304,17 +301,17 @@ struct JSONSchemaDynamicRefTests {
           .object(["$dynamicRef": .string("#str")])
         ]),
       ]))
-    // allOf validates against the schema's own $dynamicAnchor (str)
     let result = schema.validation(of: .string("hello"))
-    #expect(!result.valid)  // allOf with $dynamicRef creates self-reference cycle
-    #expect(result.errors.first?.keyword == "schema")
+    #expect(!result.valid)
+    // Depth guard fires during allOf subschema validation
+    #expect(result.errors.first?.keyword == "allOf")
   }
 
-  @Test("$dynamicRef — recursive schema via $defs (deviant)")
+  @Test("$dynamicRef — recursive schema via $defs")
   func dynamicRefRecursive() throws {
     // A recursive schema where a node can contain a child node.
-    // Dynamic scope doesn't propagate through keyword validators yet
-    // (known deviation). This test documents current behavior.
+    // Dynamic scope propagates through keyword validators, enabling
+    // recursive validation via $dynamicRef/$dynamicAnchor.
     let schema = try JSONSchema(
       schema: .object([
         "$defs": .object([
@@ -334,8 +331,7 @@ struct JSONSchemaDynamicRefTests {
         "value": .string("parent"),
         "child": .object(["value": .string("child")]),
       ]))
-    // Fails because $dynamicRef inside properties doesn't see dynamic scope
-    #expect(!result.valid)
-    #expect(result.errors.first?.keyword == "$dynamicRef")
+    // Dynamic scope propagates through $ref → $defs/node → properties → child
+    #expect(result.valid)
   }
 }
