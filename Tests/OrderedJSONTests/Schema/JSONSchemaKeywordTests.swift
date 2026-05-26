@@ -885,3 +885,456 @@ struct JSONSchemaDependentRequiredTests {
     #expect(result.errors.allSatisfy { $0.keyword == "dependentRequired" })
   }
 }
+
+// MARK: - Array Keywords
+
+@Suite("JSONSchema items")
+struct JSONSchemaItemsTests {
+
+  @Test("items — schema mode (Draft 2020-12) — valid")
+  func itemsSchemaValid() throws {
+    let schema = try JSONSchema(schema: .object(["items": .object(["type": .string("string")])]))
+    #expect(schema.validation(of: .array([.string("a"), .string("b")])).valid)
+  }
+
+  @Test("items — schema mode — invalid")
+  func itemsSchemaInvalid() throws {
+    let schema = try JSONSchema(schema: .object(["items": .object(["type": .string("string")])]))
+    let result = schema.validation(of: .array([.string("a"), .number(.integer(1))]))
+    #expect(!result.valid)
+    #expect(result.errors.first?.keyword == "items" || result.errors.first?.keyword == "type")
+  }
+
+  @Test("items — Draft 7 tuple mode — valid")
+  func itemsTupleDraft7Valid() throws {
+    let schema = try JSONSchema(
+      schema: .object([
+        "items": .array([
+          .object(["type": .string("string")]),
+          .object(["type": .string("number")]),
+        ])
+      ]), draft: .draft7)
+    #expect(schema.validation(of: .array([.string("a"), .number(.integer(1))])).valid)
+  }
+
+  @Test("items — Draft 7 tuple mode — invalid")
+  func itemsTupleDraft7Invalid() throws {
+    let schema = try JSONSchema(
+      schema: .object([
+        "items": .array([
+          .object(["type": .string("string")]),
+          .object(["type": .string("number")]),
+        ])
+      ]), draft: .draft7)
+    let result = schema.validation(of: .array([.string("a"), .string("b")]))
+    #expect(!result.valid)
+  }
+
+  @Test("items — non-array value skips")
+  func itemsNonArray() throws {
+    let schema = try JSONSchema(schema: .object(["items": .object(["type": .string("string")])]))
+    #expect(schema.validation(of: .string("hello")).valid)
+  }
+}
+
+@Suite("JSONSchema prefixItems")
+struct JSONSchemaPrefixItemsTests {
+
+  @Test("prefixItems — valid")
+  func prefixItemsValid() throws {
+    let schema = try JSONSchema(
+      schema: .object([
+        "prefixItems": .array([
+          .object(["type": .string("string")]),
+          .object(["type": .string("number")]),
+        ])
+      ]))
+    #expect(schema.validation(of: .array([.string("a"), .number(.integer(1))])).valid)
+  }
+
+  @Test("prefixItems — invalid")
+  func prefixItemsInvalid() throws {
+    let schema = try JSONSchema(
+      schema: .object([
+        "prefixItems": .array([
+          .object(["type": .string("string")])
+        ])
+      ]))
+    let result = schema.validation(of: .array([.number(.integer(1))]))
+    #expect(!result.valid)
+    #expect(result.errors.first?.keyword == "prefixItems" || result.errors.first?.keyword == "type")
+  }
+
+  @Test("prefixItems — non-array value skips")
+  func prefixItemsNonArray() throws {
+    let schema = try JSONSchema(
+      schema: .object(["prefixItems": .array([.object(["type": .string("string")])])]))
+    #expect(schema.validation(of: .string("hello")).valid)
+  }
+}
+
+@Suite("JSONSchema minItems / maxItems")
+struct JSONSchemaMinMaxItemsTests {
+
+  @Test("minItems — valid")
+  func minItemsValid() throws {
+    let schema = try JSONSchema(schema: .object(["minItems": .number(.integer(2))]))
+    #expect(schema.validation(of: .array([.string("a"), .string("b")])).valid)
+    #expect(schema.validation(of: .array([.string("a"), .string("b"), .string("c")])).valid)
+  }
+
+  @Test("minItems — invalid")
+  func minItemsInvalid() throws {
+    let schema = try JSONSchema(schema: .object(["minItems": .number(.integer(3))]))
+    let result = schema.validation(of: .array([.string("a"), .string("b")]))
+    #expect(!result.valid)
+    #expect(result.errors.first?.keyword == "minItems")
+  }
+
+  @Test("maxItems — valid")
+  func maxItemsValid() throws {
+    let schema = try JSONSchema(schema: .object(["maxItems": .number(.integer(3))]))
+    #expect(schema.validation(of: .array([.string("a"), .string("b")])).valid)
+    #expect(schema.validation(of: .array([.string("a")])).valid)
+  }
+
+  @Test("maxItems — invalid")
+  func maxItemsInvalid() throws {
+    let schema = try JSONSchema(schema: .object(["maxItems": .number(.integer(2))]))
+    let result = schema.validation(of: .array([.string("a"), .string("b"), .string("c")]))
+    #expect(!result.valid)
+    #expect(result.errors.first?.keyword == "maxItems")
+  }
+
+  @Test("minItems / maxItems — non-array skips")
+  func minMaxItemsNonArray() throws {
+    let schema = try JSONSchema(
+      schema: .object(["minItems": .number(.integer(2)), "maxItems": .number(.integer(5))]))
+    #expect(schema.validation(of: .string("hello")).valid)
+  }
+}
+
+@Suite("JSONSchema uniqueItems")
+struct JSONSchemaUniqueItemsTests {
+
+  @Test("uniqueItems — valid (all unique)")
+  func uniqueItemsValid() throws {
+    let schema = try JSONSchema(schema: .object(["uniqueItems": .boolean(true)]))
+    #expect(schema.validation(of: .array([.string("a"), .string("b")])).valid)
+  }
+
+  @Test("uniqueItems — invalid (duplicates)")
+  func uniqueItemsInvalid() throws {
+    let schema = try JSONSchema(schema: .object(["uniqueItems": .boolean(true)]))
+    let result = schema.validation(of: .array([.string("a"), .string("a")]))
+    #expect(!result.valid)
+    #expect(result.errors.first?.keyword == "uniqueItems")
+  }
+
+  @Test("uniqueItems — false disables check")
+  func uniqueItemsFalse() throws {
+    let schema = try JSONSchema(schema: .object(["uniqueItems": .boolean(false)]))
+    #expect(schema.validation(of: .array([.string("a"), .string("a")])).valid)
+  }
+
+  @Test("uniqueItems — non-array skips")
+  func uniqueItemsNonArray() throws {
+    let schema = try JSONSchema(schema: .object(["uniqueItems": .boolean(true)]))
+    #expect(schema.validation(of: .string("hello")).valid)
+  }
+
+  @Test("uniqueItems — integer 1 and float 1.0 are considered equal")
+  func uniqueItemsIntFloat() throws {
+    let schema = try JSONSchema(schema: .object(["uniqueItems": .boolean(true)]))
+    let result = schema.validation(of: .array([.number(.integer(1)), .number(.float(1.0))]))
+    #expect(!result.valid)
+    #expect(result.errors.first?.keyword == "uniqueItems")
+  }
+}
+
+@Suite("JSONSchema contains")
+struct JSONSchemaContainsTests {
+
+  @Test("contains — valid (at least one matches)")
+  func containsValid() throws {
+    let schema = try JSONSchema(schema: .object(["contains": .object(["type": .string("string")])]))
+    #expect(schema.validation(of: .array([.number(.integer(1)), .string("hello")])).valid)
+  }
+
+  @Test("contains — invalid (none match)")
+  func containsInvalid() throws {
+    let schema = try JSONSchema(schema: .object(["contains": .object(["type": .string("string")])]))
+    let result = schema.validation(of: .array([.number(.integer(1)), .number(.integer(2))]))
+    #expect(!result.valid)
+    #expect(result.errors.first?.keyword == "contains")
+  }
+
+  @Test("contains — empty array fails")
+  func containsEmpty() throws {
+    let schema = try JSONSchema(schema: .object(["contains": .object(["type": .string("string")])]))
+    let result = schema.validation(of: .array([]))
+    #expect(!result.valid)
+  }
+
+  @Test("contains — non-array skips")
+  func containsNonArray() throws {
+    let schema = try JSONSchema(schema: .object(["contains": .object(["type": .string("string")])]))
+    #expect(schema.validation(of: .string("hello")).valid)
+  }
+}
+
+// MARK: - Object Keywords
+
+@Suite("JSONSchema minProperties / maxProperties")
+struct JSONSchemaMinMaxPropertiesTests {
+
+  @Test("minProperties — valid")
+  func minPropertiesValid() throws {
+    let schema = try JSONSchema(schema: .object(["minProperties": .number(.integer(1))]))
+    #expect(schema.validation(of: .object(["a": .string("x")])).valid)
+    #expect(schema.validation(of: .object(["a": .string("x"), "b": .string("y")])).valid)
+  }
+
+  @Test("minProperties — invalid")
+  func minPropertiesInvalid() throws {
+    let schema = try JSONSchema(schema: .object(["minProperties": .number(.integer(2))]))
+    let result = schema.validation(of: .object(["a": .string("x")]))
+    #expect(!result.valid)
+    #expect(result.errors.first?.keyword == "minProperties")
+  }
+
+  @Test("maxProperties — valid")
+  func maxPropertiesValid() throws {
+    let schema = try JSONSchema(schema: .object(["maxProperties": .number(.integer(3))]))
+    #expect(schema.validation(of: .object(["a": .string("x")])).valid)
+    #expect(schema.validation(of: .object(["a": .string("x"), "b": .string("y")])).valid)
+  }
+
+  @Test("maxProperties — invalid")
+  func maxPropertiesInvalid() throws {
+    let schema = try JSONSchema(schema: .object(["maxProperties": .number(.integer(1))]))
+    let result = schema.validation(of: .object(["a": .string("x"), "b": .string("y")]))
+    #expect(!result.valid)
+    #expect(result.errors.first?.keyword == "maxProperties")
+  }
+
+  @Test("minProperties / maxProperties — non-object skips")
+  func minMaxPropertiesNonObject() throws {
+    let schema = try JSONSchema(
+      schema: .object([
+        "minProperties": .number(.integer(2)), "maxProperties": .number(.integer(5)),
+      ]))
+    #expect(schema.validation(of: .string("hello")).valid)
+  }
+}
+
+@Suite("JSONSchema propertyNames")
+struct JSONSchemaPropertyNamesTests {
+
+  @Test("propertyNames — valid (key matches schema)")
+  func propertyNamesValid() throws {
+    let schema = try JSONSchema(
+      schema: .object(["propertyNames": .object(["pattern": .string("^[a-z]+$")])]))
+    #expect(schema.validation(of: .object(["name": .string("Alice")])).valid)
+  }
+
+  @Test("propertyNames — invalid (key fails schema)")
+  func propertyNamesInvalid() throws {
+    let schema = try JSONSchema(
+      schema: .object(["propertyNames": .object(["pattern": .string("^[a-z]+$")])]))
+    let result = schema.validation(of: .object(["NAME": .string("Alice")]))
+    #expect(!result.valid)
+    #expect(result.errors.first?.keyword == "propertyNames")
+  }
+
+  @Test("propertyNames — non-object skips")
+  func propertyNamesNonObject() throws {
+    let schema = try JSONSchema(
+      schema: .object(["propertyNames": .object(["type": .string("string")])]))
+    #expect(schema.validation(of: .string("hello")).valid)
+  }
+}
+
+@Suite("JSONSchema patternProperties")
+struct JSONSchemaPatternPropertiesTests {
+
+  @Test("patternProperties — valid (key matches pattern)")
+  func patternPropertiesValid() throws {
+    let schema = try JSONSchema(
+      schema: .object([
+        "patternProperties": .object([
+          "^[a-z]+$": .object(["type": .string("string")])
+        ])
+      ]))
+    #expect(schema.validation(of: .object(["name": .string("Alice")])).valid)
+  }
+
+  @Test("patternProperties — invalid (value fails schema)")
+  func patternPropertiesInvalid() throws {
+    let schema = try JSONSchema(
+      schema: .object([
+        "patternProperties": .object([
+          "^[a-z]+$": .object(["type": .string("number")])
+        ])
+      ]))
+    let result = schema.validation(of: .object(["name": .string("Alice")]))
+    #expect(!result.valid)
+    #expect(
+      result.errors.first?.keyword == "patternProperties" || result.errors.first?.keyword == "type")
+  }
+
+  @Test("patternProperties — non-object skips")
+  func patternPropertiesNonObject() throws {
+    let propSchema: JSON = .object(["type": .string("string")])
+    let schema = try JSONSchema(
+      schema: .object(["patternProperties": .object(["^.*$": propSchema])]))
+    #expect(schema.validation(of: .string("hello")).valid)
+  }
+
+  @Test("patternProperties — invalid regex at init time")
+  func patternPropertiesInvalidRegex() throws {
+    #expect(throws: JSONSchemaError.self) {
+      try JSONSchema(
+        schema: .object([
+          "patternProperties": .object(["[invalid": .object(["type": .string("string")])])
+        ]))
+    }
+  }
+}
+
+@Suite("JSONSchema additionalProperties")
+struct JSONSchemaAdditionalPropertiesTests {
+
+  @Test("additionalProperties — valid (key covered by properties)")
+  func additionalPropertiesCovered() throws {
+    let schema = try JSONSchema(
+      schema: .object([
+        "properties": .object(["name": .object(["type": .string("string")])]),
+        "additionalProperties": .boolean(false),
+      ]), draft: .draft7)
+    #expect(schema.validation(of: .object(["name": .string("Alice")])).valid)
+  }
+
+  @Test("additionalProperties — invalid (key not covered)")
+  func additionalPropertiesUncovered() throws {
+    let schema = try JSONSchema(
+      schema: .object([
+        "properties": .object(["name": .object(["type": .string("string")])]),
+        "additionalProperties": .boolean(false),
+      ]), draft: .draft7)
+    let result = schema.validation(
+      of: .object(["name": .string("Alice"), "age": .number(.integer(30))]))
+    #expect(!result.valid)
+    // Error keyword is "false" from the boolean subschema, not "additionalProperties"
+    #expect(result.errors.first?.keyword == "false")
+  }
+
+  @Test("additionalProperties — non-object skips")
+  func additionalPropertiesNonObject() throws {
+    let schema = try JSONSchema(
+      schema: .object(["additionalProperties": .boolean(false)]), draft: .draft7)
+    #expect(schema.validation(of: .string("hello")).valid)
+  }
+}
+
+@Suite("JSONSchema unevaluatedProperties")
+struct JSONSchemaUnevaluatedPropertiesTests {
+
+  @Test("unevaluatedProperties — valid (key evaluated by properties)")
+  func unevaluatedPropertiesCovered() throws {
+    let schema = try JSONSchema(
+      schema: .object([
+        "properties": .object(["name": .object(["type": .string("string")])]),
+        "unevaluatedProperties": .boolean(false),
+      ]))
+    #expect(schema.validation(of: .object(["name": .string("Alice")])).valid)
+  }
+
+  @Test("unevaluatedProperties — invalid (key not evaluated)")
+  func unevaluatedPropertiesUncovered() throws {
+    let schema = try JSONSchema(
+      schema: .object([
+        "properties": .object(["name": .object(["type": .string("string")])]),
+        "unevaluatedProperties": .boolean(false),
+      ]))
+    let result = schema.validation(
+      of: .object(["name": .string("Alice"), "age": .number(.integer(30))]))
+    #expect(!result.valid)
+    // Error keyword is "false" from the boolean subschema, not "unevaluatedProperties"
+    #expect(result.errors.first?.keyword == "false")
+  }
+
+  @Test("unevaluatedProperties — non-object skips")
+  func unevaluatedPropertiesNonObject() throws {
+    let schema = try JSONSchema(schema: .object(["unevaluatedProperties": .boolean(false)]))
+    #expect(schema.validation(of: .string("hello")).valid)
+  }
+}
+
+@Suite("JSONSchema additionalItems")
+struct JSONSchemaAdditionalItemsTests {
+
+  @Test("additionalItems — Draft 7 valid (items beyond tuple pass)")
+  func additionalItemsValid() throws {
+    let schema = try JSONSchema(
+      schema: .object([
+        "items": .array([.object(["type": .string("string")])]),
+        "additionalItems": .object(["type": .string("number")]),
+      ]), draft: .draft7)
+    #expect(schema.validation(of: .array([.string("a"), .number(.integer(1))])).valid)
+  }
+
+  @Test("additionalItems — Draft 7 invalid (beyond tuple fails)")
+  func additionalItemsInvalid() throws {
+    let schema = try JSONSchema(
+      schema: .object([
+        "items": .array([.object(["type": .string("string")])]),
+        "additionalItems": .object(["type": .string("number")]),
+      ]), draft: .draft7)
+    let result = schema.validation(of: .array([.string("a"), .string("b")]))
+    #expect(!result.valid)
+    #expect(
+      result.errors.first?.keyword == "additionalItems" || result.errors.first?.keyword == "type")
+  }
+
+  @Test("additionalItems — non-array skips")
+  func additionalItemsNonArray() throws {
+    let schema = try JSONSchema(
+      schema: .object(["additionalItems": .object(["type": .string("string")])]), draft: .draft7)
+    #expect(schema.validation(of: .string("hello")).valid)
+  }
+}
+
+@Suite("JSONSchema unevaluatedItems")
+struct JSONSchemaUnevaluatedItemsTests {
+
+  @Test("unevaluatedItems — valid (items beyond prefix pass)")
+  func unevaluatedItemsValid() throws {
+    let schema = try JSONSchema(
+      schema: .object([
+        "prefixItems": .array([.object(["type": .string("string")])]),
+        "unevaluatedItems": .object(["type": .string("number")]),
+      ]))
+    #expect(schema.validation(of: .array([.string("a"), .number(.integer(1))])).valid)
+  }
+
+  @Test("unevaluatedItems — invalid (beyond prefix fails)")
+  func unevaluatedItemsInvalid() throws {
+    let schema = try JSONSchema(
+      schema: .object([
+        "prefixItems": .array([.object(["type": .string("string")])]),
+        "unevaluatedItems": .object(["type": .string("number")]),
+      ]))
+    let result = schema.validation(of: .array([.string("a"), .string("b")]))
+    #expect(!result.valid)
+    #expect(
+      result.errors.first?.keyword == "unevaluatedItems" || result.errors.first?.keyword == "type")
+  }
+
+  @Test("unevaluatedItems — non-array skips")
+  func unevaluatedItemsNonArray() throws {
+    let schema = try JSONSchema(
+      schema: .object(["unevaluatedItems": .object(["type": .string("string")])]))
+    #expect(schema.validation(of: .string("hello")).valid)
+  }
+}

@@ -622,4 +622,401 @@ extension JSONSchema {
       }
     }
   }
+
+  // MARK: - Keyword: items
+
+  /// Validates the `items` keyword.
+  /// - Draft 2020-12: schema applies to all array items.
+  /// - Draft 7: can be a schema (all items) or an array of schemas (tuple).
+  ///   If `prefixItems` exists, items applies to items beyond the prefix.
+  internal func validateItems(
+    _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
+    errors: inout [JSONSchemaError]
+  ) {
+    guard let items = subschema["items"], let arr = value.arrayValue else { return }
+
+    if draft == .draft7, items.isArray {
+      // Draft 7 tuple mode: items array validates first N items
+      let tupleSchemas = items.arrayValue ?? []
+      for (index, item) in arr.prefix(tupleSchemas.count).enumerated() {
+        let childSchemaPath = schemaPath + "/items/" + String(index)
+        let childInstancePath =
+          instancePath.isEmpty ? String(index) : instancePath + "/" + String(index)
+        validateValue(
+          item, against: tupleSchemas[index], instancePath: childInstancePath,
+          schemaPath: childSchemaPath, errors: &errors)
+      }
+    } else {
+      // Schema mode: apply to all items (Draft 2020-12) or remaining items (Draft 7)
+      for (index, item) in arr.enumerated() {
+        let childSchemaPath = schemaPath + "/items"
+        let childInstancePath =
+          instancePath.isEmpty ? String(index) : instancePath + "/" + String(index)
+        validateValue(
+          item, against: items, instancePath: childInstancePath,
+          schemaPath: childSchemaPath, errors: &errors)
+      }
+    }
+  }
+
+  // MARK: - Keyword: prefixItems
+
+  /// Validates `prefixItems` (Draft 2020-12) — tuple validation for the
+  /// first N items. Each schema validates the corresponding item index.
+  internal func validatePrefixItems(
+    _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
+    errors: inout [JSONSchemaError]
+  ) {
+    guard let prefixItems = subschema["prefixItems"], prefixItems.isArray,
+      let arr = value.arrayValue
+    else { return }
+
+    let schemas = prefixItems.arrayValue ?? []
+    for (index, item) in arr.prefix(schemas.count).enumerated() {
+      let childSchemaPath = schemaPath + "/prefixItems/" + String(index)
+      let childInstancePath =
+        instancePath.isEmpty ? String(index) : instancePath + "/" + String(index)
+      validateValue(
+        item, against: schemas[index], instancePath: childInstancePath,
+        schemaPath: childSchemaPath, errors: &errors)
+    }
+  }
+
+  // MARK: - Keyword: additionalItems
+
+  /// Validates `additionalItems` (Draft 7 only) — schema for items beyond
+  /// the tuple length defined by `items` (when items is an array).
+  internal func validateAdditionalItems(
+    _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
+    errors: inout [JSONSchemaError]
+  ) {
+    guard let additionalItems = subschema["additionalItems"], let arr = value.arrayValue
+    else { return }
+
+    let tupleCount: Int
+    if let items = subschema["items"], items.isArray {
+      tupleCount = items.arrayValue?.count ?? 0
+    } else {
+      tupleCount = 0
+    }
+
+    for (index, item) in arr.enumerated() {
+      if index < tupleCount { continue }
+      let childSchemaPath = schemaPath + "/additionalItems"
+      let childInstancePath =
+        instancePath.isEmpty ? String(index) : instancePath + "/" + String(index)
+      validateValue(
+        item, against: additionalItems, instancePath: childInstancePath,
+        schemaPath: childSchemaPath, errors: &errors)
+    }
+  }
+
+  // MARK: - Keyword: minItems / maxItems
+
+  /// Validates `minItems` — checks that the array has at least the
+  /// specified number of items.
+  internal func validateMinItems(
+    _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
+    errors: inout [JSONSchemaError]
+  ) {
+    guard let minVal = subschema["minItems"]?.intValue, let arr = value.arrayValue
+    else { return }
+    if arr.count < minVal {
+      errors.append(
+        JSONSchemaError(
+          instancePath: instancePath, schemaPath: schemaPath + "/minItems", keyword: "minItems",
+          message: "array length \(arr.count) is less than minimum \(minVal)"))
+    }
+  }
+
+  /// Validates `maxItems` — checks that the array has at most the
+  /// specified number of items.
+  internal func validateMaxItems(
+    _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
+    errors: inout [JSONSchemaError]
+  ) {
+    guard let maxVal = subschema["maxItems"]?.intValue, let arr = value.arrayValue
+    else { return }
+    if arr.count > maxVal {
+      errors.append(
+        JSONSchemaError(
+          instancePath: instancePath, schemaPath: schemaPath + "/maxItems", keyword: "maxItems",
+          message: "array length \(arr.count) is greater than maximum \(maxVal)"))
+    }
+  }
+
+  // MARK: - Keyword: uniqueItems
+
+  /// Validates `uniqueItems` — checks that all items in the array are
+  /// unique (using schema-aware equality).
+  internal func validateUniqueItems(
+    _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
+    errors: inout [JSONSchemaError]
+  ) {
+    guard subschema["uniqueItems"]?.boolValue == true, let arr = value.arrayValue
+    else { return }
+
+    for i in 0..<arr.count {
+      for j in (i + 1)..<arr.count {
+        if JSONSchema.schemaEqual(arr[i], arr[j]) {
+          errors.append(
+            JSONSchemaError(
+              instancePath: instancePath, schemaPath: schemaPath + "/uniqueItems",
+              keyword: "uniqueItems",
+              message: "items at indexes \(i) and \(j) are equal"))
+          return
+        }
+      }
+    }
+  }
+
+  // MARK: - Keyword: contains
+
+  /// Validates `contains` — checks that at least one item in the array
+  /// matches the subschema.
+  internal func validateContains(
+    _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
+    errors: inout [JSONSchemaError]
+  ) {
+    guard let containsSchema = subschema["contains"], let arr = value.arrayValue
+    else { return }
+
+    for item in arr {
+      var itemErrors: [JSONSchemaError] = []
+      validateValue(
+        item, against: containsSchema, instancePath: instancePath,
+        schemaPath: schemaPath + "/contains", errors: &itemErrors)
+      if itemErrors.isEmpty { return }
+    }
+
+    errors.append(
+      JSONSchemaError(
+        instancePath: instancePath, schemaPath: schemaPath + "/contains", keyword: "contains",
+        message: "array does not contain an item matching the subschema"))
+  }
+
+  // MARK: - Keyword: minProperties / maxProperties
+
+  /// Validates `minProperties` — checks that the object has at least the
+  /// specified number of properties.
+  internal func validateMinProperties(
+    _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
+    errors: inout [JSONSchemaError]
+  ) {
+    guard let minVal = subschema["minProperties"]?.intValue, value.isObject
+    else { return }
+    if value.count < minVal {
+      errors.append(
+        JSONSchemaError(
+          instancePath: instancePath, schemaPath: schemaPath + "/minProperties",
+          keyword: "minProperties",
+          message: "object has \(value.count) properties, less than minimum \(minVal)"))
+    }
+  }
+
+  /// Validates `maxProperties` — checks that the object has at most the
+  /// specified number of properties.
+  internal func validateMaxProperties(
+    _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
+    errors: inout [JSONSchemaError]
+  ) {
+    guard let maxVal = subschema["maxProperties"]?.intValue, value.isObject
+    else { return }
+    if value.count > maxVal {
+      errors.append(
+        JSONSchemaError(
+          instancePath: instancePath, schemaPath: schemaPath + "/maxProperties",
+          keyword: "maxProperties",
+          message: "object has \(value.count) properties, greater than maximum \(maxVal)"))
+    }
+  }
+
+  // MARK: - Keyword: propertyNames
+
+  /// Validates `propertyNames` — each property key in the object must
+  /// validate against the schema (the schema validates the key string).
+  internal func validatePropertyNames(
+    _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
+    errors: inout [JSONSchemaError]
+  ) {
+    guard let pnSchema = subschema["propertyNames"], value.isObject
+    else { return }
+    guard case .object(let dict) = value.storage else { return }
+
+    for (key, _) in dict {
+      var keyErrors: [JSONSchemaError] = []
+      let keyJSON: JSON = .string(key)
+      let childSchemaPath = schemaPath + "/propertyNames"
+      let childInstancePath = instancePath.isEmpty ? "~" + key : instancePath + "/~" + key
+      validateValue(
+        keyJSON, against: pnSchema, instancePath: childInstancePath,
+        schemaPath: childSchemaPath, errors: &keyErrors)
+      if let firstError = keyErrors.first {
+        errors.append(
+          JSONSchemaError(
+            instancePath: childInstancePath, schemaPath: childSchemaPath,
+            keyword: "propertyNames",
+            message: "property name '\(key)' failed: \(firstError.message)"))
+      }
+    }
+  }
+
+  // MARK: - Keyword: patternProperties
+
+  /// Validates `patternProperties` — property keys matching a regex must
+  /// have their value validated against the corresponding schema.
+  internal func validatePatternProperties(
+    _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
+    errors: inout [JSONSchemaError]
+  ) {
+    guard let pp = subschema["patternProperties"], pp.isObject, value.isObject
+    else { return }
+    guard case .object(let patternDict) = pp.storage, case .object(let dict) = value.storage
+    else { return }
+
+    for (pattern, schema) in patternDict {
+      guard let regex = try? NSRegularExpression(pattern: pattern, options: []) else { continue }
+      for (key, val) in dict {
+        let range = NSRange(key.startIndex..<key.endIndex, in: key)
+        if regex.firstMatch(in: key, options: [], range: range) != nil {
+          let childSchemaPath = schemaPath + "/patternProperties/" + pattern
+          let childInstancePath = instancePath.isEmpty ? key : instancePath + "/" + key
+          validateValue(
+            val, against: schema, instancePath: childInstancePath,
+            schemaPath: childSchemaPath, errors: &errors)
+        }
+      }
+    }
+  }
+
+  // MARK: - Keyword: additionalProperties
+
+  /// Validates `additionalProperties` (Draft 7) — schema for properties
+  /// not covered by `properties` or `patternProperties`.
+  internal func validateAdditionalProperties(
+    _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
+    errors: inout [JSONSchemaError]
+  ) {
+    guard let additionalProperties = subschema["additionalProperties"], value.isObject
+    else { return }
+    guard case .object(let dict) = value.storage else { return }
+
+    // Collect keys covered by properties or patternProperties
+    var coveredKeys: Set<String> = []
+    if let properties = subschema["properties"], properties.isObject {
+      guard case .object(let props) = properties.storage else { return }
+      for (key, _) in props {
+        coveredKeys.insert(key)
+      }
+    }
+    if let pp = subschema["patternProperties"], pp.isObject {
+      guard case .object(let patternDict) = pp.storage else { return }
+      for (pattern, _) in patternDict {
+        guard let regex = try? NSRegularExpression(pattern: pattern, options: []) else { continue }
+        for (key, _) in dict {
+          let range = NSRange(key.startIndex..<key.endIndex, in: key)
+          if regex.firstMatch(in: key, options: [], range: range) != nil {
+            coveredKeys.insert(key)
+          }
+        }
+      }
+    }
+
+    for (key, val) in dict {
+      if !coveredKeys.contains(key) {
+        let childSchemaPath = schemaPath + "/additionalProperties"
+        let childInstancePath = instancePath.isEmpty ? key : instancePath + "/" + key
+        validateValue(
+          val, against: additionalProperties, instancePath: childInstancePath,
+          schemaPath: childSchemaPath, errors: &errors)
+      }
+    }
+  }
+
+  // MARK: - Keyword: unevaluatedProperties
+
+  /// Validates `unevaluatedProperties` (Draft 2020-12) — schema for
+  /// properties not evaluated by `properties`, `patternProperties`, or
+  /// `dependentSchemas`.
+  internal func validateUnevaluatedProperties(
+    _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
+    errors: inout [JSONSchemaError]
+  ) {
+    guard let unevaluated = subschema["unevaluatedProperties"], value.isObject
+    else { return }
+    guard case .object(let dict) = value.storage else { return }
+
+    // Collect keys evaluated by properties
+    var evaluatedKeys: Set<String> = []
+    if let properties = subschema["properties"], properties.isObject {
+      guard case .object(let props) = properties.storage else { return }
+      for (key, _) in props {
+        evaluatedKeys.insert(key)
+      }
+    }
+
+    // Collect keys evaluated by patternProperties
+    if let pp = subschema["patternProperties"], pp.isObject {
+      guard case .object(let patternDict) = pp.storage else { return }
+      for (pattern, _) in patternDict {
+        guard let regex = try? NSRegularExpression(pattern: pattern, options: []) else { continue }
+        for (key, _) in dict {
+          let range = NSRange(key.startIndex..<key.endIndex, in: key)
+          if regex.firstMatch(in: key, options: [], range: range) != nil {
+            evaluatedKeys.insert(key)
+          }
+        }
+      }
+    }
+
+    // Collect keys evaluated by dependentSchemas
+    if let depSchemas = subschema["dependentSchemas"], depSchemas.isObject {
+      guard case .object(let depDict) = depSchemas.storage else { return }
+      for (key, _) in depDict {
+        if value[key] != nil {
+          evaluatedKeys.insert(key)
+        }
+      }
+    }
+
+    for (key, val) in dict {
+      if !evaluatedKeys.contains(key) {
+        let childSchemaPath = schemaPath + "/unevaluatedProperties"
+        let childInstancePath = instancePath.isEmpty ? key : instancePath + "/" + key
+        validateValue(
+          val, against: unevaluated, instancePath: childInstancePath,
+          schemaPath: childSchemaPath, errors: &errors)
+      }
+    }
+  }
+
+  // MARK: - Keyword: unevaluatedItems
+
+  /// Validates `unevaluatedItems` (Draft 2020-12) — schema for items not
+  /// evaluated by `prefixItems` or `contains`.
+  internal func validateUnevaluatedItems(
+    _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
+    errors: inout [JSONSchemaError]
+  ) {
+    guard let unevaluated = subschema["unevaluatedItems"], let arr = value.arrayValue
+    else { return }
+
+    // Determine which items were evaluated by prefixItems
+    let prefixCount: Int
+    if let prefixItems = subschema["prefixItems"], prefixItems.isArray {
+      prefixCount = prefixItems.arrayValue?.count ?? 0
+    } else {
+      prefixCount = 0
+    }
+
+    for (index, item) in arr.enumerated() {
+      if index < prefixCount { continue }
+      let childSchemaPath = schemaPath + "/unevaluatedItems"
+      let childInstancePath =
+        instancePath.isEmpty ? String(index) : instancePath + "/" + String(index)
+      validateValue(
+        item, against: unevaluated, instancePath: childInstancePath,
+        schemaPath: childSchemaPath, errors: &errors)
+    }
+  }
 }

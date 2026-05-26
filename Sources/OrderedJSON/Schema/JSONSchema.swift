@@ -273,6 +273,52 @@ public struct JSONSchema: Hashable, Sendable {
     validateDependentRequired(
       value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
       errors: &errors)
+
+    // Array keywords
+    validateItems(
+      value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
+      errors: &errors)
+    validatePrefixItems(
+      value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
+      errors: &errors)
+    validateAdditionalItems(
+      value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
+      errors: &errors)
+    validateMinItems(
+      value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
+      errors: &errors)
+    validateMaxItems(
+      value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
+      errors: &errors)
+    validateUniqueItems(
+      value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
+      errors: &errors)
+    validateContains(
+      value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
+      errors: &errors)
+
+    // Object keywords
+    validateMinProperties(
+      value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
+      errors: &errors)
+    validateMaxProperties(
+      value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
+      errors: &errors)
+    validatePropertyNames(
+      value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
+      errors: &errors)
+    validatePatternProperties(
+      value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
+      errors: &errors)
+    validateAdditionalProperties(
+      value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
+      errors: &errors)
+    validateUnevaluatedProperties(
+      value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
+      errors: &errors)
+    validateUnevaluatedItems(
+      value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
+      errors: &errors)
   }
 
   // MARK: - Schema-aware equality
