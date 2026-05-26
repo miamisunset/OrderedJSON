@@ -91,32 +91,47 @@ schema.validates(document) -> Bool        // non-throwing bool check
 
 ---
 
-## Phase 3 — Array & Object Keywords
+## Phase 3 — Array & Object Keywords (✅ Complete)
+
+**Branch**: `phase-3-array-object-keywords-v2`
+**PR**: [#31](https://github.com/miamisunset/OrderedJSON/pull/31)
 
 **Goal**: Array and object structural validation.
 
-### Keywords
+### Keywords implemented
 
-| Keyword | Draft 7 | Draft 2020-12 |
-|---------|---------|---------------|
-| `items` | Schema applies to all items OR tuple (if array of schemas) | Schema applies to all items (non-tuple) |
-| `prefixItems` | — | Tuple validation for first N items |
-| `additionalItems` | Schema for items beyond tuple length | — |
-| `minItems` / `maxItems` | Array length bounds | Same |
-| `uniqueItems` | All elements must be unique | Same |
-| `contains` | At least one item matches subschema | Same |
-| `minProperties` / `maxProperties` | Object size bounds | Same |
-| `propertyNames` | Schema for each key name | Same |
-| `patternProperties` | Schema for keys matching regex | Same |
-| `additionalProperties` | Schema for keys not covered by properties/patternProperties | — |
-| `unevaluatedProperties` | — | Schema for keys not evaluated by properties/patternProperties/dependentSchemas |
-| `unevaluatedItems` | — | Schema for items not evaluated by prefixItems/contains |
+| Keyword | Draft 7 | Draft 2020-12 | Status |
+|---------|---------|---------------|--------|
+| `items` | Schema (all items) or array (tuple) | Schema (all items, non-tuple) | ✅ |
+| `prefixItems` | — | Tuple validation for first N items | ✅ |
+| `additionalItems` | Schema for items beyond tuple | — | ✅ |
+| `minItems` / `maxItems` | Array length bounds | Same | ✅ |
+| `uniqueItems` | All elements must be unique | Same | ✅ |
+| `contains` | At least one item matches subschema | Same | ✅ |
+| `minProperties` / `maxProperties` | Object size bounds | Same | ✅ |
+| `propertyNames` | Schema for each key name | Same | ✅ |
+| `patternProperties` | Schema for keys matching regex | Same | ✅ |
+| `additionalProperties` | Schema for keys not covered | — | ✅ |
+| `unevaluatedProperties` | — | Schema for keys not evaluated | ✅ |
+| `unevaluatedItems` | — | Schema for items not evaluated | ✅ |
 
-### Draft-specific handling
+### Source refactoring (merged in PR #31)
 
-The validator must detect the draft and use the right keyword:
-- Draft 7: `items` can be a schema (all items) or array (tuple). `additionalItems` exists.
-- Draft 2020-12: `prefixItems` for tuples, `items` for non-tuple only. `unevaluatedProperties` replaces `additionalProperties`.
+Split `JSONSchema.swift` (1184 lines) into:
+- `JSONSchema.swift` (~300 lines) — core struct, draft, API, schemaEqual
+- `JSONSchemaValidators.swift` (~625 lines) — all keyword validators
+- `JSONSchemaPatterns.swift` (~82 lines) — init-time regex traversal
+
+Test file `JSONSchemaTests.swift` (1476 lines) split into:
+- `JSONSchemaCoreTests.swift` (~419 lines)
+- `JSONSchemaKeywordTests.swift` (~887 lines)
+
+### Known deviations
+- `additionalProperties`/`unevaluatedProperties` with boolean `false` produce error keyword `"false"` (from the boolean subschema), not the keyword name — consistent with general boolean schema behavior
+- `patternProperties` regex key validation throws at init time for invalid regex patterns
+- `unevaluatedItems` does not honor `items` (schema mode) or `contains` match indices — items evaluated by those keywords are not excluded; tracked as deviation tests
+- `unevaluatedProperties` does not track evaluation from `additionalProperties` or in-place applicators (`allOf`/`anyOf`/`oneOf`/`if`/`then`/`else`) — tracked as deviation tests
+- `contains` lacks `minContains`/`maxContains` support (Draft 2020-12 extension) — `contains` returns on first match
 
 ---
 

@@ -63,6 +63,52 @@ extension JSONSchema {
       try JSONSchema.validatePatterns(elseSchema)
     }
 
+    // Check patternProperties keys are valid regexes, and recurse into schemas
+    if let pp = schema["patternProperties"], pp.isObject {
+      guard case .object(let patternDict) = pp.storage else { return }
+      for (pattern, _) in patternDict {
+        do {
+          let _ = try NSRegularExpression(pattern: pattern, options: [])
+        } catch {
+          throw JSONSchemaError(
+            instancePath: "",
+            schemaPath: "/patternProperties",
+            keyword: "patternProperties",
+            message: "invalid regex pattern '\(pattern)' in patternProperties"
+          )
+        }
+      }
+      for (_, patternSchema) in patternDict {
+        try JSONSchema.validatePatterns(patternSchema)
+      }
+    }
+
+    // Recursively check contains
+    if let containsSchema = schema["contains"], containsSchema.isObject {
+      try JSONSchema.validatePatterns(containsSchema)
+    }
+
+    // Recursively check additionalProperties / unevaluatedProperties
+    if let ap = schema["additionalProperties"], ap.isObject {
+      try JSONSchema.validatePatterns(ap)
+    }
+    if let up = schema["unevaluatedProperties"], up.isObject {
+      try JSONSchema.validatePatterns(up)
+    }
+
+    // Recursively check additionalItems / unevaluatedItems
+    if let ai = schema["additionalItems"], ai.isObject {
+      try JSONSchema.validatePatterns(ai)
+    }
+    if let ui = schema["unevaluatedItems"], ui.isObject {
+      try JSONSchema.validatePatterns(ui)
+    }
+
+    // Recursively check propertyNames
+    if let pn = schema["propertyNames"], pn.isObject {
+      try JSONSchema.validatePatterns(pn)
+    }
+
     // Recursively check dependentSchemas values
     if let depSchemas = schema["dependentSchemas"], depSchemas.isObject {
       guard case .object(let depDict) = depSchemas.storage else { return }

@@ -487,51 +487,65 @@ All 403 tests pass. Build produces zero errors. CI pipeline passes (SwiftFormat 
 ### Full plan
 See `SCHEMA_PLAN.md` for the complete 10-phase breakdown.
 
-### Phase 1 — Core Type + Basic Validation Keywords (in progress)
+### Phase 1 — Core Type + Basic Validation Keywords (complete)
 
-#### What ships
-- `JSONSchema` struct with draft detection (`.draft7`, `.draft202012`, `.auto`)
-- `JSONSchemaResult` with `valid` flag and `errors` array
-- `JSONSchemaError` with instance path, schema path, keyword, message
-- Keyword validation: `type`, `properties`, `required`, `minimum`/`maximum`/`exclusiveMinimum`/`exclusiveMaximum`, `multipleOf`, `pattern`, `enum`, `const`
-- Convenience: `schema.validate(_:) throws -> Bool`, `schema.validates(_:) -> Bool`
+**PR**: [#28](https://github.com/miamisunset/OrderedJSON/pull/28)
 
-### Key decisions
-- Draft 2020-12 is primary target; Draft 7 supported for backward compat
-- Schema is held as JSON and walked on each validate call; pattern regexes pre-compiled at init
-- `auto` draft detection reads `$schema` from the schema JSON (exact URI matching first, substring fallback)
-- Error messages include both instance path (where in document) and schema path (which keyword)
-- `required` checks key presence only (null values satisfy required — per spec)
-- Numeric comparisons use integer fast path (Int64) when both sides are integers, preserving precision
-- API: `validate(_:) throws -> Bool` (fail-fast), `validation(of:) -> JSONSchemaResult` (collect-all), `isValid(_:) -> Bool` (predicate)
+### Phase 2 — Composition Keywords (complete)
 
-### Review fixes applied (post-PR review)
-- **`required` null fix**: Removed `value[key]!.isNull` check — null satisfies required
-- **Naming inversion**: Swapped `validate`/`validates` to conventional throwing-verb/non-throwing-result pattern
-- **Integer precision**: Added Int64 fast path for all numeric bounds + multipleOf
-- **Pattern init-time validation**: Regex errors now throw at init, not at validation
-- **Exact URI matching**: detectDraft matches official spec URIs first, falls back to substring
-- **`?? [:]` fix**: Changed unordered `[:]` literal to `OrderedDictionary()`
-- **Test safety**: `errors[0]` → `errors.first?.keyword` to avoid crash on regression
-- **`objectValue`**: Promoted from `fileprivate` to `package` for reuse
-- **`multipleOf` epsilon**: Added scaled epsilon (`max(1e-12 * mVal, 1e-12)`) for large doubles
-- **`Hashable` doc note**: Added warning about order-sensitive hashing
-- **Boolean schema TODO**: Added TODO + deviation note for future `true`/`false` schema support
-- **`enum`/`const` equality**: Added tests for `1 == 1.0` (integer vs float) and object key-order insensitivity
-- **Known deviations**: Added section to SCHEMA_PLAN.md covering regex flavor, boolean schemas, compilation, output format
-
-### Phase 2 — Composition Keywords (PR #30 open)
-
-**Branch**: `phase-2-composition-keywords`
 **PR**: [#30](https://github.com/miamisunset/OrderedJSON/pull/30)
 
+### Source Refactoring (complete)
+
+**PR**: [#31](https://github.com/miamisunset/OrderedJSON/pull/31)
+
+Split `JSONSchema.swift` (1184 lines) into:
+- `JSONSchema.swift` (~300 lines) — core struct, draft, API, schemaEqual
+- `JSONSchemaValidators.swift` (~625 lines) — all keyword validators
+- `JSONSchemaPatterns.swift` (~82 lines) — init-time regex traversal
+
+Split `JSONSchemaTests.swift` (1476 lines) into:
+- `JSONSchemaCoreTests.swift` (~419 lines) — creation, API, result/error, integration, boolean schemas, review edge cases
+- `JSONSchemaKeywordTests.swift` (~887 lines) — all keyword validation tests
+
+### Phase 3 — Array & Object Keywords (complete, branch `phase-3-array-object-keywords-v2`)
+
+### Review fixes applied (post-PR review)
+- Extracted `evaluatedPropertyKeys` helper — shared by `additionalProperties` and `unevaluatedProperties`
+- `unevaluatedItems` short-circuits when `items` is present as schema (items covers everything past prefixItems)
+- `unevaluatedProperties` now includes `additionalProperties` keys in evaluated set
+- `try? NSRegularExpression` → `try!` with precondition comment in both `evaluatedPropertyKeys` and `validatePatternProperties`
+- `guard ... else { return }` on schema storage → `preconditionFailure` in `evaluatedPropertyKeys`
+- `||` test assertions → `errors.map(\.keyword).contains(...)` + `errors.count >= 1`
+- Doc comment on `validateItems` clarified (Draft 2020-12 vs Draft 7)
+- `minContains`/`maxContains` TODO added
+- Deviation tests added for `unevaluatedItems` with `items`/`contains`, `unevaluatedProperties` with `additionalProperties`, `contains` with `minContains`
+- `propertyNames` inner dispatch test added
+- `SCHEMA_PLAN.md` deviations updated
+
+### Tests
+- 169 total schema tests across 34 suites — all passing, lint clean
+
 ### What shipped
-- Boolean schemas (`true`/`false`) — init + validation engine
-- `allOf`, `anyOf`, `oneOf`, `not` — boolean logic composition
-- `if`/`then`/`else` — conditional validation
-- `dependentSchemas` — schema applied when key present
-- `dependentRequired` — keys required when dependency key present
-- `minLength`/`maxLength` — string length bounds
-- `arrayValue` accessor on `JSON` (`[JSON]?`)
-- 108 tests across 21 suites — all passing, lint clean
+- `items` — Draft 2020-12 schema mode + Draft 7 tuple mode
+- `prefixItems` — Draft 2020-12 tuple validation for first N items
+- `additionalItems` — Draft 7 schema for items beyond tuple length
+- `minItems` / `maxItems` — array length bounds
+- `uniqueItems` — all items must be unique (schema-aware equality)
+- `contains` — at least one item must match subschema
+- `minProperties` / `maxProperties` — object property count bounds
+- `propertyNames` — each property key must validate against a schema
+- `patternProperties` — keys matching regex must validate value against schema
+- `additionalProperties` — Draft 7: schema for keys not covered by properties/patternProperties
+- `unevaluatedProperties` — Draft 2020-12: schema for keys not evaluated by properties/patternProperties/dependentSchemas
+- `unevaluatedItems` — Draft 2020-12: schema for items not evaluated by prefixItems/contains
+- Pattern key validation in `validatePatterns` — `patternProperties` keys validated as regexes at init time
+
+### Tests
+- 46 new tests across 13 new suites (items, prefixItems, minItems/maxItems, uniqueItems, contains, minProperties/maxProperties, propertyNames, patternProperties, additionalProperties, unevaluatedProperties, additionalItems, unevaluatedItems)
+- 164 total schema tests across 34 suites — all passing, lint clean
+
+### Known deviations
+- `additionalProperties`/`unevaluatedProperties` with boolean `false` produce error keyword `"false"` (from the boolean subschema), not the keyword name — matches general boolean schema behavior
+- `patternProperties` regex key validation throws at init time for invalid regex patterns
 
