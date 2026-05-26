@@ -52,7 +52,7 @@ public struct JSONSchema: Hashable, Sendable {
   /// The compiled schema with resolved `$ref`, `$defs`, `$id`, `$anchor`.
   internal let compiled: CompiledSchema?
   /// Options for format validation (which formats to enable/disable).
-  internal var formatOptions: JSONSchemaFormatOptions
+  internal let formatOptions: JSONSchemaFormatOptions
 
   /// Creates a compiled JSON Schema from a JSON representation.
   ///
@@ -62,8 +62,12 @@ public struct JSONSchema: Hashable, Sendable {
   /// - Parameters:
   ///   - schema: The JSON representation of the schema.
   ///   - draft: The draft version to use. Defaults to `.auto`.
+  ///   - formatOptions: Options for format validation. Defaults to all enabled.
   /// - Throws: `JSONSchemaError` if the schema itself is invalid.
-  public init(schema: JSON, draft: Draft = .auto) throws {
+  public init(
+    schema: JSON, draft: Draft = .auto,
+    formatOptions: JSONSchemaFormatOptions = JSONSchemaFormatOptions()
+  ) throws {
     // Detect draft from $schema if auto
     let resolvedDraft: Draft
     if draft == .auto {
@@ -99,14 +103,7 @@ public struct JSONSchema: Hashable, Sendable {
     self.schemaJSON = schema
     self.draft = resolvedDraft
     self.compiled = compiled
-    self.formatOptions = JSONSchemaFormatOptions()
-  }
-
-  /// Sets format validation options. By default all formats are enabled.
-  /// - Parameter options: The format options to use.
-  internal mutating func withFormatOptions(_ options: JSONSchemaFormatOptions) -> Self {
-    self.formatOptions = options
-    return self
+    self.formatOptions = formatOptions
   }
 
   // MARK: - Draft detection

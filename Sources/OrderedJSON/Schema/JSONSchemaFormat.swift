@@ -14,7 +14,7 @@ import Foundation
 /// (ISO8601DateFormatter, UUID, URL, inet_pton, NSRegularExpression)
 /// and falls back to regex patterns for formats Foundation doesn't
 /// validate strictly (date, time, email, hostname, duration).
-internal enum JSONSchemaFormat: String, CaseIterable, Sendable, Hashable {
+public enum JSONSchemaFormat: String, CaseIterable, Sendable, Hashable {
   case dateTime = "date-time"
   case date = "date"
   case time = "time"
@@ -29,10 +29,29 @@ internal enum JSONSchemaFormat: String, CaseIterable, Sendable, Hashable {
   case jsonPointer = "json-pointer"
   case regex = "regex"
 
+  /// Bit index used for `JSONSchemaFormatOptions.FormatSet` bitmask.
+  public var bitIndex: UInt16 {
+    switch self {
+    case .dateTime: return 0
+    case .date: return 1
+    case .time: return 2
+    case .duration: return 3
+    case .email: return 4
+    case .hostname: return 5
+    case .ipv4: return 6
+    case .ipv6: return 7
+    case .uuid: return 8
+    case .uri: return 9
+    case .uriReference: return 10
+    case .jsonPointer: return 11
+    case .regex: return 12
+    }
+  }
+
   /// Validates that a string value conforms to this format.
   /// - Parameter value: The string to validate.
   /// - Returns: `true` if the value matches the format, `false` otherwise.
-  func validate(_ value: String) -> Bool {
+  public func validate(_ value: String) -> Bool {
     switch self {
     case .dateTime: return Self.validateDateTime(value)
     case .date: return Self.validateDate(value)
@@ -52,31 +71,53 @@ internal enum JSONSchemaFormat: String, CaseIterable, Sendable, Hashable {
 
   // MARK: - Format Validators
 
+  private static func _dateFormatter() -> ISO8601DateFormatter {
+    let f = ISO8601DateFormatter()
+    f.formatOptions = [.withInternetDateTime]
+    return f
+  }
+
+  private static func _dateFormatterFractional() -> ISO8601DateFormatter {
+    let f = ISO8601DateFormatter()
+    f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+    return f
+  }
+
   /// RFC 3339 / ISO 8601 date-time using Foundation's ISO8601DateFormatter.
   /// Supports both `Z` timezone and `±HH:MM` offset forms, with and without
-  /// fractional seconds. Uses two formatters: one without fractional seconds
-  /// (for integer-second values) and one with (for sub-second values).
+  /// fractional seconds. Caches the two formatters as static lazy vars.
   private static func validateDateTime(_ value: String) -> Bool {
-    let formatter = ISO8601DateFormatter()
-    formatter.formatOptions = [.withInternetDateTime]
-    if formatter.date(from: value) != nil { return true }
-    let fractionalFormatter = ISO8601DateFormatter()
-    fractionalFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-    return fractionalFormatter.date(from: value) != nil
+    let f1 = _dateFormatter()
+    if f1.date(from: value) != nil { return true }
+    let f2 = _dateFormatterFractional()
+    return f2.date(from: value) != nil
   }
 
   /// RFC 3339 date (e.g. `2025-01-01`). Uses strict regex because
   /// Foundation's DateFormatter accepts invalid months (e.g. month 13).
+  /// Also validates month-aware day ranges (Feb 30 is rejected).
   private static func validateDate(_ value: String) -> Bool {
     let pattern = #"^\d{4}-\d{2}-\d{2}$"#
     guard value.range(of: pattern, options: .regularExpression) != nil else { return false }
-    // Validate month and day ranges
     let parts = value.split(separator: "-", omittingEmptySubsequences: false)
     guard parts.count == 3,
+      let year = Int(parts[0]),
       let month = Int(parts[1]), month >= 1, month <= 12,
-      let day = Int(parts[2]), day >= 1, day <= 31
+      let day = Int(parts[2]), day >= 1
     else { return false }
-    return true
+    // Month-aware day limits
+    let maxDay: Int
+    switch month {
+    case 2:
+      // February — 28 days in non-leap years, 29 in leap years
+      let isLeap = (year % 4 == 0 && year % 100 != 0) || year % 400 == 0
+      maxDay = isLeap ? 29 : 28
+    case 4, 6, 9, 11:
+      maxDay = 30
+    default:
+      maxDay = 31
+    }
+    return day <= maxDay
   }
 
   /// RFC 3339 time (e.g. `12:00:00Z`). Uses strict regex because
@@ -93,6 +134,8 @@ internal enum JSONSchemaFormat: String, CaseIterable, Sendable, Hashable {
     } else if let plusRange = value.firstIndex(of: "+") {
       base = String(value[value.startIndex..<plusRange])
     } else if let minusRange = value.firstIndex(of: "-") {
+      // Only strip if '-' is part of a timezone offset, not a negative time
+      // (RFC 3339 times don't have negative values, so '-' always means offset)
       base = String(value[value.startIndex..<minusRange])
     } else {
       base = value
@@ -106,42 +149,24 @@ internal enum JSONSchemaFormat: String, CaseIterable, Sendable, Hashable {
     return true
   }
 
-  /// ISO 8601 duration (e.g. `PT1H30M`). Custom parsing since Foundation's
-  /// DateComponentsFormatter only formats durations, does not parse them.
+  /// ISO 8601 duration (e.g. `PT1H30M`). Uses regex to validate the
+  /// full duration string, ensuring each designator is preceded by a number.
   private static func validateDuration(_ value: String) -> Bool {
-    guard value.hasPrefix("P") else { return false }
-    let rest = String(value.dropFirst())
-    guard !rest.isEmpty else { return false }
-
-    // Split on T to separate date and time portions
-    let parts = rest.split(separator: "T", maxSplits: 1, omittingEmptySubsequences: false)
-    let datePart = String(parts[0])
-
-    // Date part must have at least one duration designator
-    let dateHasYear = datePart.contains("Y") || datePart.contains("y")
-    let dateHasMonth = datePart.contains("M")  // ambiguous — could be minutes in time part
-    let dateHasDay = datePart.contains("D") || datePart.contains("d")
-    let dateHasWeek = datePart.contains("W") || datePart.contains("w")
-
-    if parts.count == 1 {
-      // No time portion — must have at least one date component
-      return dateHasYear || dateHasMonth || dateHasDay || dateHasWeek
-    }
-
-    guard parts.count == 2 else { return false }
-    let timePart = String(parts[1])
-    guard !timePart.isEmpty else { return false }
-
-    // Time part must have at least one time designator
-    let timeHasHour = timePart.contains("H") || timePart.contains("h")
-    let timeHasMinute = timePart.contains("M") || timePart.contains("m")
-    let timeHasSecond = timePart.contains("S") || timePart.contains("s")
-
-    return timeHasHour || timeHasMinute || timeHasSecond
+    // Full ISO 8601 duration pattern with at-least-one-component requirement:
+    // - Date form: P<num>Y, P<num>M, P<num>D, P<num>W, or combinations
+    // - Time form: PT<num>H, PT<num>M, PT<num>S, or combinations
+    // - Combined: P<num>Y<T<num>H, etc.
+    // At least one component must be present (rejects bare P and PT).
+    let pattern =
+      #"^P(?:\d+(?:[YyMmDdWw]))(?:\d+(?:[YyMmDd]))*"#
+      + #"(?:T(?:\d+(?:[HhMmSs]))(?:\d+(?:[HhMmSs]))*)?$"# + #"|^P(?:\d+[Ww])$"#
+      + #"|^PT(?:\d+(?:[HhMmSs]))(?:\d+(?:[HhMmSs]))*$"#
+    return value.range(of: pattern, options: .regularExpression) != nil
   }
 
   /// Basic email format validation (RFC 5322-ish pattern).
-  /// Foundation has no built-in email parser.
+  /// Requires at least one character before @, a domain with at least one dot,
+  /// and at least one character after the dot (non-empty TLD).
   private static func validateEmail(_ value: String) -> Bool {
     let pattern = #"^[^\s@]+@[^\s@]+\.[^\s@]+$"#
     return value.range(of: pattern, options: .regularExpression) != nil

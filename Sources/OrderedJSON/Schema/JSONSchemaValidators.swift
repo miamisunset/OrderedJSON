@@ -333,6 +333,9 @@ extension JSONSchema {
   /// Validates the `format` keyword — checks that a string value conforms
   /// to the specified format (e.g., `date-time`, `email`, `uuid`).
   /// Disabled formats are skipped. Only validates string values.
+  ///
+  /// Per Draft 2020-12, `format` is an **annotation** keyword — it should
+  /// NOT produce validation errors. Draft 7 treats `format` as an assertion.
   internal func validateFormat(
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
     errors: inout [JSONSchemaError], ctx: EvaluationContext
@@ -341,6 +344,8 @@ extension JSONSchema {
       let strVal = value.stringValue
     else { return }
     guard let format = JSONSchemaFormat(rawValue: formatStr) else { return }
+    // Draft 2020-12: format is an annotation — silently skip
+    guard draft == .draft7 else { return }
     // Respect format options — disabled formats are silently skipped
     guard formatOptions.isEnabled(format) else { return }
     if !format.validate(strVal) {

@@ -278,10 +278,10 @@ The `recursionDepth` parameter had a default of `0`, so every validator call tha
 | Format | Validation | Foundation API Used |
 |--------|-----------|-------------------|
 | `date-time` | RFC 3339 / ISO 8601 | `ISO8601DateFormatter` (with/without fractional fallback) |
-| `date` | RFC 3339 date | Regex + range check (DateFormatter too lenient) |
-| `time` | RFC 3339 time | Regex + range check (DateFormatter too lenient) |
-| `duration` | ISO 8601 duration | Custom parser (DateComponentsFormatter doesn't parse) |
-| `email` | Basic email regex | Regex (`^[^\s@]+@[^\s@]+\.[^\s@]+$`) |
+| `date` | RFC 3339 date | Regex + month-aware day range check |
+| `time` | RFC 3339 time | Regex + range check |
+| `duration` | ISO 8601 duration | Regex-based parser |
+| `email` | Basic email regex | Regex (`^[^\s@]+@[^\s@]+\.[a-zA-Z]{2,}$`) |
 | `hostname` | RFC 1034 hostname | Regex (URL host parsing inconsistent for edge cases) |
 | `ipv4` | IPv4 address | `inet_pton` (POSIX standard API) |
 | `ipv6` | IPv6 address | `inet_pton` (POSIX standard API) |
@@ -295,22 +295,21 @@ The `recursionDepth` parameter had a default of `0`, so every validator call tha
 
 `JSONSchemaFormatOptions` with `FormatSet` bitmask on `JSONSchema`:
 ```swift
-var schema = try JSONSchema(schema: ...)
 var opts = JSONSchemaFormatOptions()
-opts.disabledFormats = opts.disabledFormats.union(.regex)
-schema.withFormatOptions(opts)
+opts.disable(.regex)
+schema.formatOptions = opts
 ```
 
 ### Files changed
 - `Sources/OrderedJSON/Schema/JSONSchemaFormat.swift` (new) — 13 format validators
 - `Sources/OrderedJSON/Schema/JSONSchemaFormatOptions.swift` (new) — options struct + FormatSet bitmask
-- `Sources/OrderedJSON/Schema/JSONSchema.swift` — formatOptions property + withFormatOptions method + validateFormat dispatch
-- `Sources/OrderedJSON/Schema/JSONSchemaValidators.swift` — validateFormat validator function
-- `Tests/OrderedJSONTests/Schema/JSONSchemaKeywordTests.swift` — 30 format tests
+- `Sources/OrderedJSON/Schema/JSONSchema.swift` — formatOptions property set at init
+- `Sources/OrderedJSON/Schema/JSONSchemaValidators.swift` — validateFormat with draft-aware assertion
+- `Tests/OrderedJSONTests/Schema/JSONSchemaKeywordTests.swift` — format tests
 
 ### Tests
-- 30 new format tests covering valid/invalid for all 13 formats, plus non-string skip, unknown format skip, disabled format skip, absent keyword skip
-- 258 total schema tests — all passing, lint clean
+- 30+ format tests covering valid/invalid for all 13 formats, plus edge cases
+- 258+ total schema tests — all passing, lint clean
 
 ---
 
