@@ -69,21 +69,20 @@ public struct JSONSchema: Hashable, Sendable {
     }
 
     // Validate schema structure
-    guard schema.isObject else {
-      // TODO: Support boolean schemas (true/false) — Draft 2020-12 allows
-      //       `true` (accept everything) and `false` (reject everything).
-      //       See SCHEMA_PLAN.md "Known Deviations".
+    guard schema.isObject || schema.isBoolean else {
       throw JSONSchemaError(
         instancePath: "",
         schemaPath: "",
         keyword: "schema",
-        message: "Schema must be a JSON object"
+        message: "Schema must be a JSON object or boolean"
       )
     }
 
     // Pre-compile regex patterns so invalid regexes fail at init time
-    // rather than during validation.
-    try JSONSchema.validatePatterns(schema)
+    // rather than during validation. Boolean schemas have no patterns.
+    if schema.isObject {
+      try JSONSchema.validatePatterns(schema)
+    }
 
     self.schemaJSON = schema
     self.draft = resolvedDraft
@@ -273,11 +272,22 @@ public struct JSONSchema: Hashable, Sendable {
     schemaPath: String,
     errors: inout [JSONSchemaError]
   ) {
-    guard subschema.isObject else {
-      // Non-object schemas are treated as pass-through (no constraints).
-      // TODO: Support boolean schemas (true/false) — see init TODO.
+    // Handle boolean schemas (Draft 2020-12): true accepts everything,
+    // false rejects everything.
+    if let boolVal = subschema.boolValue {
+      if !boolVal {
+        errors.append(
+          JSONSchemaError(
+            instancePath: instancePath,
+            schemaPath: schemaPath,
+            keyword: "false",
+            message: "boolean schema false rejects the value"
+          ))
+      }
       return
     }
+
+    guard subschema.isObject else { return }
 
     // Validate keywords in order
     validateType(
@@ -311,6 +321,37 @@ public struct JSONSchema: Hashable, Sendable {
       value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
       errors: &errors)
     validateConst(
+      value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
+      errors: &errors)
+
+    // String length keywords
+    validateMinLength(
+      value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
+      errors: &errors)
+    validateMaxLength(
+      value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
+      errors: &errors)
+
+    // Composition keywords
+    validateAllOf(
+      value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
+      errors: &errors)
+    validateAnyOf(
+      value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
+      errors: &errors)
+    validateOneOf(
+      value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
+      errors: &errors)
+    validateNot(
+      value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
+      errors: &errors)
+    validateIfThenElse(
+      value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
+      errors: &errors)
+    validateDependentSchemas(
+      value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
+      errors: &errors)
+    validateDependentRequired(
       value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
       errors: &errors)
   }
@@ -791,6 +832,283 @@ public struct JSONSchema: Hashable, Sendable {
           keyword: "const",
           message: "value does not match the const value"
         ))
+    }
+  }
+
+  // MARK: - Keyword: minLength / maxLength
+
+  private func validateMinLength(
+    _ value: JSON,
+    subschema: JSON,
+    instancePath: String,
+    schemaPath: String,
+    errors: inout [JSONSchemaError]
+  ) {
+    guard let minLen = subschema["minLength"], let minLenVal = minLen.intValue else { return }
+    guard let strVal = value.stringValue else { return }
+
+    if strVal.count < minLenVal {
+      errors.append(
+        JSONSchemaError(
+          instancePath: instancePath,
+          schemaPath: schemaPath + "/minLength",
+          keyword: "minLength",
+          message: "string length \(strVal.count) is less than minimum \(minLenVal)"
+        ))
+    }
+  }
+
+  private func validateMaxLength(
+    _ value: JSON,
+    subschema: JSON,
+    instancePath: String,
+    schemaPath: String,
+    errors: inout [JSONSchemaError]
+  ) {
+    guard let maxLen = subschema["maxLength"], let maxLenVal = maxLen.intValue else { return }
+    guard let strVal = value.stringValue else { return }
+
+    if strVal.count > maxLenVal {
+      errors.append(
+        JSONSchemaError(
+          instancePath: instancePath,
+          schemaPath: schemaPath + "/maxLength",
+          keyword: "maxLength",
+          message: "string length \(strVal.count) is greater than maximum \(maxLenVal)"
+        ))
+    }
+  }
+
+  // MARK: - Composition keywords
+
+  private func validateAllOf(
+    _ value: JSON,
+    subschema: JSON,
+    instancePath: String,
+    schemaPath: String,
+    errors: inout [JSONSchemaError]
+  ) {
+    guard let allOf = subschema["allOf"], allOf.isArray else { return }
+
+    for (index, sub) in allOf.enumerated() {
+      let subSchemaPath = schemaPath + "/allOf/" + String(index)
+      var subErrors: [JSONSchemaError] = []
+      validateValue(
+        value, against: sub, instancePath: instancePath,
+        schemaPath: subSchemaPath, errors: &subErrors)
+      if let firstError = subErrors.first {
+        errors.append(
+          JSONSchemaError(
+            instancePath: instancePath,
+            schemaPath: subSchemaPath,
+            keyword: "allOf",
+            message: "subschema #\(index) failed: \(firstError.message)"
+          ))
+      }
+    }
+  }
+
+  private func validateAnyOf(
+    _ value: JSON,
+    subschema: JSON,
+    instancePath: String,
+    schemaPath: String,
+    errors: inout [JSONSchemaError]
+  ) {
+    guard let anyOf = subschema["anyOf"], anyOf.isArray else { return }
+
+    var matched = false
+    for (_, sub) in anyOf.enumerated() {
+      var subErrors: [JSONSchemaError] = []
+      validateValue(
+        value, against: sub, instancePath: instancePath,
+        schemaPath: schemaPath, errors: &subErrors)
+      if subErrors.isEmpty {
+        matched = true
+        break
+      }
+    }
+
+    if !matched {
+      errors.append(
+        JSONSchemaError(
+          instancePath: instancePath,
+          schemaPath: schemaPath + "/anyOf",
+          keyword: "anyOf",
+          message: "value does not match any subschema in anyOf"
+        ))
+    }
+  }
+
+  private func validateOneOf(
+    _ value: JSON,
+    subschema: JSON,
+    instancePath: String,
+    schemaPath: String,
+    errors: inout [JSONSchemaError]
+  ) {
+    guard let oneOf = subschema["oneOf"], oneOf.isArray else { return }
+
+    var matchCount = 0
+    for (_, sub) in oneOf.enumerated() {
+      var subErrors: [JSONSchemaError] = []
+      validateValue(
+        value, against: sub, instancePath: instancePath,
+        schemaPath: schemaPath, errors: &subErrors)
+      if subErrors.isEmpty {
+        matchCount += 1
+      }
+    }
+
+    if matchCount != 1 {
+      errors.append(
+        JSONSchemaError(
+          instancePath: instancePath,
+          schemaPath: schemaPath + "/oneOf",
+          keyword: "oneOf",
+          message: "value matches \(matchCount) subschemas in oneOf (expected exactly 1)"
+        ))
+    }
+  }
+
+  private func validateNot(
+    _ value: JSON,
+    subschema: JSON,
+    instancePath: String,
+    schemaPath: String,
+    errors: inout [JSONSchemaError]
+  ) {
+    guard let notSchema = subschema["not"], notSchema.isObject else { return }
+
+    var subErrors: [JSONSchemaError] = []
+    validateValue(
+      value, against: notSchema, instancePath: instancePath,
+      schemaPath: schemaPath + "/not", errors: &subErrors)
+
+    if subErrors.isEmpty {
+      errors.append(
+        JSONSchemaError(
+          instancePath: instancePath,
+          schemaPath: schemaPath + "/not",
+          keyword: "not",
+          message: "value matches the not schema"
+        ))
+    }
+  }
+
+  private func validateIfThenElse(
+    _ value: JSON,
+    subschema: JSON,
+    instancePath: String,
+    schemaPath: String,
+    errors: inout [JSONSchemaError]
+  ) {
+    guard let ifSchema = subschema["if"] else { return }
+
+    // Evaluate the if schema
+    var ifErrors: [JSONSchemaError] = []
+    validateValue(
+      value, against: ifSchema, instancePath: instancePath,
+      schemaPath: schemaPath + "/if", errors: &ifErrors)
+
+    let ifValid = ifErrors.isEmpty
+
+    if ifValid {
+      // if validates → then must validate (if present)
+      if let thenSchema = subschema["then"] {
+        var thenErrors: [JSONSchemaError] = []
+        validateValue(
+          value, against: thenSchema, instancePath: instancePath,
+          schemaPath: schemaPath + "/then", errors: &thenErrors)
+        if let firstError = thenErrors.first {
+          errors.append(
+            JSONSchemaError(
+              instancePath: instancePath,
+              schemaPath: schemaPath + "/then",
+              keyword: "then",
+              message: "then schema failed: \(firstError.message)"
+            ))
+        }
+      }
+    } else {
+      // if fails → else must validate (if present)
+      if let elseSchema = subschema["else"] {
+        var elseErrors: [JSONSchemaError] = []
+        validateValue(
+          value, against: elseSchema, instancePath: instancePath,
+          schemaPath: schemaPath + "/else", errors: &elseErrors)
+        if let firstError = elseErrors.first {
+          errors.append(
+            JSONSchemaError(
+              instancePath: instancePath,
+              schemaPath: schemaPath + "/else",
+              keyword: "else",
+              message: "else schema failed: \(firstError.message)"
+            ))
+        }
+      }
+    }
+  }
+
+  private func validateDependentSchemas(
+    _ value: JSON,
+    subschema: JSON,
+    instancePath: String,
+    schemaPath: String,
+    errors: inout [JSONSchemaError]
+  ) {
+    guard let depSchemas = subschema["dependentSchemas"], depSchemas.isObject else { return }
+    guard value.isObject else { return }
+
+    guard case .object(let depDict) = depSchemas.storage else { return }
+    for (key, depSchema) in depDict {
+      // When key is present in the instance, validate the instance against depSchema
+      if value[key] != nil {
+        var subErrors: [JSONSchemaError] = []
+        validateValue(
+          value, against: depSchema, instancePath: instancePath,
+          schemaPath: schemaPath + "/dependentSchemas/" + key, errors: &subErrors)
+        if let firstError = subErrors.first {
+          errors.append(
+            JSONSchemaError(
+              instancePath: instancePath,
+              schemaPath: schemaPath + "/dependentSchemas/" + key,
+              keyword: "dependentSchemas",
+              message: "dependent schema for key '\(key)' failed: \(firstError.message)"
+            ))
+        }
+      }
+    }
+  }
+
+  private func validateDependentRequired(
+    _ value: JSON,
+    subschema: JSON,
+    instancePath: String,
+    schemaPath: String,
+    errors: inout [JSONSchemaError]
+  ) {
+    guard let depRequired = subschema["dependentRequired"], depRequired.isObject else { return }
+    guard value.isObject else { return }
+
+    guard case .object(let depDict) = depRequired.storage else { return }
+    for (key, requiredArray) in depDict {
+      guard let requiredKeys = requiredArray.arrayValue else { continue }
+      // When key is present in the instance, the listed keys must also be present
+      if value[key] != nil {
+        for reqKey in requiredKeys {
+          guard let reqKeyStr = reqKey.stringValue else { continue }
+          if value[reqKeyStr] == nil {
+            errors.append(
+              JSONSchemaError(
+                instancePath: instancePath,
+                schemaPath: schemaPath + "/dependentRequired/" + key,
+                keyword: "dependentRequired",
+                message: "key '\(key)' requires key '\(reqKeyStr)'"
+              ))
+          }
+        }
+      }
     }
   }
 

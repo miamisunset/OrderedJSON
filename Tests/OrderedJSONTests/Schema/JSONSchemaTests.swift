@@ -940,3 +940,414 @@ struct JSONSchemaIntegrationTests {
     #expect(schema.validation(of: .object(["key": .string("val")])).valid)
   }
 }
+
+// MARK: - Boolean Schemas
+
+@Suite("JSONSchema boolean schemas")
+struct JSONSchemaBooleanTests {
+
+  @Test("true schema — accepts everything")
+  func trueSchema() throws {
+    let schema = try JSONSchema(schema: .boolean(true))
+    #expect(schema.validation(of: .null).valid)
+    #expect(schema.validation(of: .boolean(true)).valid)
+    #expect(schema.validation(of: .number(.integer(42))).valid)
+    #expect(schema.validation(of: .string("hello")).valid)
+    #expect(schema.validation(of: .array([.number(.integer(1))])).valid)
+    #expect(schema.validation(of: .object([:])).valid)
+  }
+
+  @Test("false schema — rejects everything")
+  func falseSchema() throws {
+    let schema = try JSONSchema(schema: .boolean(false))
+    #expect(!schema.validation(of: .null).valid)
+    #expect(!schema.validation(of: .boolean(true)).valid)
+    #expect(!schema.validation(of: .number(.integer(42))).valid)
+    #expect(!schema.validation(of: .string("hello")).valid)
+    #expect(!schema.validation(of: .array([.number(.integer(1))])).valid)
+    #expect(!schema.validation(of: .object([:])).valid)
+  }
+
+  @Test("boolean schema — error message is 'false'")
+  func falseSchemaErrorKeyword() throws {
+    let schema = try JSONSchema(schema: .boolean(false))
+    let result = schema.validation(of: .string("test"))
+    #expect(!result.valid)
+    #expect(result.errors.first?.keyword == "false")
+  }
+}
+
+// MARK: - Composition: allOf
+
+@Suite("JSONSchema allOf")
+struct JSONSchemaAllOfTests {
+
+  @Test("allOf — valid when all subschemas match")
+  func allOfValid() throws {
+    let schema = try JSONSchema(
+      schema: .object([
+        "allOf": .array([
+          .object(["type": .string("string")]),
+          .object(["minLength": .number(.integer(3))]),
+        ])
+      ]))
+    let doc: JSON = .string("hello")
+    #expect(schema.validation(of: doc).valid)
+  }
+
+  @Test("allOf — invalid when one subschema fails")
+  func allOfInvalid() throws {
+    let schema = try JSONSchema(
+      schema: .object([
+        "allOf": .array([
+          .object(["type": .string("string")]),
+          .object(["minLength": .number(.integer(10))]),
+        ])
+      ]))
+    let doc: JSON = .string("hello")
+    let result = schema.validation(of: doc)
+    #expect(!result.valid)
+    #expect(result.errors.first?.keyword == "allOf")
+  }
+
+  @Test("allOf — empty array passes")
+  func allOfEmpty() throws {
+    let schema = try JSONSchema(
+      schema: .object(["allOf": .array([])]))
+    #expect(schema.validation(of: .string("anything")).valid)
+  }
+
+  @Test("allOf — missing keyword skips")
+  func allOfMissing() throws {
+    let schema = try JSONSchema(schema: .object(["type": .string("string")]))
+    #expect(schema.validation(of: .string("test")).valid)
+  }
+}
+
+// MARK: - Composition: anyOf
+
+@Suite("JSONSchema anyOf")
+struct JSONSchemaAnyOfTests {
+
+  @Test("anyOf — valid when at least one matches")
+  func anyOfValid() throws {
+    let schema = try JSONSchema(
+      schema: .object([
+        "anyOf": .array([
+          .object(["type": .string("number")]),
+          .object(["type": .string("string")]),
+        ])
+      ]))
+    #expect(schema.validation(of: .string("test")).valid)
+    #expect(schema.validation(of: .number(.integer(42))).valid)
+  }
+
+  @Test("anyOf — invalid when none match")
+  func anyOfInvalid() throws {
+    let schema = try JSONSchema(
+      schema: .object([
+        "anyOf": .array([
+          .object(["type": .string("number")]),
+          .object(["type": .string("boolean")]),
+        ])
+      ]))
+    let result = schema.validation(of: .string("test"))
+    #expect(!result.valid)
+    #expect(result.errors.first?.keyword == "anyOf")
+  }
+
+  @Test("anyOf — empty array fails (no subschemas to match)")
+  func anyOfEmpty() throws {
+    let schema = try JSONSchema(
+      schema: .object(["anyOf": .array([])]))
+    let result = schema.validation(of: .string("test"))
+    #expect(!result.valid)
+    #expect(result.errors.first?.keyword == "anyOf")
+  }
+}
+
+// MARK: - Composition: oneOf
+
+@Suite("JSONSchema oneOf")
+struct JSONSchemaOneOfTests {
+
+  @Test("oneOf — valid when exactly one matches")
+  func oneOfValid() throws {
+    let schema = try JSONSchema(
+      schema: .object([
+        "oneOf": .array([
+          .object(["type": .string("number")]),
+          .object(["type": .string("string")]),
+        ])
+      ]))
+    #expect(schema.validation(of: .string("test")).valid)
+  }
+
+  @Test("oneOf — invalid when zero match")
+  func oneOfZeroMatch() throws {
+    let schema = try JSONSchema(
+      schema: .object([
+        "oneOf": .array([
+          .object(["type": .string("number")]),
+          .object(["type": .string("boolean")]),
+        ])
+      ]))
+    let result = schema.validation(of: .string("test"))
+    #expect(!result.valid)
+    #expect(result.errors.first?.keyword == "oneOf")
+  }
+
+  @Test("oneOf — invalid when two match (not exactly one)")
+  func oneOfTwoMatch() throws {
+    let schema = try JSONSchema(
+      schema: .object([
+        "oneOf": .array([
+          .object(["type": .string("string"), "minLength": .number(.integer(1))]),
+          .object(["type": .string("string"), "maxLength": .number(.integer(100))]),
+        ])
+      ]))
+    let result = schema.validation(of: .string("hello"))
+    #expect(!result.valid)
+    #expect(result.errors.first?.keyword == "oneOf")
+    #expect(result.errors.first?.message.contains("2") == true)
+  }
+
+  @Test("oneOf — empty array fails")
+  func oneOfEmpty() throws {
+    let schema = try JSONSchema(
+      schema: .object(["oneOf": .array([])]))
+    let result = schema.validation(of: .string("test"))
+    #expect(!result.valid)
+    #expect(result.errors.first?.keyword == "oneOf")
+  }
+}
+
+// MARK: - Composition: not
+
+@Suite("JSONSchema not")
+struct JSONSchemaNotTests {
+
+  @Test("not — valid when subschema does NOT match")
+  func notValid() throws {
+    let schema = try JSONSchema(
+      schema: .object([
+        "not": .object(["type": .string("number")])
+      ]))
+    #expect(schema.validation(of: .string("test")).valid)
+  }
+
+  @Test("not — invalid when subschema matches")
+  func notInvalid() throws {
+    let schema = try JSONSchema(
+      schema: .object([
+        "not": .object(["type": .string("string")])
+      ]))
+    let result = schema.validation(of: .string("test"))
+    #expect(!result.valid)
+    #expect(result.errors.first?.keyword == "not")
+  }
+
+  @Test("not — missing keyword skips")
+  func notMissing() throws {
+    let schema = try JSONSchema(schema: .object([:]))
+    #expect(schema.validation(of: .string("test")).valid)
+  }
+}
+
+// MARK: - Composition: if/then/else
+
+@Suite("JSONSchema if/then/else")
+struct JSONSchemaIfThenElseTests {
+
+  @Test("if/then — valid when if matches and then matches")
+  func ifThenValid() throws {
+    let schema = try JSONSchema(
+      schema: .object([
+        "if": .object(["type": .string("string")]),
+        "then": .object(["minLength": .number(.integer(3))]),
+      ]))
+    #expect(schema.validation(of: .string("hello")).valid)
+  }
+
+  @Test("if/then — invalid when if matches but then fails")
+  func ifThenInvalid() throws {
+    let schema = try JSONSchema(
+      schema: .object([
+        "if": .object(["type": .string("string")]),
+        "then": .object(["minLength": .number(.integer(10))]),
+      ]))
+    let result = schema.validation(of: .string("hello"))
+    #expect(!result.valid)
+    #expect(result.errors.first?.keyword == "then")
+  }
+
+  @Test("if/else — valid when if fails and else matches")
+  func ifElseValid() throws {
+    let schema = try JSONSchema(
+      schema: .object([
+        "if": .object(["type": .string("string")]),
+        "else": .object(["minLength": .number(.integer(3))]),
+      ]))
+    #expect(schema.validation(of: .number(.integer(42))).valid)
+  }
+
+  @Test("if/else — invalid when if fails and else fails")
+  func ifElseInvalid() throws {
+    let schema = try JSONSchema(
+      schema: .object([
+        "if": .object(["type": .string("string")]),
+        "else": .object(["type": .string("string")]),
+      ]))
+    let result = schema.validation(of: .number(.integer(42)))
+    #expect(!result.valid)
+    #expect(result.errors.first?.keyword == "else")
+  }
+
+  @Test("if alone — no then/else, if result doesn't affect validity")
+  func ifAlone() throws {
+    let schema = try JSONSchema(
+      schema: .object(["if": .object(["type": .string("number")])]))
+    #expect(schema.validation(of: .string("test")).valid)  // if fails, no else, no error
+    #expect(schema.validation(of: .number(.integer(42))).valid)  // if passes, no then, no error
+  }
+
+  @Test("if/then/else — full conditional")
+  func ifThenElseFull() throws {
+    let schema = try JSONSchema(
+      schema: .object([
+        "if": .object(["type": .string("number")]),
+        "then": .object(["minimum": .number(.integer(0))]),
+        "else": .object(["type": .string("string")]),
+      ]))
+    #expect(schema.validation(of: .number(.integer(42))).valid)  // if passes → then passes
+    #expect(schema.validation(of: .number(.integer(-1))).valid == false)  // if passes → then fails
+    #expect(schema.validation(of: .string("test")).valid)  // if fails → else passes
+    #expect(schema.validation(of: .boolean(true)).valid == false)  // if fails → else fails
+  }
+}
+
+// MARK: - Composition: dependentSchemas
+
+@Suite("JSONSchema dependentSchemas")
+struct JSONSchemaDependentSchemasTests {
+
+  @Test("dependentSchemas — valid when dependency key is absent")
+  func depSchemasKeyAbsent() throws {
+    let schema = try JSONSchema(
+      schema: .object([
+        "dependentSchemas": .object([
+          "credit_card": .object([
+            "type": .string("object"), "required": .array([.string("number")]),
+          ])
+        ])
+      ]))
+    let doc: JSON = .object(["name": .string("Alice")])
+    #expect(schema.validation(of: doc).valid)
+  }
+
+  @Test("dependentSchemas — valid when dependency key is present and schema matches")
+  func depSchemasValid() throws {
+    let schema = try JSONSchema(
+      schema: .object([
+        "dependentSchemas": .object([
+          "credit_card": .object([
+            "required": .array([.string("number")])
+          ])
+        ])
+      ]))
+    let doc: JSON = .object(["credit_card": .string("1234"), "number": .string("1234")])
+    #expect(schema.validation(of: doc).valid)
+  }
+
+  @Test("dependentSchemas — invalid when dependency key is present and schema fails")
+  func depSchemasInvalid() throws {
+    let schema = try JSONSchema(
+      schema: .object([
+        "dependentSchemas": .object([
+          "credit_card": .object([
+            "required": .array([.string("number"), .string("cvc")])
+          ])
+        ])
+      ]))
+    let doc: JSON = .object(["credit_card": .string("1234"), "number": .string("1234")])
+    let result = schema.validation(of: doc)
+    #expect(!result.valid)
+    #expect(result.errors.first?.keyword == "dependentSchemas")
+  }
+
+  @Test("dependentSchemas — multiple dependency keys")
+  func depSchemasMultiple() throws {
+    let schema = try JSONSchema(
+      schema: .object([
+        "dependentSchemas": .object([
+          "a": .object(["required": .array([.string("b")])]),
+          "b": .object(["required": .array([.string("a")])]),
+        ])
+      ]))
+    // Both a and b present, each requires the other — valid
+    let doc: JSON = .object(["a": .string("x"), "b": .string("y")])
+    #expect(schema.validation(of: doc).valid)
+  }
+}
+
+// MARK: - Composition: dependentRequired
+
+@Suite("JSONSchema dependentRequired")
+struct JSONSchemaDependentRequiredTests {
+
+  @Test("dependentRequired — valid when dependency key is absent")
+  func depRequiredKeyAbsent() throws {
+    let schema = try JSONSchema(
+      schema: .object([
+        "dependentRequired": .object([
+          "credit_card": .array([.string("number"), .string("cvc")])
+        ])
+      ]))
+    let doc: JSON = .object(["name": .string("Alice")])
+    #expect(schema.validation(of: doc).valid)
+  }
+
+  @Test("dependentRequired — valid when dependency key is present and required keys are present")
+  func depRequiredValid() throws {
+    let schema = try JSONSchema(
+      schema: .object([
+        "dependentRequired": .object([
+          "credit_card": .array([.string("number"), .string("cvc")])
+        ])
+      ]))
+    let doc: JSON = .object([
+      "credit_card": .string("x"), "number": .string("1234"), "cvc": .string("789"),
+    ])
+    #expect(schema.validation(of: doc).valid)
+  }
+
+  @Test("dependentRequired — invalid when dependency key is present but required keys are missing")
+  func depRequiredInvalid() throws {
+    let schema = try JSONSchema(
+      schema: .object([
+        "dependentRequired": .object([
+          "credit_card": .array([.string("number"), .string("cvc")])
+        ])
+      ]))
+    let doc: JSON = .object(["credit_card": .string("x"), "number": .string("1234")])
+    let result = schema.validation(of: doc)
+    #expect(!result.valid)
+    #expect(result.errors.first?.keyword == "dependentRequired")
+  }
+
+  @Test("dependentRequired — multiple dependency keys")
+  func depRequiredMultiple() throws {
+    let schema = try JSONSchema(
+      schema: .object([
+        "dependentRequired": .object([
+          "a": .array([.string("b")]),
+          "b": .array([.string("a")]),
+        ])
+      ]))
+    let doc: JSON = .object(["a": .string("x")])
+    let result = schema.validation(of: doc)
+    #expect(!result.valid)
+    #expect(result.errors.first?.keyword == "dependentRequired")
+    #expect(result.errors.first?.message.contains("b") == true)
+  }
+}
