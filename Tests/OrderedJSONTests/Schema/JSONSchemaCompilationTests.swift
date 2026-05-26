@@ -19,16 +19,16 @@ struct CompiledSchemaTests {
       "type": .string("object"),
     ])
     let compiled = try CompiledSchema(schema: schema)
-    #expect(compiled.defs["foo"]?.isObject == true)
-    #expect(compiled.defs["bar"]?.isObject == true)
-    #expect(compiled.defs.count == 2)
+    #expect(compiled.resources[""]?.defs["foo"]?.isObject == true)
+    #expect(compiled.resources[""]?.defs["bar"]?.isObject == true)
+    if let r = compiled.resources[""] { #expect(r.defs.count == 2) } else { #expect(false) }
   }
 
   @Test("compiled — no $defs yields empty dict")
   func compiledNoDefs() throws {
     let schema: JSON = .object(["type": .string("object")])
     let compiled = try CompiledSchema(schema: schema)
-    #expect(compiled.defs.isEmpty)
+    if let r = compiled.resources[""] { #expect(r.defs.isEmpty) } else { #expect(false) }
   }
 
   @Test("compiled — parses $id")
@@ -38,14 +38,16 @@ struct CompiledSchemaTests {
       "type": .string("object"),
     ])
     let compiled = try CompiledSchema(schema: schema)
-    #expect(compiled.baseURI == "https://example.com/schema.json")
+    #expect(
+      compiled.resources["https://example.com/schema.json"]?.baseURI
+        == "https://example.com/schema.json")
   }
 
   @Test("compiled — no $id yields nil")
   func compiledNoId() throws {
     let schema: JSON = .object(["type": .string("object")])
     let compiled = try CompiledSchema(schema: schema)
-    #expect(compiled.baseURI == nil)
+    #expect(compiled.resources[""]?.baseURI == "")
   }
 
   @Test("compiled — parses $anchor")
@@ -55,14 +57,14 @@ struct CompiledSchemaTests {
       "type": .string("object"),
     ])
     let compiled = try CompiledSchema(schema: schema)
-    #expect(compiled.anchors["myAnchor"]?.isObject == true)
+    #expect(compiled.resources[""]?.anchors["myAnchor"]?.isObject == true)
   }
 
   @Test("compiled — no $anchor yields empty")
   func compiledNoAnchor() throws {
     let schema: JSON = .object(["type": .string("object")])
     let compiled = try CompiledSchema(schema: schema)
-    #expect(compiled.anchors.isEmpty)
+    if let r = compiled.resources[""] { #expect(r.anchors.isEmpty) } else { #expect(false) }
   }
 
   @Test("compiled — resolveRef with $anchor")
@@ -284,7 +286,7 @@ struct JSONSchemaDynamicRefTests {
       "type": .string("string"),
     ])
     let compiled = try CompiledSchema(schema: schema)
-    #expect(compiled.dynamicAnchors["myDynamic"]?.isObject == true)
+    #expect(compiled.resources[""]?.dynamicAnchors["myDynamic"]?.isObject == true)
   }
 
   @Test("$dynamicRef — via $defs without recursion (single level)")
@@ -356,8 +358,12 @@ struct CompiledSchemaNestedAnnotationTests {
       ])
     ])
     let compiled = try CompiledSchema(schema: schema)
-    #expect(compiled.defs["nestedType"]?.isObject == true)
-    #expect(compiled.defs.count >= 1)
+    #expect(compiled.resources[""]?.defs["nestedType"]?.isObject == true)
+    if let resource = compiled.resources[""] {
+      #expect(resource.defs.count >= 1)
+    } else {
+      #expect(false, "expected root resource")
+    }
   }
 
   @Test("compiled — collects $anchor from allOf subschema")
@@ -371,7 +377,7 @@ struct CompiledSchemaNestedAnnotationTests {
       ])
     ])
     let compiled = try CompiledSchema(schema: schema)
-    #expect(compiled.anchors["myAnchor"]?.isObject == true)
+    #expect(compiled.resources[""]?.anchors["myAnchor"]?.isObject == true)
   }
 
   @Test("compiled — collects $dynamicAnchor from nested location")
@@ -385,7 +391,7 @@ struct CompiledSchemaNestedAnnotationTests {
       ])
     ])
     let compiled = try CompiledSchema(schema: schema)
-    #expect(compiled.dynamicAnchors["nestedDynamic"]?.isObject == true)
+    #expect(compiled.resources[""]?.dynamicAnchors["nestedDynamic"]?.isObject == true)
   }
 
   @Test("compiled — resolves $ref to nested $defs")
@@ -412,8 +418,8 @@ struct CompiledSchemaNestedAnnotationTests {
       "$dynamicAnchor": .string("same"),
     ])
     let compiled = try CompiledSchema(schema: schema)
-    #expect(compiled.anchors["same"]?.isObject == true)
-    #expect(compiled.dynamicAnchors["same"]?.isObject == true)
+    #expect(compiled.resources[""]?.anchors["same"]?.isObject == true)
+    #expect(compiled.resources[""]?.dynamicAnchors["same"]?.isObject == true)
     // They point to the same schema but are stored in separate dicts
   }
 
@@ -436,8 +442,8 @@ struct CompiledSchemaNestedAnnotationTests {
       ])
     ])
     let compiled = try CompiledSchema(schema: schema)
-    #expect(compiled.anchors["deepAnchor"]?.isObject == true)
-    #expect(compiled.dynamicAnchors["deepDynamic"]?.isObject == true)
+    #expect(compiled.resources[""]?.anchors["deepAnchor"]?.isObject == true)
+    #expect(compiled.resources[""]?.dynamicAnchors["deepDynamic"]?.isObject == true)
   }
 
   @Test("compiled — resolves $ref to $defs defined in nested properties")
@@ -540,10 +546,11 @@ struct CompiledSchemaNestedAnnotationTests {
       "$dynamicAnchor": .string("same"),
     ])
     let compiled = try CompiledSchema(schema: schema)
-    #expect(compiled.anchors["same"]?.isObject == true)
-    #expect(compiled.dynamicAnchors["same"]?.isObject == true)
+    #expect(compiled.resources[""]?.anchors["same"]?.isObject == true)
+    #expect(compiled.resources[""]?.dynamicAnchors["same"]?.isObject == true)
     // They should be the same JSON value (same schema node)
-    #expect(compiled.anchors["same"] == compiled.dynamicAnchors["same"])
+    #expect(
+      compiled.resources[""]?.anchors["same"] == compiled.resources[""]?.dynamicAnchors["same"])
   }
 
   // MARK: - End-to-end $dynamicRef with nested $dynamicAnchor
@@ -592,7 +599,7 @@ struct CompiledSchemaNestedAnnotationTests {
     let compiled = try! CompiledSchema(schema: schema)
     // The last one visited wins — in this case the inner one after
     // the root defs (walk order: root first, then properties).
-    #expect(compiled.defs["sameKey"]?["type"]?.stringValue == "number")
+    #expect(compiled.resources[""]?.defs["sameKey"]?["type"]?.stringValue == "number")
   }
 
   // MARK: - Cross-arm anchor separation
@@ -608,8 +615,8 @@ struct CompiledSchemaNestedAnnotationTests {
       ])
     ])
     let compiled = try CompiledSchema(schema: schema)
-    #expect(compiled.anchors["shared"]?.isObject == true)
-    #expect(compiled.dynamicAnchors["shared"]?.isObject == true)
+    #expect(compiled.resources[""]?.anchors["shared"]?.isObject == true)
+    #expect(compiled.resources[""]?.dynamicAnchors["shared"]?.isObject == true)
   }
 
   // MARK: - Deep-pointer head escaping
@@ -664,6 +671,57 @@ struct CompiledSchemaNestedAnnotationTests {
     } catch {
       #expect(true)
     }
+  }
+
+  // MARK: - $id scoping tests
+
+  @Test("compiled — same anchor name in different $id resources does not collide")
+  func sameAnchorDifferentResources() throws {
+    // Two embedded resources with $id: "/a" and $id: "/b",
+    // each declaring $anchor: "x". Per spec, anchors are scoped
+    // to their resource URI and should not collide.
+    let schema: JSON = .object([
+      "$id": .string("/root"),
+      "$defs": .object([
+        "a": .object([
+          "$id": .string("/a"),
+          "$anchor": .string("x"),
+          "type": .string("string"),
+        ]),
+        "b": .object([
+          "$id": .string("/b"),
+          "$anchor": .string("x"),
+          "type": .string("number"),
+        ]),
+      ]),
+    ])
+    // Should not throw — anchors have different resource scopes
+    let compiled = try CompiledSchema(schema: schema)
+    #expect(compiled.resources["/a"]?.anchors["x"]?.isObject == true)
+    #expect(compiled.resources["/b"]?.anchors["x"]?.isObject == true)
+  }
+
+  @Test("compiled — $defs scoped to resource")
+  func defsScopedToResource() throws {
+    let schema: JSON = .object([
+      "$id": .string("/root"),
+      "$defs": .object([
+        "A": .object(["type": .string("string")])
+      ]),
+      "properties": .object([
+        "inner": .object([
+          "$id": .string("/child"),
+          "$defs": .object([
+            "B": .object(["type": .string("number")])
+          ]),
+        ])
+      ]),
+    ])
+    let compiled = try CompiledSchema(schema: schema)
+    #expect(compiled.resources["/root"]?.defs["A"]?.isObject == true)
+    #expect(compiled.resources["/child"]?.defs["B"]?.isObject == true)
+    // $defs["A"] should NOT be visible in /child
+    #expect(compiled.resources["/child"]?.defs["A"] == nil)
   }
 
 }
