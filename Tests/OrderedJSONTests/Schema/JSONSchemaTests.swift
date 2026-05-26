@@ -659,6 +659,17 @@ struct JSONSchemaEnumTests {
     #expect(result.valid)
   }
 
+  @Test("enum — array with integer 1 matches float 1.0")
+  func enumArrayIntVsFloat() throws {
+    let schema = try JSONSchema(
+      schema: .object([
+        "enum": .array([.array([.number(.float(1.0))])])
+      ]))
+    let doc: JSON = .array([.number(.integer(1))])
+    let result = schema.validation(of: doc)
+    #expect(result.valid)
+  }
+
   @Test("enum — object key order is ignored")
   func enumObjectKeyOrder() throws {
     let schema = try JSONSchema(

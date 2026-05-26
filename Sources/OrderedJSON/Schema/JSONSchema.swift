@@ -99,6 +99,13 @@ public struct JSONSchema: Hashable, Sendable {
     "https://json-schema.org/draft-07/schema",
   ]
 
+  private static let draft6URIs: Set<String> = [
+    "http://json-schema.org/draft-06/schema#",
+    "http://json-schema.org/draft-06/schema",
+    "https://json-schema.org/draft-06/schema#",
+    "https://json-schema.org/draft-06/schema",
+  ]
+
   private static let draft202012URIs: Set<String> = [
     "https://json-schema.org/draft/2020-12/schema",
     "https://json-schema.org/draft/2020-12/schema#",
@@ -117,6 +124,11 @@ public struct JSONSchema: Hashable, Sendable {
     // Exact URI matching first (official spec links)
     if draft7URIs.contains(schemaStr) {
       return .draft7
+    }
+    if draft6URIs.contains(schemaStr) {
+      // Draft 6 shares Draft 7 semantics for Phase 1 keywords;
+      // default to 2020-12 for forward compatibility.
+      return .draft202012
     }
     if draft202012URIs.contains(schemaStr) {
       return .draft202012
@@ -712,9 +724,10 @@ public struct JSONSchema: Hashable, Sendable {
     guard let patternStr = subschema["pattern"]?.stringValue else { return }
     guard let strVal = value.stringValue else { return }
 
-    // Regex was pre-compiled at init time; this should not throw.
+    // Regex syntax was validated at init time; re-compile here for matching.
+    // TODO: Cache NSRegularExpression instances for performance (Phase 4/10).
     guard let regex = try? NSRegularExpression(pattern: patternStr, options: []) else {
-      return  // Pattern was validated at init; this is a safety guard
+      return
     }
 
     let range = NSRange(strVal.startIndex..<strVal.endIndex, in: strVal)
@@ -811,7 +824,12 @@ public struct JSONSchema: Hashable, Sendable {
     case (.string(let a), .string(let b)):
       return a == b
     case (.array(let a), .array(let b)):
-      return a == b  // array element order matters per spec
+      // Compare element-wise using schemaEqual for deep numeric equality
+      guard a.count == b.count else { return false }
+      for (i, elem) in a.enumerated() {
+        if !schemaEqual(elem, b[i]) { return false }
+      }
+      return true
     case (.object(let a), .object(let b)):
       // Objects: compare key-value pairs ignoring order
       guard a.count == b.count else { return false }
