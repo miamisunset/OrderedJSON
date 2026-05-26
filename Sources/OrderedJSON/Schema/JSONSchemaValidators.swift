@@ -328,6 +328,30 @@ extension JSONSchema {
     }
   }
 
+  // MARK: - Keyword: format
+
+  /// Validates the `format` keyword — checks that a string value conforms
+  /// to the specified format (e.g., `date-time`, `email`, `uuid`).
+  /// Disabled formats are skipped. Only validates string values.
+  internal func validateFormat(
+    _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
+    errors: inout [JSONSchemaError], ctx: EvaluationContext
+  ) {
+    guard let formatStr = subschema["format"]?.stringValue,
+      let strVal = value.stringValue
+    else { return }
+    guard let format = JSONSchemaFormat(rawValue: formatStr) else { return }
+    // Respect format options — disabled formats are silently skipped
+    guard formatOptions.isEnabled(format) else { return }
+    if !format.validate(strVal) {
+      errors.append(
+        JSONSchemaError(
+          instancePath: instancePath, schemaPath: schemaPath + "/format",
+          keyword: "format",
+          message: "string '\(strVal)' does not match format '\(formatStr)'"))
+    }
+  }
+
   // MARK: - Keyword: enum
 
   /// Validates the `enum` keyword — checks that the value matches at least

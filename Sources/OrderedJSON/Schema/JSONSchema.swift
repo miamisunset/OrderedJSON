@@ -51,6 +51,8 @@ public struct JSONSchema: Hashable, Sendable {
   internal let draft: Draft
   /// The compiled schema with resolved `$ref`, `$defs`, `$id`, `$anchor`.
   internal let compiled: CompiledSchema?
+  /// Options for format validation (which formats to enable/disable).
+  internal var formatOptions: JSONSchemaFormatOptions
 
   /// Creates a compiled JSON Schema from a JSON representation.
   ///
@@ -97,6 +99,14 @@ public struct JSONSchema: Hashable, Sendable {
     self.schemaJSON = schema
     self.draft = resolvedDraft
     self.compiled = compiled
+    self.formatOptions = JSONSchemaFormatOptions()
+  }
+
+  /// Sets format validation options. By default all formats are enabled.
+  /// - Parameter options: The format options to use.
+  internal mutating func withFormatOptions(_ options: JSONSchemaFormatOptions) -> Self {
+    self.formatOptions = options
+    return self
   }
 
   // MARK: - Draft detection
@@ -319,6 +329,9 @@ public struct JSONSchema: Hashable, Sendable {
       value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
       errors: &errors, ctx: currentCtx)
     validatePattern(
+      value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
+      errors: &errors, ctx: currentCtx)
+    validateFormat(
       value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
       errors: &errors, ctx: currentCtx)
     validateEnum(
