@@ -2,17 +2,65 @@ import Foundation
 import OrderedCollections
 
 /// A compiled JSON Schema that can validate JSON documents against a schema.
+///
+/// Supports Draft 2020-12 (primary) and Draft 7 (backward compatibility).
+///
+/// ## Creating a schema
+///
+/// ```swift
+/// let schemaJSON: JSON = .object([
+///   "type": .string("object"),
+///   "properties": .object([
+///     "name": .object(["type": .string("string")]),
+///     "age":  .object(["type": .string("integer"), "minimum": .number(.integer(0))])
+///   ]),
+///   "required": .array([.string("name")])
+/// ])
+///
+/// let schema = try JSONSchema(schema: schemaJSON)
+/// ```
+///
+/// ## Validating a document
+///
+/// ```swift
+/// let doc: JSON = .object(["name": .string("Alice"), "age": .number(.integer(30))])
+/// try schema.validate(doc)  // throws on first error
+///
+/// let result = schema.validation(of: doc)  // collect all errors
+/// print(result.valid)  // true
+/// ```
+///
+/// - Warning: Two semantically-equivalent schemas with differently-ordered keys
+///   will produce different `Hashable` values, since `JSON` hashing is
+///   structure-preserving.
 public struct JSONSchema: Hashable, Sendable {
+  /// The JSON Schema draft version to use for validation.
   public enum Draft: Hashable, Sendable {
+    /// JSON Schema Draft 7 (2018). Widely deployed, used by OpenAPI 3.0.
     case draft7
+    /// JSON Schema Draft 2020-12 (2022). The current standard.
     case draft202012
+    /// Auto-detect the draft from the schema's `$schema` keyword.
+    /// Defaults to `.draft202012` if no `$schema` is present.
     case auto
   }
 
+  /// The schema JSON that was provided at init.
   internal let schemaJSON: JSON
+  /// The resolved draft version.
   internal let draft: Draft
 
+  /// Creates a compiled JSON Schema from a JSON representation.
+  ///
+  /// The schema JSON is validated internally — malformed schemas (e.g., invalid
+  /// regex patterns, non-object schemas) throw an error during init.
+  ///
+  /// - Parameters:
+  ///   - schema: The JSON representation of the schema.
+  ///   - draft: The draft version to use. Defaults to `.auto`.
+  /// - Throws: `JSONSchemaError` if the schema itself is invalid.
   public init(schema: JSON, draft: Draft = .auto) throws {
+    // Detect draft from $schema if auto
     let resolvedDraft: Draft
     if draft == .auto {
       resolvedDraft = JSONSchema.detectDraft(from: schema)
@@ -20,6 +68,7 @@ public struct JSONSchema: Hashable, Sendable {
       resolvedDraft = draft
     }
 
+    // Validate schema structure
     guard schema.isObject || schema.isBoolean else {
       throw JSONSchemaError(
         instancePath: "",
@@ -29,6 +78,8 @@ public struct JSONSchema: Hashable, Sendable {
       )
     }
 
+    // Pre-compile regex patterns so invalid regexes fail at init time
+    // rather than during validation. Boolean schemas have no patterns.
     if schema.isObject {
       try JSONSchema.validatePatterns(schema)
     }
@@ -39,6 +90,7 @@ public struct JSONSchema: Hashable, Sendable {
 
   // MARK: - Draft detection
 
+  /// Official JSON Schema draft URIs for exact matching.
   private static let draft7URIs: Set<String> = [
     "http://json-schema.org/draft-07/schema#",
     "http://json-schema.org/draft-07/schema",
@@ -60,39 +112,89 @@ public struct JSONSchema: Hashable, Sendable {
     "http://json-schema.org/draft/2020-12/schema#",
   ]
 
+  /// Detects the JSON Schema draft from the `$schema` keyword.
+  /// - Parameter schema: The schema JSON.
+  /// - Returns: The detected draft, or `.draft202012` if unknown/missing.
   internal static func detectDraft(from schema: JSON) -> Draft {
-    guard let schemaStr = schema["$schema"]?.stringValue else { return .draft202012 }
-    if draft7URIs.contains(schemaStr) { return .draft7 }
-    if draft6URIs.contains(schemaStr) { return .draft202012 }
-    if draft202012URIs.contains(schemaStr) { return .draft202012 }
-    if schemaStr.contains("draft-07") || schemaStr.contains("draft-7") { return .draft7 }
-    if schemaStr.contains("2020-12") || schemaStr.contains("draft/2020-12") { return .draft202012 }
+    guard let schemaStr = schema["$schema"]?.stringValue else {
+      return .draft202012
+    }
+
+    // Exact URI matching first (official spec links)
+    if draft7URIs.contains(schemaStr) {
+      return .draft7
+    }
+    if draft6URIs.contains(schemaStr) {
+      // Draft 6 shares Draft 7 semantics for Phase 1 keywords;
+      // default to 2020-12 for forward compatibility.
+      return .draft202012
+    }
+    if draft202012URIs.contains(schemaStr) {
+      return .draft202012
+    }
+
+    // Fall back to substring matching for non-standard URIs
+    if schemaStr.contains("draft-07") || schemaStr.contains("draft-7") {
+      return .draft7
+    }
+    if schemaStr.contains("2020-12") || schemaStr.contains("draft/2020-12") {
+      return .draft202012
+    }
+
+    // Default to latest
     return .draft202012
   }
 
   // MARK: - Validation API
 
+  /// Validates a JSON document against this schema and throws on the first
+  /// validation error.
+  ///
+  /// - Parameter document: The JSON document to validate.
+  /// - Returns: `true` if the document is valid.
+  /// - Throws: `JSONSchemaError` — the first validation error encountered.
   public func validate(_ document: JSON) throws -> Bool {
     var errors: [JSONSchemaError] = []
-    validateValue(document, against: schemaJSON, instancePath: "", schemaPath: "", errors: &errors)
-    if let first = errors.first { throw first }
+    validateValue(
+      document, against: schemaJSON, instancePath: "", schemaPath: "",
+      errors: &errors)
+    if let first = errors.first {
+      throw first
+    }
     return true
   }
 
+  /// Validates a JSON document against this schema and returns a result
+  /// containing **all** validation errors (if any). Does **not** throw.
+  ///
+  /// Use this when you need to inspect every error rather than fail-fast.
+  ///
+  /// - Parameter document: The JSON document to validate.
+  /// - Returns: A `JSONSchemaResult` with all errors collected.
   public func validation(of document: JSON) -> JSONSchemaResult {
     var errors: [JSONSchemaError] = []
-    validateValue(document, against: schemaJSON, instancePath: "", schemaPath: "", errors: &errors)
+    validateValue(
+      document, against: schemaJSON, instancePath: "", schemaPath: "",
+      errors: &errors)
     return JSONSchemaResult(valid: errors.isEmpty, errors: errors)
   }
 
+  /// Checks whether a JSON document is valid against this schema.
+  /// Returns `true`/`false` without throwing.
+  ///
+  /// - Parameter document: The JSON document to validate.
+  /// - Returns: `true` if the document is valid.
   public func isValid(_ document: JSON) -> Bool {
     var errors: [JSONSchemaError] = []
-    validateValue(document, against: schemaJSON, instancePath: "", schemaPath: "", errors: &errors)
+    validateValue(
+      document, against: schemaJSON, instancePath: "", schemaPath: "",
+      errors: &errors)
     return errors.isEmpty
   }
 
-  // MARK: - Core validation (dispatches to all keyword validators)
+  // MARK: - Core validation
 
+  /// Validates a single value against a subschema, collecting errors.
   internal func validateValue(
     _ value: JSON,
     against subschema: JSON,
@@ -175,6 +277,9 @@ public struct JSONSchema: Hashable, Sendable {
 
   // MARK: - Schema-aware equality
 
+  /// Compares two JSON values using schema-aware equality semantics.
+  /// Integers compare equal to equal floats (`1` == `1.0`). Objects compare
+  /// by key-value pairs ignoring key order.
   internal static func schemaEqual(_ lhs: JSON, _ rhs: JSON) -> Bool {
     switch (lhs.storage, rhs.storage) {
     case (.null, .null): return true

@@ -5,6 +5,8 @@ extension JSONSchema {
 
   // MARK: - Keyword: type
 
+  /// Validates the `type` keyword — checks that the value's type matches one
+  /// of the allowed types. Integers are allowed for `number` type.
   internal func validateType(
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
     errors: inout [JSONSchemaError]
@@ -36,6 +38,7 @@ extension JSONSchema {
     }
   }
 
+  /// Returns the JSON type name for a value (e.g., "string", "integer").
   internal func typeNameOf(_ value: JSON) -> String {
     switch value.storage {
     case .null: return "null"
@@ -50,6 +53,8 @@ extension JSONSchema {
 
   // MARK: - Keyword: properties
 
+  /// Validates the `properties` keyword — validates each property value
+  /// against its corresponding subschema. Non-object values are skipped.
   internal func validateProperties(
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
     errors: inout [JSONSchemaError]
@@ -72,6 +77,8 @@ extension JSONSchema {
 
   // MARK: - Keyword: required
 
+  /// Validates the `required` keyword — checks that all required property
+  /// keys are present (presence only, not null-rejecting).
   internal func validateRequired(
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
     errors: inout [JSONSchemaError]
@@ -97,6 +104,7 @@ extension JSONSchema {
 
   // MARK: - Keyword: minimum
 
+  /// Validates the `minimum` keyword — checks that the numeric value is >= minimum.
   internal func validateMinimum(
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
     errors: inout [JSONSchemaError]
@@ -124,6 +132,7 @@ extension JSONSchema {
 
   // MARK: - Keyword: maximum
 
+  /// Validates the `maximum` keyword — checks that the numeric value is <= maximum.
   internal func validateMaximum(
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
     errors: inout [JSONSchemaError]
@@ -151,6 +160,8 @@ extension JSONSchema {
 
   // MARK: - Keyword: exclusiveMinimum
 
+  /// Validates `exclusiveMinimum` — Draft 2020-12 uses a numeric bound
+  /// (strictly greater than), Draft 7 uses a boolean modifier on `minimum`.
   internal func validateExclusiveMinimum(
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
     errors: inout [JSONSchemaError]
@@ -205,6 +216,8 @@ extension JSONSchema {
 
   // MARK: - Keyword: exclusiveMaximum
 
+  /// Validates `exclusiveMaximum` — Draft 2020-12 uses a numeric bound
+  /// (strictly less than), Draft 7 uses a boolean modifier on `maximum`.
   internal func validateExclusiveMaximum(
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
     errors: inout [JSONSchemaError]
@@ -259,6 +272,9 @@ extension JSONSchema {
 
   // MARK: - Keyword: multipleOf
 
+  /// Validates the `multipleOf` keyword — checks that the numeric value
+  /// is a multiple of the given divisor. Zero and negative divisors are
+  /// ignored per spec.
   internal func validateMultipleOf(
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
     errors: inout [JSONSchemaError]
@@ -292,6 +308,8 @@ extension JSONSchema {
 
   // MARK: - Keyword: pattern
 
+  /// Validates the `pattern` keyword — checks that a string value matches
+  /// the given regex. Non-string values are skipped.
   internal func validatePattern(
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
     errors: inout [JSONSchemaError]
@@ -312,6 +330,8 @@ extension JSONSchema {
 
   // MARK: - Keyword: enum
 
+  /// Validates the `enum` keyword — checks that the value matches at least
+  /// one of the allowed values using schema-aware equality.
   internal func validateEnum(
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
     errors: inout [JSONSchemaError]
@@ -335,6 +355,8 @@ extension JSONSchema {
 
   // MARK: - Keyword: const
 
+  /// Validates the `const` keyword — checks that the value is exactly equal
+  /// to the const value using schema-aware equality.
   internal func validateConst(
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
     errors: inout [JSONSchemaError]
@@ -350,6 +372,9 @@ extension JSONSchema {
 
   // MARK: - Keyword: minLength
 
+  /// Validates the `minLength` keyword — checks that the string's code point
+  /// count (`unicodeScalars.count`) meets the minimum. Per RFC 8259, length
+  /// is measured in code points, not grapheme clusters.
   internal func validateMinLength(
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
     errors: inout [JSONSchemaError]
@@ -368,6 +393,8 @@ extension JSONSchema {
 
   // MARK: - Keyword: maxLength
 
+  /// Validates the `maxLength` keyword — checks that the string's code point
+  /// count (`unicodeScalars.count`) does not exceed the maximum.
   internal func validateMaxLength(
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
     errors: inout [JSONSchemaError]
@@ -387,6 +414,8 @@ extension JSONSchema {
 
   // MARK: - Composition: allOf
 
+  /// Validates the `allOf` keyword — checks that the value matches all
+  /// subschemas. Errors from each failing subschema are collected.
   internal func validateAllOf(
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
     errors: inout [JSONSchemaError]
@@ -411,6 +440,8 @@ extension JSONSchema {
 
   // MARK: - Composition: anyOf
 
+  /// Validates the `anyOf` keyword — checks that the value matches at least
+  /// one subschema. Empty arrays always fail.
   internal func validateAnyOf(
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
     errors: inout [JSONSchemaError]
@@ -438,6 +469,8 @@ extension JSONSchema {
 
   // MARK: - Composition: oneOf
 
+  /// Validates the `oneOf` keyword — checks that the value matches exactly
+  /// one subschema. Early exits on the second match.
   internal func validateOneOf(
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
     errors: inout [JSONSchemaError]
@@ -463,6 +496,8 @@ extension JSONSchema {
 
   // MARK: - Composition: not
 
+  /// Validates the `not` keyword — checks that the value does NOT match
+  /// the subschema. Boolean subschemas are supported.
   internal func validateNot(
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
     errors: inout [JSONSchemaError]
@@ -485,6 +520,9 @@ extension JSONSchema {
 
   // MARK: - Composition: if/then/else
 
+  /// Validates the `if`/`then`/`else` keywords — if the `if` subschema
+  /// matches, `then` must also match; if `if` fails, `else` must match.
+  /// Missing `then`/`else` are skipped per spec.
   internal func validateIfThenElse(
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
     errors: inout [JSONSchemaError]
@@ -529,6 +567,8 @@ extension JSONSchema {
 
   // MARK: - Composition: dependentSchemas
 
+  /// Validates the `dependentSchemas` keyword — when a property key is
+  /// present, the entire object must validate against the dependent schema.
   internal func validateDependentSchemas(
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
     errors: inout [JSONSchemaError]
@@ -557,6 +597,8 @@ extension JSONSchema {
 
   // MARK: - Composition: dependentRequired
 
+  /// Validates the `dependentRequired` keyword — when a property key is
+  /// present, other specified property keys must also be present.
   internal func validateDependentRequired(
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
     errors: inout [JSONSchemaError]
