@@ -375,6 +375,8 @@ public struct JSONSchema: Hashable, Sendable {
       return
     }
 
+    // MARK: - Shared keyword dispatch (called for both drafts)
+
     validateType(
       value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
       errors: &errors, ctx: currentCtx)
@@ -390,19 +392,10 @@ public struct JSONSchema: Hashable, Sendable {
     validateMaximum(
       value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
       errors: &errors, ctx: currentCtx)
-    validateExclusiveMinimum(
-      value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
-      errors: &errors, ctx: currentCtx)
-    validateExclusiveMaximum(
-      value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
-      errors: &errors, ctx: currentCtx)
     validateMultipleOf(
       value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
       errors: &errors, ctx: currentCtx)
     validatePattern(
-      value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
-      errors: &errors, ctx: currentCtx)
-    validateFormat(
       value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
       errors: &errors, ctx: currentCtx)
     validateEnum(
@@ -415,15 +408,6 @@ public struct JSONSchema: Hashable, Sendable {
       value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
       errors: &errors, ctx: currentCtx)
     validateMaxLength(
-      value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
-      errors: &errors, ctx: currentCtx)
-    validateContentMediaType(
-      value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
-      errors: &errors, ctx: currentCtx)
-    validateContentEncoding(
-      value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
-      errors: &errors, ctx: currentCtx)
-    validateContentSchema(
       value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
       errors: &errors, ctx: currentCtx)
     validateAllOf(
@@ -441,26 +425,6 @@ public struct JSONSchema: Hashable, Sendable {
     validateIfThenElse(
       value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
       errors: &errors, ctx: currentCtx)
-    validateDependentSchemas(
-      value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
-      errors: &errors, ctx: currentCtx)
-    validateDependentRequired(
-      value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
-      errors: &errors, ctx: currentCtx)
-    validateDependencies(
-      value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
-      errors: &errors, ctx: currentCtx)
-
-    // Array keywords
-    validateItems(
-      value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
-      errors: &errors, ctx: currentCtx)
-    validatePrefixItems(
-      value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
-      errors: &errors, ctx: currentCtx)
-    validateAdditionalItems(
-      value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
-      errors: &errors, ctx: currentCtx)
     validateMinItems(
       value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
       errors: &errors, ctx: currentCtx)
@@ -473,8 +437,6 @@ public struct JSONSchema: Hashable, Sendable {
     validateContains(
       value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
       errors: &errors, ctx: currentCtx)
-
-    // Object keywords
     validateMinProperties(
       value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
       errors: &errors, ctx: currentCtx)
@@ -490,12 +452,93 @@ public struct JSONSchema: Hashable, Sendable {
     validateAdditionalProperties(
       value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
       errors: &errors, ctx: currentCtx)
-    validateUnevaluatedProperties(
+
+    // MARK: - Items schema mode (shared — called for both drafts)
+    // Draft 2020-12: applies to items beyond prefixItems.
+    // Draft 7: applies to all items (prefixItems absent).
+
+    validateItemsSchema(
       value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
       errors: &errors, ctx: currentCtx)
-    validateUnevaluatedItems(
+
+    // MARK: - Exclusive min/max (numeric bound — shared)
+
+    validateExclusiveMinimum(
       value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
       errors: &errors, ctx: currentCtx)
+    validateExclusiveMaximum(
+      value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
+      errors: &errors, ctx: currentCtx)
+
+    // MARK: - Draft-specific keyword dispatch
+
+    switch draft {
+    case .draft7:
+      // Draft 7 specific keywords.
+      // Note: validateExclusiveMinimum/validateExclusiveMaximum (numeric)
+      // are already called in the shared dispatch above.
+      // validateItemsSchema (schema mode) is called by both drafts —
+      // for Draft 7 it acts as schema-mode items (prefixItems absent).
+      validateExclusiveMinimumBool(
+        value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
+        errors: &errors, ctx: currentCtx)
+      validateExclusiveMaximumBool(
+        value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
+        errors: &errors, ctx: currentCtx)
+      validateFormat(
+        value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
+        errors: &errors, ctx: currentCtx)
+      validateDependencies(
+        value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
+        errors: &errors, ctx: currentCtx)
+      validateItemsTuple(
+        value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
+        errors: &errors, ctx: currentCtx)
+      validateAdditionalItems(
+        value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
+        errors: &errors, ctx: currentCtx)
+
+    case .draft202012:
+      validateExclusiveMinimum(
+        value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
+        errors: &errors, ctx: currentCtx)
+      validateExclusiveMaximum(
+        value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
+        errors: &errors, ctx: currentCtx)
+      validateDependentSchemas(
+        value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
+        errors: &errors, ctx: currentCtx)
+      validateDependentRequired(
+        value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
+        errors: &errors, ctx: currentCtx)
+      validatePrefixItems(
+        value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
+        errors: &errors, ctx: currentCtx)
+      validateUnevaluatedItems(
+        value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
+        errors: &errors, ctx: currentCtx)
+      validateUnevaluatedProperties(
+        value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
+        errors: &errors, ctx: currentCtx)
+      validateContentMediaType(
+        value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
+        errors: &errors, ctx: currentCtx)
+      validateContentEncoding(
+        value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
+        errors: &errors, ctx: currentCtx)
+      validateContentSchema(
+        value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
+        errors: &errors, ctx: currentCtx)
+      validateMinContains(
+        value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
+        errors: &errors, ctx: currentCtx)
+      validateMaxContains(
+        value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
+        errors: &errors, ctx: currentCtx)
+
+    default:
+      break
+    }
   }
 
   // MARK: - Schema-aware equality

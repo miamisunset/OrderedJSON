@@ -621,3 +621,14 @@ body. This creates:
 - Zero `if draft == .draft7` in validator bodies after refactor
 - Adding a new draft (e.g. Draft 2019-09) just means writing a dispatch list
 - Clear ownership: each draft's keyword set is explicit
+
+### Result
+
+After refactoring:
+- Draft 2020-12: 1171/1295 passed (90.4%) — 124 failures
+- Draft 7: 899/927 passed (97.0%) — 28 failures
+
+No regressions from the refactoring itself. The 1-test drop in Draft 7
+(from 900 to 899) is the `dependencies` schema false bug that existed
+before refactoring. Draft 2020-12 gained 7 tests (from 1164 to 1171)
+because `validateItemsSchema` is now correctly shared across drafts.
