@@ -624,11 +624,29 @@ body. This creates:
 
 ### Result
 
-After refactoring:
-- Draft 2020-12: 1171/1295 passed (90.4%) — 124 failures
-- Draft 7: 899/927 passed (97.0%) — 28 failures
+After refactoring and additional fixes:
+- Draft 2020-12: 1228/1295 passed (94.8%) — 67 failures
+- Draft 7: 901/927 passed (97.2%) — 26 failures
 
-No regressions from the refactoring itself. The 1-test drop in Draft 7
-(from 900 to 899) is the `dependencies` schema false bug that existed
-before refactoring. Draft 2020-12 gained 7 tests (from 1164 to 1171)
-because `validateItemsSchema` is now correctly shared across drafts.
+Key fixes applied:
+- validateItemsSchema: handle boolean items (true/false)
+- validateContains: respect minContains=0
+- validateMultipleOf: detect overflow
+- evaluatedPropertyKeys: remove dependentSchemas keys
+- evaluatedItemIndices: recursive tracking through composition keywords
+- evaluatedPropertyKeysRecursive: recursive tracking through composition keywords
+- if/then/else: only matching branch counts for evaluation
+- contentSchema: annotation keyword, no validation errors
+
+Remaining failures by category:
+- dynamicRef: 20 (dynamic scope resolution)
+- unevaluatedProperties: 16 (composition + $ref tracking)
+- refRemote: 16 (remote schema fetching)
+- ref: 9 (local $ref resolution)
+- unevaluatedItems: 3 (composition + $ref tracking)
+- vocabulary: 1 (remote metaschema)
+- defs: 1 (remote $defs)
+- anchor: 1 (remote anchor)
+
+Most remaining failures involve reference resolution (remote or $ref)
+or unevaluated tracking through $ref targets.
