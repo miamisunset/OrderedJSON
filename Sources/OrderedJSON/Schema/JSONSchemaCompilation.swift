@@ -22,13 +22,16 @@ internal struct CompiledSchema: Hashable, Sendable {
   /// Dynamic anchors from `$dynamicAnchor` keywords: anchor name → schema JSON.
   let dynamicAnchors: OrderedDictionary<String, JSON>
 
-  /// Creates a compiled schema from raw JSON.
+  /// Creates a compiled schema from raw JSON, throwing on duplicate
+  /// `$anchor` / `$dynamicAnchor` names within the same base URI.
+  ///
   /// - Parameter schema: The raw schema JSON.
-  init(schema: JSON) {
+  /// - Throws: `JSONSchemaError` if duplicate anchors are found.
+  init(schema: JSON) throws {
     self.schemaJSON = schema
 
     // Collect all annotations by walking the schema tree
-    let annotations = CompiledSchema.collectAnnotations(from: schema)
+    let annotations = try CompiledSchema.collectAnnotations(from: schema)
 
     // Parse $id at the root level
     baseURI = schema["$id"]?.stringValue
@@ -42,8 +45,9 @@ internal struct CompiledSchema: Hashable, Sendable {
   /// by recursively walking every subschema in the schema tree.
   ///
   /// - Parameter schema: The schema JSON to scan.
+  /// - Throws: `JSONSchemaError` if duplicate anchors are found.
   /// - Returns: Collected annotations.
-  private static func collectAnnotations(from schema: JSON) -> (
+  private static func collectAnnotations(from schema: JSON) throws -> (
     defs: OrderedDictionary<String, JSON>,
     anchors: OrderedDictionary<String, JSON>,
     dynamicAnchors: OrderedDictionary<String, JSON>
@@ -52,60 +56,89 @@ internal struct CompiledSchema: Hashable, Sendable {
     var anchors = OrderedDictionary<String, JSON>()
     var dynamicAnchors = OrderedDictionary<String, JSON>()
 
-    // Recursively walk the schema tree
-    collectAnnotationsRecursive(
+    // Recursively walk the schema tree.
+    try collectAnnotationsRecursive(
       schema, defs: &defs, anchors: &anchors, dynamicAnchors: &dynamicAnchors)
 
     return (defs, anchors, dynamicAnchors)
   }
 
   /// Recursively walks a schema (or subschema) to collect annotations.
+  ///
+  /// Boolean schemas (`true` / `false`) never contain annotations — the
+  /// `guard schema.isObject else { return }` at the top of the function
+  /// skips them. This is correct per spec: a boolean schema has no keywords
+  /// and therefore no `$defs`, `$anchor`, or `$dynamicAnchor`.
+  ///
+  /// - Parameter schema: The schema JSON to scan.
+  /// - Throws: `JSONSchemaError` if duplicate anchors are found.
   private static func collectAnnotationsRecursive(
     _ schema: JSON,
     defs: inout OrderedDictionary<String, JSON>,
     anchors: inout OrderedDictionary<String, JSON>,
     dynamicAnchors: inout OrderedDictionary<String, JSON>
-  ) {
+  ) throws {
     guard schema.isObject else { return }
 
-    // Collect $defs at this level
+    // Collect $defs at this level.
+    // A $defs entry at /$defs/A whose body contains $defs: { B: ... }
+    // will produce both defs["A"] and defs["B"] in the flat dictionary.
+    // This is a deviation from per-resource scoping (see $id scoping note
+    // below) — future phases should scope defs per base URI.
     if let defsJSON = schema["$defs"], defsJSON.isObject {
-      guard case .object(let defDict) = defsJSON.storage else { return }
-      for (key, value) in defDict {
-        defs[key] = value
-        // Recurse into the $defs entry itself — it may contain nested annotations
-        collectAnnotationsRecursive(
-          value, defs: &defs, anchors: &anchors, dynamicAnchors: &dynamicAnchors)
+      if case .object(let defDict) = defsJSON.storage {
+        for (key, value) in defDict {
+          defs[key] = value
+          try collectAnnotationsRecursive(
+            value, defs: &defs, anchors: &anchors, dynamicAnchors: &dynamicAnchors)
+        }
       }
     }
 
-    // Collect $anchor at this level
+    // Collect $anchor at this level.
     if let anchorStr = schema["$anchor"]?.stringValue {
+      if anchors[anchorStr] != nil {
+        throw JSONSchemaError(
+          instancePath: "",
+          schemaPath: "/$anchor",
+          keyword: "$anchor",
+          message: "duplicate $anchor '\(anchorStr)' in the same base URI"
+        )
+      }
       anchors[anchorStr] = schema
     }
 
-    // Collect $dynamicAnchor at this level
+    // Collect $dynamicAnchor at this level.
     if let dynAnchorStr = schema["$dynamicAnchor"]?.stringValue {
+      if dynamicAnchors[dynAnchorStr] != nil {
+        throw JSONSchemaError(
+          instancePath: "",
+          schemaPath: "/$dynamicAnchor",
+          keyword: "$dynamicAnchor",
+          message: "duplicate $dynamicAnchor '\(dynAnchorStr)' in the same base URI"
+        )
+      }
       dynamicAnchors[dynAnchorStr] = schema
     }
 
     // Recurse into properties subschemas
     if let properties = schema["properties"], properties.isObject {
-      guard case .object(let dict) = properties.storage else { return }
-      for (_, propSchema) in dict {
-        collectAnnotationsRecursive(
-          propSchema, defs: &defs, anchors: &anchors, dynamicAnchors: &dynamicAnchors)
+      if case .object(let dict) = properties.storage {
+        for (_, propSchema) in dict {
+          try collectAnnotationsRecursive(
+            propSchema, defs: &defs, anchors: &anchors, dynamicAnchors: &dynamicAnchors)
+        }
       }
     }
 
     // Recurse into items / prefixItems
     if let items = schema["items"], items.isObject {
-      collectAnnotationsRecursive(
+      try collectAnnotationsRecursive(
         items, defs: &defs, anchors: &anchors, dynamicAnchors: &dynamicAnchors)
     }
     if let prefixItems = schema["prefixItems"], prefixItems.isArray {
       for item in prefixItems where item.isObject {
-        collectAnnotationsRecursive(
+        try collectAnnotationsRecursive(
           item, defs: &defs, anchors: &anchors, dynamicAnchors: &dynamicAnchors)
       }
     }
@@ -114,80 +147,88 @@ internal struct CompiledSchema: Hashable, Sendable {
     for keyword in ["allOf", "anyOf", "oneOf"] {
       if let subschemas = schema[keyword], subschemas.isArray {
         for sub in subschemas where sub.isObject {
-          collectAnnotationsRecursive(
+          try collectAnnotationsRecursive(
             sub, defs: &defs, anchors: &anchors, dynamicAnchors: &dynamicAnchors)
         }
       }
     }
     if let notSchema = schema["not"], notSchema.isObject {
-      collectAnnotationsRecursive(
+      try collectAnnotationsRecursive(
         notSchema, defs: &defs, anchors: &anchors, dynamicAnchors: &dynamicAnchors)
     }
     if let ifSchema = schema["if"], ifSchema.isObject {
-      collectAnnotationsRecursive(
+      try collectAnnotationsRecursive(
         ifSchema, defs: &defs, anchors: &anchors, dynamicAnchors: &dynamicAnchors)
     }
     if let thenSchema = schema["then"], thenSchema.isObject {
-      collectAnnotationsRecursive(
+      try collectAnnotationsRecursive(
         thenSchema, defs: &defs, anchors: &anchors, dynamicAnchors: &dynamicAnchors)
     }
     if let elseSchema = schema["else"], elseSchema.isObject {
-      collectAnnotationsRecursive(
+      try collectAnnotationsRecursive(
         elseSchema, defs: &defs, anchors: &anchors, dynamicAnchors: &dynamicAnchors)
     }
 
     // Recurse into patternProperties values
     if let pp = schema["patternProperties"], pp.isObject {
-      guard case .object(let patternDict) = pp.storage else { return }
-      for (_, patternSchema) in patternDict {
-        collectAnnotationsRecursive(
-          patternSchema, defs: &defs, anchors: &anchors, dynamicAnchors: &dynamicAnchors)
+      if case .object(let patternDict) = pp.storage {
+        for (_, patternSchema) in patternDict {
+          try collectAnnotationsRecursive(
+            patternSchema, defs: &defs, anchors: &anchors, dynamicAnchors: &dynamicAnchors)
+        }
       }
     }
 
     // Recurse into contains
     if let containsSchema = schema["contains"], containsSchema.isObject {
-      collectAnnotationsRecursive(
+      try collectAnnotationsRecursive(
         containsSchema, defs: &defs, anchors: &anchors, dynamicAnchors: &dynamicAnchors)
     }
 
     // Recurse into additionalProperties / unevaluatedProperties
     if let ap = schema["additionalProperties"], ap.isObject {
-      collectAnnotationsRecursive(
+      try collectAnnotationsRecursive(
         ap, defs: &defs, anchors: &anchors, dynamicAnchors: &dynamicAnchors)
     }
     if let up = schema["unevaluatedProperties"], up.isObject {
-      collectAnnotationsRecursive(
+      try collectAnnotationsRecursive(
         up, defs: &defs, anchors: &anchors, dynamicAnchors: &dynamicAnchors)
     }
 
     // Recurse into additionalItems / unevaluatedItems
     if let ai = schema["additionalItems"], ai.isObject {
-      collectAnnotationsRecursive(
+      try collectAnnotationsRecursive(
         ai, defs: &defs, anchors: &anchors, dynamicAnchors: &dynamicAnchors)
     }
     if let ui = schema["unevaluatedItems"], ui.isObject {
-      collectAnnotationsRecursive(
+      try collectAnnotationsRecursive(
         ui, defs: &defs, anchors: &anchors, dynamicAnchors: &dynamicAnchors)
     }
 
     // Recurse into propertyNames
     if let pn = schema["propertyNames"], pn.isObject {
-      collectAnnotationsRecursive(
+      try collectAnnotationsRecursive(
         pn, defs: &defs, anchors: &anchors, dynamicAnchors: &dynamicAnchors)
     }
 
     // Recurse into dependentSchemas values
     if let depSchemas = schema["dependentSchemas"], depSchemas.isObject {
-      guard case .object(let depDict) = depSchemas.storage else { return }
-      for (_, depSchema) in depDict {
-        collectAnnotationsRecursive(
-          depSchema, defs: &defs, anchors: &anchors, dynamicAnchors: &dynamicAnchors)
+      if case .object(let depDict) = depSchemas.storage {
+        for (_, depSchema) in depDict {
+          try collectAnnotationsRecursive(
+            depSchema, defs: &defs, anchors: &anchors, dynamicAnchors: &dynamicAnchors)
+        }
       }
     }
   }
 
   /// Resolves a `$ref` pointer against the schema and its `$defs`.
+  ///
+  /// Supports deep pointers into nested `$defs`: `#/$defs/myObj/properties/foo`
+  /// looks up the head key `myObj` in the compiled `defs` dictionary, then
+  /// resolves the tail `/properties/foo` as a JSON Pointer against that
+  /// subtree. If the head doesn't match a compiled def, falls back to
+  /// resolving the full pointer against the root `schemaJSON`.
   ///
   /// - Parameter pointer: A JSON Pointer string (e.g., `#/$defs/foo`).
   /// - Returns: The resolved schema JSON, or `nil` if the pointer cannot be resolved.
@@ -205,13 +246,23 @@ internal struct CompiledSchema: Hashable, Sendable {
       return anchors[anchorName]
     }
 
-    // Check for #/$defs/... — look up in the compiled defs dictionary.
-    // This handles $defs entries that may be nested in subschemas,
-    // not just at the root level.
+    // Check for #/$defs/<key> or #/$defs/<key>/<tail> — look up the head
+    // in the compiled defs dictionary, then resolve the tail against it.
     if pointer.hasPrefix("#/$defs/") {
-      let defsKey = String(pointer.dropFirst("#/$defs/".count))
-      if let target = defs[defsKey] {
-        return target
+      let rest = String(pointer.dropFirst("#/$defs/".count))
+      // Split on the first '/' to get head and tail
+      if let slashIndex = rest.firstIndex(of: "/") {
+        let head = String(rest[rest.startIndex..<slashIndex])
+        let tail = String(rest[slashIndex...])  // includes leading '/'
+        if let target = defs[head] {
+          guard let ptr = try? JSONPointer(tail) else { return nil }
+          return ptr.resolve(target)
+        }
+      } else {
+        // No trailing path — direct defs lookup
+        if let target = defs[rest] {
+          return target
+        }
       }
     }
 

@@ -89,7 +89,7 @@ public struct JSONSchema: Hashable, Sendable {
     // Compile the schema for $defs, $ref, $id, $anchor support
     let compiled: CompiledSchema?
     if schema.isObject {
-      compiled = CompiledSchema(schema: schema)
+      compiled = try CompiledSchema(schema: schema)
     } else {
       compiled = nil
     }
