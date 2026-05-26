@@ -1209,42 +1209,8 @@ extension JSONSchema {
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
     errors: inout [JSONSchemaError], ctx: EvaluationContext
   ) {
-    guard let contentSchema = subschema["contentSchema"] else { return }
-    guard let strVal = value.stringValue else { return }
-    let encoding = subschema["contentEncoding"]?.stringValue
-    let decodedString: String
-    if encoding == "base64" {
-      guard let data = Data(base64Encoded: strVal) else {
-        errors.append(JSONSchemaError(
-          instancePath: instancePath, schemaPath: schemaPath + "/contentSchema",
-          keyword: "contentSchema", message: "invalid base64 content for contentSchema validation"))
-        return
-      }
-      guard let utf8String = String(data: data, encoding: .utf8) else {
-        errors.append(JSONSchemaError(
-          instancePath: instancePath, schemaPath: schemaPath + "/contentSchema",
-          keyword: "contentSchema", message: "base64-decoded content is not valid UTF-8"))
-        return
-      }
-      decodedString = utf8String
-    } else {
-      decodedString = strVal
-    }
-    let decodedValue: JSON
-    do {
-      decodedValue = try JSON.parse(decodedString)
-    } catch {
-      errors.append(JSONSchemaError(
-        instancePath: instancePath, schemaPath: schemaPath + "/contentSchema",
-        keyword: "contentSchema", message: "decoded content is not valid JSON"))
-      return
-    }
-    var subErrors: [JSONSchemaError] = []
-    validateValue(decodedValue, against: contentSchema, instancePath: instancePath,
-      schemaPath: schemaPath + "/contentSchema", errors: &subErrors, ctx: ctx)
-    if let first = subErrors.first { errors.append(JSONSchemaError(
-      instancePath: instancePath, schemaPath: schemaPath + "/contentSchema",
-      keyword: "contentSchema", message: first.message)) }
+    // contentSchema is an annotation keyword per Draft 2020-12.
+    // It does NOT produce validation errors.
   }
 
   // MARK: - Keyword: minContains / maxContains
