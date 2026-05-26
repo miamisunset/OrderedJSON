@@ -168,7 +168,7 @@ public struct JSONSchema: Hashable, Sendable {
     var errors: [JSONSchemaError] = []
     validateValue(
       document, against: schemaJSON, instancePath: "", schemaPath: "",
-      errors: &errors, recursionDepth: 0)
+      errors: &errors, ctx: EvaluationContext())
     if let first = errors.first {
       throw first
     }
@@ -186,7 +186,7 @@ public struct JSONSchema: Hashable, Sendable {
     var errors: [JSONSchemaError] = []
     validateValue(
       document, against: schemaJSON, instancePath: "", schemaPath: "",
-      errors: &errors, recursionDepth: 0)
+      errors: &errors, ctx: EvaluationContext())
     return JSONSchemaResult(valid: errors.isEmpty, errors: errors)
   }
 
@@ -199,7 +199,7 @@ public struct JSONSchema: Hashable, Sendable {
     var errors: [JSONSchemaError] = []
     validateValue(
       document, against: schemaJSON, instancePath: "", schemaPath: "",
-      errors: &errors, recursionDepth: 0)
+      errors: &errors, ctx: EvaluationContext())
     return errors.isEmpty
   }
 
@@ -217,12 +217,10 @@ public struct JSONSchema: Hashable, Sendable {
     instancePath: String,
     schemaPath: String,
     errors: inout [JSONSchemaError],
-    recursionDepth: Int = 0,
-    currentResourceURI: String = "",
-    dynamicScope: [(String, JSON)] = []
+    ctx: EvaluationContext = EvaluationContext()
   ) {
     // Recursion depth guard — prevents stack overflow from deeply nested schemas
-    guard recursionDepth < Self.maxRecursionDepth else {
+    guard ctx.recursionDepth < Self.maxRecursionDepth else {
       errors.append(
         JSONSchemaError(
           instancePath: instancePath, schemaPath: schemaPath,
@@ -231,11 +229,9 @@ public struct JSONSchema: Hashable, Sendable {
       return
     }
 
-    let nextDepth = recursionDepth + 1
-
     // Determine the resource scope URI for this subschema.
     // If the subschema declares $id, use that; otherwise inherit from parent.
-    let resourceURI = subschema["$id"]?.stringValue ?? currentResourceURI
+    let resourceURI = subschema["$id"]?.stringValue ?? ctx.currentResourceURI
 
     if let boolVal = subschema.boolValue {
       if !boolVal {
@@ -248,27 +244,28 @@ public struct JSONSchema: Hashable, Sendable {
     }
     guard subschema.isObject else { return }
 
-    // Compute the dynamic scope for this subschema — push any $dynamicAnchor
-    // declarations onto the stack. Uses a lightweight tuple for each frame
-    // to avoid OrderedDictionary allocation overhead.
-    let currentScope: [(String, JSON)]
+    // Compute the validation context for this subschema — increment recursion
+    // depth, push any $dynamicAnchor onto the scope stack, and update the
+    // current resource URI from the subschema's $id (if present).
+    let currentCtx: EvaluationContext
     if let dynAnchorStr = subschema["$dynamicAnchor"]?.stringValue,
       compiled != nil
     {
-      currentScope = dynamicScope + [(dynAnchorStr, subschema)]
+      currentCtx = ctx.advanced(
+        withAnchor: dynAnchorStr, schema: subschema, resourceURI: resourceURI)
     } else {
-      currentScope = dynamicScope
+      currentCtx = ctx.advanced(resourceURI: resourceURI)
     }
 
     // Resolve $dynamicRef before $ref — $dynamicRef takes priority per spec.
     if let dynRefStr = subschema["$dynamicRef"]?.stringValue {
       if let target = compiled?.resolveDynamicRef(
-        dynRefStr, dynamicScope: currentScope, currentResourceURI: resourceURI)
+        dynRefStr, dynamicScope: currentCtx.dynamicScope, currentResourceURI: resourceURI)
       {
         validateValue(
           value, against: target, instancePath: instancePath,
           schemaPath: schemaPath + "/$dynamicRef", errors: &errors,
-          recursionDepth: nextDepth, currentResourceURI: resourceURI, dynamicScope: currentScope)
+          ctx: currentCtx)
       } else {
         errors.append(
           JSONSchemaError(
@@ -286,7 +283,7 @@ public struct JSONSchema: Hashable, Sendable {
         validateValue(
           value, against: target, instancePath: instancePath,
           schemaPath: schemaPath + "/$ref", errors: &errors,
-          recursionDepth: nextDepth, currentResourceURI: resourceURI, dynamicScope: currentScope)
+          ctx: currentCtx)
       } else {
         errors.append(
           JSONSchemaError(
@@ -299,143 +296,110 @@ public struct JSONSchema: Hashable, Sendable {
 
     validateType(
       value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
-      errors: &errors, recursionDepth: recursionDepth, currentResourceURI: resourceURI,
-      dynamicScope: currentScope)
+      errors: &errors, ctx: currentCtx)
     validateProperties(
       value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
-      errors: &errors, recursionDepth: recursionDepth, currentResourceURI: resourceURI,
-      dynamicScope: currentScope)
+      errors: &errors, ctx: currentCtx)
     validateRequired(
       value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
-      errors: &errors, recursionDepth: recursionDepth, currentResourceURI: resourceURI,
-      dynamicScope: currentScope)
+      errors: &errors, ctx: currentCtx)
     validateMinimum(
       value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
-      errors: &errors, recursionDepth: recursionDepth, currentResourceURI: resourceURI,
-      dynamicScope: currentScope)
+      errors: &errors, ctx: currentCtx)
     validateMaximum(
       value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
-      errors: &errors, recursionDepth: recursionDepth, currentResourceURI: resourceURI,
-      dynamicScope: currentScope)
+      errors: &errors, ctx: currentCtx)
     validateExclusiveMinimum(
       value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
-      errors: &errors, recursionDepth: recursionDepth, currentResourceURI: resourceURI,
-      dynamicScope: currentScope)
+      errors: &errors, ctx: currentCtx)
     validateExclusiveMaximum(
       value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
-      errors: &errors, recursionDepth: recursionDepth, currentResourceURI: resourceURI,
-      dynamicScope: currentScope)
+      errors: &errors, ctx: currentCtx)
     validateMultipleOf(
       value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
-      errors: &errors, recursionDepth: recursionDepth, currentResourceURI: resourceURI,
-      dynamicScope: currentScope)
+      errors: &errors, ctx: currentCtx)
     validatePattern(
       value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
-      errors: &errors, recursionDepth: recursionDepth, currentResourceURI: resourceURI,
-      dynamicScope: currentScope)
+      errors: &errors, ctx: currentCtx)
     validateEnum(
       value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
-      errors: &errors, recursionDepth: recursionDepth, currentResourceURI: resourceURI,
-      dynamicScope: currentScope)
+      errors: &errors, ctx: currentCtx)
     validateConst(
       value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
-      errors: &errors, recursionDepth: recursionDepth, currentResourceURI: resourceURI,
-      dynamicScope: currentScope)
+      errors: &errors, ctx: currentCtx)
     validateMinLength(
       value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
-      errors: &errors, recursionDepth: recursionDepth, currentResourceURI: resourceURI,
-      dynamicScope: currentScope)
+      errors: &errors, ctx: currentCtx)
     validateMaxLength(
       value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
-      errors: &errors, recursionDepth: recursionDepth, currentResourceURI: resourceURI,
-      dynamicScope: currentScope)
+      errors: &errors, ctx: currentCtx)
     validateAllOf(
       value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
-      errors: &errors, recursionDepth: recursionDepth, currentResourceURI: resourceURI,
-      dynamicScope: currentScope)
+      errors: &errors, ctx: currentCtx)
     validateAnyOf(
       value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
-      errors: &errors, recursionDepth: recursionDepth, currentResourceURI: resourceURI,
-      dynamicScope: currentScope)
+      errors: &errors, ctx: currentCtx)
     validateOneOf(
       value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
-      errors: &errors, recursionDepth: recursionDepth, currentResourceURI: resourceURI,
-      dynamicScope: currentScope)
+      errors: &errors, ctx: currentCtx)
     validateNot(
       value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
-      errors: &errors, recursionDepth: recursionDepth, currentResourceURI: resourceURI,
-      dynamicScope: currentScope)
+      errors: &errors, ctx: currentCtx)
     validateIfThenElse(
       value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
-      errors: &errors, recursionDepth: recursionDepth, currentResourceURI: resourceURI,
-      dynamicScope: currentScope)
+      errors: &errors, ctx: currentCtx)
     validateDependentSchemas(
       value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
-      errors: &errors, recursionDepth: recursionDepth, currentResourceURI: resourceURI,
-      dynamicScope: currentScope)
+      errors: &errors, ctx: currentCtx)
     validateDependentRequired(
       value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
-      errors: &errors, recursionDepth: recursionDepth, currentResourceURI: resourceURI,
-      dynamicScope: currentScope)
+      errors: &errors, ctx: currentCtx)
 
     // Array keywords
     validateItems(
       value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
-      errors: &errors, recursionDepth: recursionDepth, currentResourceURI: resourceURI,
-      dynamicScope: currentScope)
+      errors: &errors, ctx: currentCtx)
     validatePrefixItems(
       value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
-      errors: &errors, recursionDepth: recursionDepth, currentResourceURI: resourceURI,
-      dynamicScope: currentScope)
+      errors: &errors, ctx: currentCtx)
     validateAdditionalItems(
       value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
-      errors: &errors, recursionDepth: recursionDepth, currentResourceURI: resourceURI,
-      dynamicScope: currentScope)
+      errors: &errors, ctx: currentCtx)
     validateMinItems(
       value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
-      errors: &errors, recursionDepth: recursionDepth, currentResourceURI: resourceURI,
-      dynamicScope: currentScope)
+      errors: &errors, ctx: currentCtx)
     validateMaxItems(
       value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
-      errors: &errors, recursionDepth: recursionDepth, currentResourceURI: resourceURI,
-      dynamicScope: currentScope)
+      errors: &errors, ctx: currentCtx)
     validateUniqueItems(
       value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
-      errors: &errors, recursionDepth: recursionDepth, currentResourceURI: resourceURI,
-      dynamicScope: currentScope)
+      errors: &errors, ctx: currentCtx)
     validateContains(
       value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
-      errors: &errors, recursionDepth: recursionDepth, currentResourceURI: resourceURI,
-      dynamicScope: currentScope)
+      errors: &errors, ctx: currentCtx)
 
     // Object keywords
     validateMinProperties(
       value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
-      errors: &errors, recursionDepth: recursionDepth, currentResourceURI: resourceURI,
-      dynamicScope: currentScope)
+      errors: &errors, ctx: currentCtx)
     validateMaxProperties(
       value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
-      errors: &errors, recursionDepth: recursionDepth, currentResourceURI: resourceURI,
-      dynamicScope: currentScope)
+      errors: &errors, ctx: currentCtx)
     validatePropertyNames(
       value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
-      errors: &errors, recursionDepth: recursionDepth, currentResourceURI: resourceURI,
-      dynamicScope: currentScope)
+      errors: &errors, ctx: currentCtx)
     validatePatternProperties(
       value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
-      errors: &errors, recursionDepth: recursionDepth, currentResourceURI: resourceURI,
-      dynamicScope: currentScope)
+      errors: &errors, ctx: currentCtx)
     validateAdditionalProperties(
       value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
-      errors: &errors, recursionDepth: recursionDepth, currentResourceURI: resourceURI,
-      dynamicScope: currentScope)
+      errors: &errors, ctx: currentCtx)
     validateUnevaluatedProperties(
       value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
-      errors: &errors, recursionDepth: recursionDepth, currentResourceURI: resourceURI,
-      dynamicScope: currentScope)
+      errors: &errors, ctx: currentCtx)
     validateUnevaluatedItems(
       value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
-      errors: &errors, recursionDepth: recursionDepth, dynamicScope: currentScope)
+      errors: &errors, ctx: currentCtx)
   }
 
   // MARK: - Schema-aware equality
