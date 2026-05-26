@@ -132,6 +132,12 @@ Test file `JSONSchemaTests.swift` (1476 lines) split into:
 - `unevaluatedItems` does not honor `items` (schema mode) or `contains` match indices — items evaluated by those keywords are not excluded; tracked as deviation tests
 - `unevaluatedProperties` does not track evaluation from `additionalProperties` or in-place applicators (`allOf`/`anyOf`/`oneOf`/`if`/`then`/`else`) — tracked as deviation tests
 - `contains` lacks `minContains`/`maxContains` support (Draft 2020-12 extension) — `contains` returns on first match
+- `$ref` sibling-keyword semantics: Draft 2019-09+ allows annotations alongside `$ref`; current impl short-circuits all sibling keywords (safe default, deviating from latest spec)
+- `$ref` cycle detection uses recursion depth limit (100) rather than pointer-set tracking — catches cycles but keyword is `"schema"` not `"$ref"`
+- External `$ref` (remote URIs) not supported — only local `#` pointers
+- `$dynamicRef`/`$dynamicAnchor` not implemented
+- `$defs` for Draft 7 (`definitions` keyword) not supported
+- `$anchor` declared on inner subschemas not collected — only root-level `$anchor` is parsed
 
 ---
 

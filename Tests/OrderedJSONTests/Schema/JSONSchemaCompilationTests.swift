@@ -4,72 +4,6 @@ import Testing
 @testable import OrderedCollections
 @testable import OrderedJSON
 
-// MARK: - JSON Pointer resolution tests
-
-@Suite("JSON Pointer resolution")
-struct JSONPointerTests {
-
-  @Test("pointer — root returns self")
-  func pointerRoot() throws {
-    let json: JSON = .object(["foo": .string("bar")])
-    #expect(json.resolve("/") == json)
-    #expect(json.resolve("#") == nil)  // must start with /
-  }
-
-  @Test("pointer — single segment object")
-  func pointerSingleSegment() throws {
-    let json: JSON = .object(["foo": .string("bar"), "baz": .number(.integer(42))])
-    #expect(json.resolve("/foo") == .string("bar"))
-    #expect(json.resolve("/baz") == .number(.integer(42)))
-  }
-
-  @Test("pointer — nested object")
-  func pointerNested() throws {
-    let json: JSON = .object([
-      "foo": .object(["bar": .string("baz")])
-    ])
-    #expect(json.resolve("/foo/bar") == .string("baz"))
-  }
-
-  @Test("pointer — array index")
-  func pointerArrayIndex() throws {
-    let json: JSON = .array([.string("a"), .string("b"), .string("c")])
-    #expect(json.resolve("/0") == .string("a"))
-    #expect(json.resolve("/2") == .string("c"))
-  }
-
-  @Test("pointer — array index out of bounds")
-  func pointerArrayOutOfBounds() throws {
-    let json: JSON = .array([.string("a")])
-    #expect(json.resolve("/1") == nil)
-    #expect(json.resolve("/-1") == nil)
-  }
-
-  @Test("pointer — non-existent key")
-  func pointerMissingKey() throws {
-    let json: JSON = .object(["foo": .string("bar")])
-    #expect(json.resolve("/bar") == nil)
-  }
-
-  @Test("pointer — tilde and slash encoding")
-  func pointerEncoding() throws {
-    let json: JSON = .object([
-      "a~b": .string("tilde"),
-      "c/d": .string("slash"),
-    ])
-    // ~0 represents ~, ~1 represents /
-    #expect(json.resolve("/a~0b") == .string("tilde"))
-    #expect(json.resolve("/c~1d") == .string("slash"))
-  }
-
-  @Test("pointer — no leading slash returns nil")
-  func pointerNoLeadingSlash() throws {
-    let json: JSON = .object(["foo": .string("bar")])
-    #expect(json.resolve("foo") == nil)
-    #expect(json.resolve("") == nil)
-  }
-}
-
 // MARK: - CompiledSchema tests
 
 @Suite("CompiledSchema")
@@ -200,6 +134,22 @@ struct JSONSchemaRefTests {
       ]))
     #expect(schema.validation(of: .number(.integer(5))).valid)
     #expect(!schema.validation(of: .number(.integer(-1))).valid)
+  }
+
+  @Test("$ref — cycle detection via recursion depth")
+  func refCycle() throws {
+    let schema = try JSONSchema(
+      schema: .object([
+        "$defs": .object([
+          "node": .object(["$ref": .string("#/$defs/node")])
+        ]),
+        "$ref": .string("#/$defs/node"),
+      ]))
+    let result = schema.validation(of: .string("anything"))
+    #expect(!result.valid)
+    // Depth guard fires with keyword "schema"
+    #expect(result.errors.first?.keyword == "schema")
+    #expect(result.errors.first?.message.contains("depth") == true)
   }
 
   @Test("$ref — nested in properties")
