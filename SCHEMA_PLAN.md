@@ -190,7 +190,23 @@ The `recursionDepth` parameter had a default of `0`, so every validator call tha
 
 ---
 
-## Phase 4c — External `$ref`, Schema Compilation Keyword Tree, Nested `$defs`/`$anchor`
+## Phase 4c — Nested Annotation Collection (✅ Complete)
+
+**PR**: [#35](https://github.com/miamisunset/OrderedJSON/pull/35)
+
+### What shipped
+- Schema tree walk collects `$defs`, `$anchor`, `$dynamicAnchor` from all subschema levels
+- `resolveRef` checks compiled `defs` dictionary for `#/$defs/...` paths
+- 7 tests, 201 total schema tests
+
+### Remaining (deferred to Phase 4d)
+- External `$ref` (URIs without `#` fragment)
+- `$id` scoping — nested `$id` establishes a new base URI
+- Full schema compilation keyword tree
+
+---
+
+## Phase 4d — External `$ref`, `$id` Scoping, Schema Compilation Keyword Tree
 
 ## Phase 5 — Format Validation
 

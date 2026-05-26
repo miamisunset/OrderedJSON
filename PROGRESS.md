@@ -610,3 +610,11 @@ The `recursionDepth` parameter had a default of `0`, so every validator call tha
 - 6 new tests: self-referential depth guard, fallback to `$anchor`, unresolvable, compiled storage, recursive schema (positive case), allOf cycle
 - Recursive schema test (`$defs/node` with `$dynamicRef` inside `properties`) now passes
 - 194 total schema tests — all passing, lint clean
+
+### Phase 4c — Nested Annotation Collection (PR #35)
+
+### What shipped
+- Schema tree walk (`collectAnnotationsRecursive`) visits all subschema locations
+- Nested `$defs` collection — resolves `#/$defs/...` from the compiled defs dictionary
+- Nested `$anchor`/`$dynamicAnchor` collection — both collected from all levels
+- 7 new tests, 201 total schema tests — all passing, lint clean
