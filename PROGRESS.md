@@ -498,7 +498,25 @@ See `SCHEMA_PLAN.md` for the complete 10-phase breakdown.
 
 ### Key decisions
 - Draft 2020-12 is primary target; Draft 7 supported for backward compat
-- Schema is compiled into keyword tree at init time (not re-parsed on each validate call)
-- `auto` draft detection reads `$schema` from the schema JSON
+- Schema is held as JSON and walked on each validate call; pattern regexes pre-compiled at init
+- `auto` draft detection reads `$schema` from the schema JSON (exact URI matching first, substring fallback)
 - Error messages include both instance path (where in document) and schema path (which keyword)
+- `required` checks key presence only (null values satisfy required — per spec)
+- Numeric comparisons use integer fast path (Int64) when both sides are integers, preserving precision
+- API: `validate(_:) throws -> Bool` (fail-fast), `validation(of:) -> JSONSchemaResult` (collect-all), `isValid(_:) -> Bool` (predicate)
+
+### Review fixes applied (post-PR review)
+- **`required` null fix**: Removed `value[key]!.isNull` check — null satisfies required
+- **Naming inversion**: Swapped `validate`/`validates` to conventional throwing-verb/non-throwing-result pattern
+- **Integer precision**: Added Int64 fast path for all numeric bounds + multipleOf
+- **Pattern init-time validation**: Regex errors now throw at init, not at validation
+- **Exact URI matching**: detectDraft matches official spec URIs first, falls back to substring
+- **`?? [:]` fix**: Changed unordered `[:]` literal to `OrderedDictionary()`
+- **Test safety**: `errors[0]` → `errors.first?.keyword` to avoid crash on regression
+- **`objectValue`**: Promoted from `fileprivate` to `package` for reuse
+- **`multipleOf` epsilon**: Added scaled epsilon (`max(1e-12 * mVal, 1e-12)`) for large doubles
+- **`Hashable` doc note**: Added warning about order-sensitive hashing
+- **Boolean schema TODO**: Added TODO + deviation note for future `true`/`false` schema support
+- **`enum`/`const` equality**: Added tests for `1 == 1.0` (integer vs float) and object key-order insensitivity
+- **Known deviations**: Added section to SCHEMA_PLAN.md covering regex flavor, boolean schemas, compilation, output format
 

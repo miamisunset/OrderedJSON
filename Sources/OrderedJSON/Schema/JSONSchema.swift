@@ -24,9 +24,15 @@ import OrderedCollections
 ///
 /// ```swift
 /// let doc: JSON = .object(["name": .string("Alice"), "age": .number(.integer(30))])
-/// let result = schema.validate(doc)
+/// try schema.validate(doc)  // throws on first error
+///
+/// let result = schema.validation(of: doc)  // collect all errors
 /// print(result.valid)  // true
 /// ```
+///
+/// - Warning: Two semantically-equivalent schemas with differently-ordered keys
+///   will produce different `Hashable` values, since `JSON` hashing is
+///   structure-preserving.
 public struct JSONSchema: Hashable, Sendable {
   /// The JSON Schema draft version to use for validation.
   public enum Draft: Hashable, Sendable {
@@ -64,6 +70,9 @@ public struct JSONSchema: Hashable, Sendable {
 
     // Validate schema structure
     guard schema.isObject else {
+      // TODO: Support boolean schemas (true/false) — Draft 2020-12 allows
+      //       `true` (accept everything) and `false` (reject everything).
+      //       See SCHEMA_PLAN.md "Known Deviations".
       throw JSONSchemaError(
         instancePath: "",
         schemaPath: "",
@@ -72,9 +81,30 @@ public struct JSONSchema: Hashable, Sendable {
       )
     }
 
+    // Pre-compile regex patterns so invalid regexes fail at init time
+    // rather than during validation.
+    try JSONSchema.validatePatterns(schema)
+
     self.schemaJSON = schema
     self.draft = resolvedDraft
   }
+
+  // MARK: - Draft detection
+
+  /// Official JSON Schema draft URIs for exact matching.
+  private static let draft7URIs: Set<String> = [
+    "http://json-schema.org/draft-07/schema#",
+    "http://json-schema.org/draft-07/schema",
+    "https://json-schema.org/draft-07/schema#",
+    "https://json-schema.org/draft-07/schema",
+  ]
+
+  private static let draft202012URIs: Set<String> = [
+    "https://json-schema.org/draft/2020-12/schema",
+    "https://json-schema.org/draft/2020-12/schema#",
+    "http://json-schema.org/draft/2020-12/schema",
+    "http://json-schema.org/draft/2020-12/schema#",
+  ]
 
   /// Detects the JSON Schema draft from the `$schema` keyword.
   /// - Parameter schema: The schema JSON.
@@ -84,39 +114,141 @@ public struct JSONSchema: Hashable, Sendable {
       return .draft202012
     }
 
+    // Exact URI matching first (official spec links)
+    if draft7URIs.contains(schemaStr) {
+      return .draft7
+    }
+    if draft202012URIs.contains(schemaStr) {
+      return .draft202012
+    }
+
+    // Fall back to substring matching for non-standard URIs
     if schemaStr.contains("draft-07") || schemaStr.contains("draft-7") {
       return .draft7
     }
     if schemaStr.contains("2020-12") || schemaStr.contains("draft/2020-12") {
       return .draft202012
     }
+
     // Default to latest
     return .draft202012
   }
 
-  /// Validates a JSON document against this schema.
-  ///
-  /// Returns a `JSONSchemaResult` containing all validation errors (if any).
-  /// Does **not** throw — errors are collected into the result.
+  // MARK: - Pattern pre-compilation
+
+  /// Validates all `pattern` keyword regexes in a schema at init time.
+  /// - Parameter schema: The schema JSON to scan.
+  /// - Throws: `JSONSchemaError` if any pattern contains invalid regex syntax.
+  internal static func validatePatterns(_ schema: JSON) throws {
+    guard schema.isObject else { return }
+
+    // Check direct pattern keyword
+    if let patternStr = schema["pattern"]?.stringValue {
+      do {
+        let _ = try NSRegularExpression(pattern: patternStr, options: [])
+      } catch {
+        throw JSONSchemaError(
+          instancePath: "",
+          schemaPath: "/pattern",
+          keyword: "pattern",
+          message: "invalid regex pattern: \(patternStr)"
+        )
+      }
+    }
+
+    // Recursively check properties sub-schemas
+    if let properties = schema["properties"], properties.isObject {
+      guard case .object(let dict) = properties.storage else { return }
+      for (_, propSchema) in dict {
+        try JSONSchema.validatePatterns(propSchema)
+      }
+    }
+
+    // Recursively check items / prefixItems
+    if let items = schema["items"], items.isObject {
+      try JSONSchema.validatePatterns(items)
+    }
+    if let prefixItems = schema["prefixItems"], prefixItems.isArray {
+      for item in prefixItems where item.isObject {
+        try JSONSchema.validatePatterns(item)
+      }
+    }
+
+    // Recursively check composition keywords
+    for keyword in ["allOf", "anyOf", "oneOf"] {
+      if let subschemas = schema[keyword], subschemas.isArray {
+        for sub in subschemas where sub.isObject {
+          try JSONSchema.validatePatterns(sub)
+        }
+      }
+    }
+    if let notSchema = schema["not"], notSchema.isObject {
+      try JSONSchema.validatePatterns(notSchema)
+    }
+    if let ifSchema = schema["if"], ifSchema.isObject {
+      try JSONSchema.validatePatterns(ifSchema)
+    }
+    if let thenSchema = schema["then"], thenSchema.isObject {
+      try JSONSchema.validatePatterns(thenSchema)
+    }
+    if let elseSchema = schema["else"], elseSchema.isObject {
+      try JSONSchema.validatePatterns(elseSchema)
+    }
+
+    // Check $defs
+    if let defs = schema["$defs"], defs.isObject {
+      guard case .object(let dict) = defs.storage else { return }
+      for (_, defSchema) in dict {
+        try JSONSchema.validatePatterns(defSchema)
+      }
+    }
+  }
+
+  // MARK: - Validation API
+
+  /// Validates a JSON document against this schema and throws on the first
+  /// validation error.
   ///
   /// - Parameter document: The JSON document to validate.
-  /// - Returns: A validation result.
-  public func validate(_ document: JSON) -> JSONSchemaResult {
+  /// - Returns: `true` if the document is valid.
+  /// - Throws: `JSONSchemaError` — the first validation error encountered.
+  public func validate(_ document: JSON) throws -> Bool {
     var errors: [JSONSchemaError] = []
-    validateValue(document, against: schemaJSON, instancePath: "", schemaPath: "", errors: &errors)
+    validateValue(
+      document, against: schemaJSON, instancePath: "", schemaPath: "",
+      errors: &errors)
+    if let first = errors.first {
+      throw first
+    }
+    return true
+  }
+
+  /// Validates a JSON document against this schema and returns a result
+  /// containing **all** validation errors (if any). Does **not** throw.
+  ///
+  /// Use this when you need to inspect every error rather than fail-fast.
+  ///
+  /// - Parameter document: The JSON document to validate.
+  /// - Returns: A `JSONSchemaResult` with all errors collected.
+  public func validation(of document: JSON) -> JSONSchemaResult {
+    var errors: [JSONSchemaError] = []
+    validateValue(
+      document, against: schemaJSON, instancePath: "", schemaPath: "",
+      errors: &errors)
     return JSONSchemaResult(valid: errors.isEmpty, errors: errors)
   }
 
-  /// Validates a document and throws the first error on failure.
+  /// Checks whether a JSON document is valid against this schema.
+  /// Returns `true`/`false` without throwing.
+  ///
   /// - Parameter document: The JSON document to validate.
-  /// - Returns: `true` if valid.
-  /// - Throws: `JSONSchemaError` — the first validation error.
-  public func validates(_ document: JSON) throws -> Bool {
-    let result = validate(document)
-    if !result.valid, let first = result.errors.first {
-      throw first
-    }
-    return result.valid
+  /// - Returns: `true` if the document is valid.
+  public func isValid(_ document: JSON) -> Bool {
+    var errors: [JSONSchemaError] = []
+    validateValue(
+      document, against: schemaJSON, instancePath: "", schemaPath: "",
+      errors: &errors)
+    return errors.isEmpty
   }
 
   // MARK: - Core validation
@@ -130,7 +262,8 @@ public struct JSONSchema: Hashable, Sendable {
     errors: inout [JSONSchemaError]
   ) {
     guard subschema.isObject else {
-      // Non-object schemas are treated as pass-through (no constraints)
+      // Non-object schemas are treated as pass-through (no constraints).
+      // TODO: Support boolean schemas (true/false) — see init TODO.
       return
     }
 
@@ -245,7 +378,9 @@ public struct JSONSchema: Hashable, Sendable {
       return
     }
 
-    for (key, propSchema) in properties.objectValue ?? [:] {
+    guard case .object(let dict) = properties.storage else { return }
+
+    for (key, propSchema) in dict {
       let childSchemaPath = schemaPath + "/properties/" + key
       if let childValue = value[key] {
         let childInstancePath = instancePath.isEmpty ? key : instancePath + "/" + key
@@ -279,13 +414,15 @@ public struct JSONSchema: Hashable, Sendable {
         continue
       }
 
-      if value[key] == nil || value[key]!.isNull {
+      // Per JSON Schema spec, `required` checks only key *presence*.
+      // An explicit `null` value satisfies required.
+      if value[key] == nil {
         errors.append(
           JSONSchemaError(
             instancePath: instancePath,
             schemaPath: schemaPath + "/required",
             keyword: "required",
-            message: "required property '\(key)' is missing or null"
+            message: "required property '\(key)' is missing"
           ))
       }
     }
@@ -300,9 +437,25 @@ public struct JSONSchema: Hashable, Sendable {
     schemaPath: String,
     errors: inout [JSONSchemaError]
   ) {
-    guard let minVal = subschema["minimum"], let minDouble = minVal.floatValue else { return }
+    guard let minVal = subschema["minimum"] else { return }
     guard let valDouble = value.floatValue else { return }
+    guard let minDouble = minVal.floatValue else { return }
 
+    // Fast path: both are integers — compare as Int64 to preserve precision
+    if let valInt = value.intValue, let minInt = minVal.intValue {
+      if valInt < minInt {
+        errors.append(
+          JSONSchemaError(
+            instancePath: instancePath,
+            schemaPath: schemaPath + "/minimum",
+            keyword: "minimum",
+            message: "value \(valInt) is less than minimum \(minInt)"
+          ))
+      }
+      return
+    }
+
+    // Fall back to Double comparison
     if valDouble < minDouble {
       errors.append(
         JSONSchemaError(
@@ -323,9 +476,25 @@ public struct JSONSchema: Hashable, Sendable {
     schemaPath: String,
     errors: inout [JSONSchemaError]
   ) {
-    guard let maxVal = subschema["maximum"], let maxDouble = maxVal.floatValue else { return }
+    guard let maxVal = subschema["maximum"] else { return }
     guard let valDouble = value.floatValue else { return }
+    guard let maxDouble = maxVal.floatValue else { return }
 
+    // Fast path: both are integers — compare as Int64 to preserve precision
+    if let valInt = value.intValue, let maxInt = maxVal.intValue {
+      if valInt > maxInt {
+        errors.append(
+          JSONSchemaError(
+            instancePath: instancePath,
+            schemaPath: schemaPath + "/maximum",
+            keyword: "maximum",
+            message: "value \(valInt) is greater than maximum \(maxInt)"
+          ))
+      }
+      return
+    }
+
+    // Fall back to Double comparison
     if valDouble > maxDouble {
       errors.append(
         JSONSchemaError(
@@ -350,30 +519,64 @@ public struct JSONSchema: Hashable, Sendable {
 
     if draft == .draft7 {
       // Draft 7: exclusiveMinimum is a boolean modifier on minimum
-      guard let exclBool = exclMin.boolValue, let minVal = subschema["minimum"],
-        let minDouble = minVal.floatValue
-      else { return }
+      guard let exclBool = exclMin.boolValue, let minVal = subschema["minimum"] else { return }
       guard let valDouble = value.floatValue else { return }
-      if exclBool && valDouble <= minDouble {
-        errors.append(
-          JSONSchemaError(
-            instancePath: instancePath,
-            schemaPath: schemaPath + "/exclusiveMinimum",
-            keyword: "exclusiveMinimum",
-            message: "value \(valDouble) is less than or equal to minimum \(minDouble)"
-          ))
+      guard let minDouble = minVal.floatValue else { return }
+
+      if exclBool {
+        // Fast path: both integers
+        if let valInt = value.intValue, let minInt = minVal.intValue {
+          if valInt <= minInt {
+            errors.append(
+              JSONSchemaError(
+                instancePath: instancePath,
+                schemaPath: schemaPath + "/exclusiveMinimum",
+                keyword: "exclusiveMinimum",
+                message:
+                  "value \(valInt) is less than or equal to minimum \(minInt)"
+              ))
+          }
+          return
+        }
+        if valDouble <= minDouble {
+          errors.append(
+            JSONSchemaError(
+              instancePath: instancePath,
+              schemaPath: schemaPath + "/exclusiveMinimum",
+              keyword: "exclusiveMinimum",
+              message:
+                "value \(valDouble) is less than or equal to minimum \(minDouble)"
+            ))
+        }
       }
     } else {
       // Draft 2020-12: exclusiveMinimum is a number (exclusive bound)
       guard let exclDouble = exclMin.floatValue else { return }
       guard let valDouble = value.floatValue else { return }
+
+      // Fast path: both integers
+      if let valInt = value.intValue, let exclInt = exclMin.intValue {
+        if valInt <= exclInt {
+          errors.append(
+            JSONSchemaError(
+              instancePath: instancePath,
+              schemaPath: schemaPath + "/exclusiveMinimum",
+              keyword: "exclusiveMinimum",
+              message:
+                "value \(valInt) is not strictly greater than \(exclInt)"
+            ))
+        }
+        return
+      }
+
       if valDouble <= exclDouble {
         errors.append(
           JSONSchemaError(
             instancePath: instancePath,
             schemaPath: schemaPath + "/exclusiveMinimum",
             keyword: "exclusiveMinimum",
-            message: "value \(valDouble) is not strictly greater than \(exclDouble)"
+            message:
+              "value \(valDouble) is not strictly greater than \(exclDouble)"
           ))
       }
     }
@@ -392,30 +595,64 @@ public struct JSONSchema: Hashable, Sendable {
 
     if draft == .draft7 {
       // Draft 7: exclusiveMaximum is a boolean modifier on maximum
-      guard let exclBool = exclMax.boolValue, let maxVal = subschema["maximum"],
-        let maxDouble = maxVal.floatValue
-      else { return }
+      guard let exclBool = exclMax.boolValue, let maxVal = subschema["maximum"] else { return }
       guard let valDouble = value.floatValue else { return }
-      if exclBool && valDouble >= maxDouble {
-        errors.append(
-          JSONSchemaError(
-            instancePath: instancePath,
-            schemaPath: schemaPath + "/exclusiveMaximum",
-            keyword: "exclusiveMaximum",
-            message: "value \(valDouble) is greater than or equal to maximum \(maxDouble)"
-          ))
+      guard let maxDouble = maxVal.floatValue else { return }
+
+      if exclBool {
+        // Fast path: both integers
+        if let valInt = value.intValue, let maxInt = maxVal.intValue {
+          if valInt >= maxInt {
+            errors.append(
+              JSONSchemaError(
+                instancePath: instancePath,
+                schemaPath: schemaPath + "/exclusiveMaximum",
+                keyword: "exclusiveMaximum",
+                message:
+                  "value \(valInt) is greater than or equal to maximum \(maxInt)"
+              ))
+          }
+          return
+        }
+        if valDouble >= maxDouble {
+          errors.append(
+            JSONSchemaError(
+              instancePath: instancePath,
+              schemaPath: schemaPath + "/exclusiveMaximum",
+              keyword: "exclusiveMaximum",
+              message:
+                "value \(valDouble) is greater than or equal to maximum \(maxDouble)"
+            ))
+        }
       }
     } else {
       // Draft 2020-12: exclusiveMaximum is a number (exclusive bound)
       guard let exclDouble = exclMax.floatValue else { return }
       guard let valDouble = value.floatValue else { return }
+
+      // Fast path: both integers
+      if let valInt = value.intValue, let exclInt = exclMax.intValue {
+        if valInt >= exclInt {
+          errors.append(
+            JSONSchemaError(
+              instancePath: instancePath,
+              schemaPath: schemaPath + "/exclusiveMaximum",
+              keyword: "exclusiveMaximum",
+              message:
+                "value \(valInt) is not strictly less than \(exclInt)"
+            ))
+        }
+        return
+      }
+
       if valDouble >= exclDouble {
         errors.append(
           JSONSchemaError(
             instancePath: instancePath,
             schemaPath: schemaPath + "/exclusiveMaximum",
             keyword: "exclusiveMaximum",
-            message: "value \(valDouble) is not strictly less than \(exclDouble)"
+            message:
+              "value \(valDouble) is not strictly less than \(exclDouble)"
           ))
       }
     }
@@ -432,11 +669,27 @@ public struct JSONSchema: Hashable, Sendable {
   ) {
     guard let multipleOf = subschema["multipleOf"], let mVal = multipleOf.floatValue, mVal > 0
     else { return }
-    guard let valDouble = value.floatValue else { return }
 
-    // Check divisibility
+    // Fast path: both are integers — use integer modulo (no epsilon needed)
+    if let valInt = value.intValue, let mInt = multipleOf.intValue {
+      if valInt % mInt != 0 {
+        errors.append(
+          JSONSchemaError(
+            instancePath: instancePath,
+            schemaPath: schemaPath + "/multipleOf",
+            keyword: "multipleOf",
+            message: "value \(valInt) is not a multiple of \(mInt)"
+          ))
+      }
+      return
+    }
+
+    // Float path: use Double with scaled epsilon
+    guard let valDouble = value.floatValue else { return }
     let remainder = valDouble.truncatingRemainder(dividingBy: mVal)
-    if remainder > 1e-12 && abs(remainder - mVal) > 1e-12 {
+    // Scale epsilon by the divisor to handle large doubles correctly
+    let epsilon = max(1e-12 * mVal, 1e-12)
+    if remainder > epsilon && abs(remainder - mVal) > epsilon {
       errors.append(
         JSONSchemaError(
           instancePath: instancePath,
@@ -459,25 +712,19 @@ public struct JSONSchema: Hashable, Sendable {
     guard let patternStr = subschema["pattern"]?.stringValue else { return }
     guard let strVal = value.stringValue else { return }
 
-    do {
-      let regex = try NSRegularExpression(pattern: patternStr, options: [])
-      let range = NSRange(strVal.startIndex..<strVal.endIndex, in: strVal)
-      if regex.firstMatch(in: strVal, options: [], range: range) == nil {
-        errors.append(
-          JSONSchemaError(
-            instancePath: instancePath,
-            schemaPath: schemaPath + "/pattern",
-            keyword: "pattern",
-            message: "string '\(strVal)' does not match pattern '\(patternStr)'"
-          ))
-      }
-    } catch {
+    // Regex was pre-compiled at init time; this should not throw.
+    guard let regex = try? NSRegularExpression(pattern: patternStr, options: []) else {
+      return  // Pattern was validated at init; this is a safety guard
+    }
+
+    let range = NSRange(strVal.startIndex..<strVal.endIndex, in: strVal)
+    if regex.firstMatch(in: strVal, options: [], range: range) == nil {
       errors.append(
         JSONSchemaError(
           instancePath: instancePath,
           schemaPath: schemaPath + "/pattern",
           keyword: "pattern",
-          message: "invalid regex pattern: \(patternStr)"
+          message: "string '\(strVal)' does not match pattern '\(patternStr)'"
         ))
     }
   }
@@ -495,7 +742,7 @@ public struct JSONSchema: Hashable, Sendable {
 
     var found = false
     for allowed in enumValues {
-      if value == allowed {
+      if JSONSchema.schemaEqual(value, allowed) {
         found = true
         break
       }
@@ -523,7 +770,7 @@ public struct JSONSchema: Hashable, Sendable {
   ) {
     guard let constVal = subschema["const"] else { return }
 
-    if value != constVal {
+    if !JSONSchema.schemaEqual(value, constVal) {
       errors.append(
         JSONSchemaError(
           instancePath: instancePath,
@@ -533,14 +780,48 @@ public struct JSONSchema: Hashable, Sendable {
         ))
     }
   }
-}
 
-// MARK: - Convenience accessors
+  // MARK: - Schema-aware equality
 
-extension JSON {
-  /// Returns the `OrderedDictionary` backing if this value is an object.
-  fileprivate var objectValue: OrderedDictionary<String, JSON>? {
-    guard case .object(let dict) = storage else { return nil }
-    return dict
+  /// Compares two JSON values using JSON Schema semantics for `enum`/`const`.
+  ///
+  /// Differences from `JSON.==`:
+  /// - Numeric: `.integer(1)` == `.float(1.0)` — spec says they are equal
+  /// - Object: key-value pairs are compared ignoring order
+  ///
+  /// - Parameters:
+  ///   - lhs: First JSON value.
+  ///   - rhs: Second JSON value.
+  /// - Returns: `true` if the values are equal under JSON Schema semantics.
+  internal static func schemaEqual(_ lhs: JSON, _ rhs: JSON) -> Bool {
+    switch (lhs.storage, rhs.storage) {
+    case (.null, .null):
+      return true
+    case (.boolean(let a), .boolean(let b)):
+      return a == b
+    case (.number(.integer(let a)), .number(.integer(let b))):
+      return a == b
+    case (.number(.float(let a)), .number(.float(let b))):
+      return a == b
+    case (.number(.integer(let a)), .number(.float(let b))):
+      // Integer vs float: compare as Double (spec: 1 == 1.0)
+      return Double(a) == b
+    case (.number(.float(let a)), .number(.integer(let b))):
+      return a == Double(b)
+    case (.string(let a), .string(let b)):
+      return a == b
+    case (.array(let a), .array(let b)):
+      return a == b  // array element order matters per spec
+    case (.object(let a), .object(let b)):
+      // Objects: compare key-value pairs ignoring order
+      guard a.count == b.count else { return false }
+      for (key, value) in a {
+        guard let bVal = b[key] else { return false }
+        if !schemaEqual(value, bVal) { return false }
+      }
+      return true
+    default:
+      return false
+    }
   }
 }
