@@ -340,27 +340,53 @@ schema.formatOptions = opts
 
 ---
 
-## Phase 7 — Output & Error Reporting
+## Phase 7 — Output & Error Reporting (✅ Complete)
+
+**Branch**: `phase-7-output-error-reporting`
 
 **Goal**: Rich error messages with schema path tracking.
 
-### Output modes
+### What shipped
 
-- **Basic** (default): flat list of errors with path, keyword, message
-- **Verbose**: hierarchical errors showing which schema keyword failed at which path
+#### Error detail
+`JSONSchemaError` now includes optional `failedValue: JSON?` and `parentSchema: JSON?` properties (defaults to `nil` for backward compatibility).
 
-### Error detail
+#### Output modes
 
-```swift
-struct JSONSchemaError: Error, Hashable, Sendable {
-    let instancePath: String      // JSON Pointer to the failing value
-    let schemaPath: String        // JSON Pointer into the schema
-    let keyword: String           // e.g. "type", "minimum", "required"
-    let message: String           // Human-readable message
-    let failedValue: JSON?        // The value that failed (optional)
-    let parentSchema: JSON?       // The schema that produced this error (optional)
-}
-```
+- **`OutputMode.basic`** (default): flat list of errors with path, keyword, message — unchanged behavior
+- **`OutputMode.verbose`**: hierarchical error trees via `VerboseResult` and `VerboseError` structs
+
+#### New types
+
+| Type | Purpose |
+|------|---------|
+| `OutputMode` | Enum on `JSONSchema` with `.basic` / `.verbose` cases |
+| `VerboseError` | Hierarchical error with `error: JSONSchemaError` + `children: [VerboseError]` |
+| `VerboseResult` | Result wrapper with both flat `errors` and `verboseErrors` trees |
+
+#### New API
+
+- `JSONSchema(outputMode:)` — init parameter, defaults to `.basic`
+- `schema.verboseValidation(of:)` — returns `VerboseResult` with hierarchical errors
+- `buildVerboseErrors(from:)` — groups flat errors by first schema-path segment
+
+#### Tests
+
+12 new tests covering:
+- OutputMode default and verbose setting
+- Error `failedValue`/`parentSchema` (nil default, set values, Hashable)
+- VerboseResult flat/hierarchical errors, throwIfInvalid
+- VerboseError description with/without children
+- buildVerboseErrors grouping behavior
+
+### Files changed
+
+| File | Change |
+|------|--------|
+| `JSONSchemaError.swift` | Added `failedValue` and `parentSchema` (optional, default nil) |
+| `JSONSchemaOutput.swift` | New file: `VerboseError`, `VerboseResult`, `OutputMode` |
+| `JSONSchema.swift` | Added `OutputMode` enum, `outputMode` property, `verboseValidation(of:)`, `buildVerboseErrors` |
+| `JSONSchemaCoreTests.swift` | 12 new output/verbose tests |
 
 ---
 
