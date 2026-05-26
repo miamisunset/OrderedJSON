@@ -80,4 +80,15 @@ extension JSON {
     guard case .object(let dict) = storage else { return nil }
     return Array(dict.keys)
   }
+
+  // MARK: - Array access
+
+  /// Returns the elements of an array value, or `nil` for non-arrays.
+  ///
+  /// For arrays, returns the ordered array of JSON elements.
+  /// For objects and primitives, returns `nil`.
+  public var arrayValue: [JSON]? {
+    guard case .array(let arr) = storage else { return nil }
+    return arr
+  }
 }

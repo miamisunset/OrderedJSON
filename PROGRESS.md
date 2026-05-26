@@ -520,3 +520,18 @@ See `SCHEMA_PLAN.md` for the complete 10-phase breakdown.
 - **`enum`/`const` equality**: Added tests for `1 == 1.0` (integer vs float) and object key-order insensitivity
 - **Known deviations**: Added section to SCHEMA_PLAN.md covering regex flavor, boolean schemas, compilation, output format
 
+### Phase 2 — Composition Keywords (PR #30 open)
+
+**Branch**: `phase-2-composition-keywords`
+**PR**: [#30](https://github.com/miamisunset/OrderedJSON/pull/30)
+
+### What shipped
+- Boolean schemas (`true`/`false`) — init + validation engine
+- `allOf`, `anyOf`, `oneOf`, `not` — boolean logic composition
+- `if`/`then`/`else` — conditional validation
+- `dependentSchemas` — schema applied when key present
+- `dependentRequired` — keys required when dependency key present
+- `minLength`/`maxLength` — string length bounds
+- `arrayValue` accessor on `JSON` (`[JSON]?`)
+- 108 tests across 21 suites — all passing, lint clean
+

@@ -336,8 +336,8 @@ JSON Schema spec mandates ECMA-262 regex syntax. Our validator uses Foundation's
 
 Will be addressed in Phase 5/8 (Test Suite integration) when running the official JSON-Schema-Test-Suite.
 
-### 2. Boolean schemas not yet supported
-Draft 2020-12 allows `true` (accept everything) and `false` (reject everything) as schemas. Currently our init rejects non-object schemas with a TODO. Planned for Phase 2.
+### 2. Boolean schemas (resolved in Phase 2)
+Draft 2020-12 allows `true` (accept everything) and `false` (reject everything) as schemas. Supported since Phase 2 (composition keywords). The error keyword for false schemas is `"false"` (the literal value), chosen for debuggability over `"boolean"`.
 
 ### 3. `required` semantics (spec-compliant as of review fix)
 `required` checks only key *presence*, not value. An explicit `null` satisfies `required`. This is now correctly implemented.
@@ -345,7 +345,10 @@ Draft 2020-12 allows `true` (accept everything) and `false` (reject everything) 
 ### 4. `exclusiveMinimum`/`exclusiveMaximum` Draft 7 semantics
 Draft 7 uses these as boolean modifiers on `minimum`/`maximum`. Draft 2020-12 uses them as numeric exclusive bounds. Both are correctly supported via the `draft` parameter.
 
-### 5. Schema compilation
+### 5. String length: code points vs grapheme clusters
+`minLength`/`maxLength` use `unicodeScalars.count` (code points per RFC 8259). Grapheme clusters (e.g. emoji sequences) may have multiple code points but count as 1 grapheme. This is spec-compliant.
+
+### 6. Schema compilation
 Currently the schema JSON is held as-is and walked on each `validate()` call. Pattern regexes are pre-compiled at init time. Full compiled keyword tree optimization is deferred to Phase 4/10.
 
 ### 6. Output format
