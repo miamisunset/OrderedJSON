@@ -18,7 +18,7 @@ struct CompiledSchemaTests {
       ]),
       "type": .string("object"),
     ])
-    let compiled = try CompiledSchema(schema: schema)
+    let compiled = CompiledSchema(schema: schema)
     #expect(compiled.defs["foo"]?.isObject == true)
     #expect(compiled.defs["bar"]?.isObject == true)
     #expect(compiled.defs.count == 2)
@@ -27,7 +27,7 @@ struct CompiledSchemaTests {
   @Test("compiled — no $defs yields empty dict")
   func compiledNoDefs() throws {
     let schema: JSON = .object(["type": .string("object")])
-    let compiled = try CompiledSchema(schema: schema)
+    let compiled = CompiledSchema(schema: schema)
     #expect(compiled.defs.isEmpty)
   }
 
@@ -37,14 +37,14 @@ struct CompiledSchemaTests {
       "$id": .string("https://example.com/schema.json"),
       "type": .string("object"),
     ])
-    let compiled = try CompiledSchema(schema: schema)
+    let compiled = CompiledSchema(schema: schema)
     #expect(compiled.baseURI == "https://example.com/schema.json")
   }
 
   @Test("compiled — no $id yields nil")
   func compiledNoId() throws {
     let schema: JSON = .object(["type": .string("object")])
-    let compiled = try CompiledSchema(schema: schema)
+    let compiled = CompiledSchema(schema: schema)
     #expect(compiled.baseURI == nil)
   }
 
@@ -54,15 +54,27 @@ struct CompiledSchemaTests {
       "$anchor": .string("myAnchor"),
       "type": .string("object"),
     ])
-    let compiled = try CompiledSchema(schema: schema)
+    let compiled = CompiledSchema(schema: schema)
     #expect(compiled.anchors["myAnchor"]?.isObject == true)
   }
 
   @Test("compiled — no $anchor yields empty")
   func compiledNoAnchor() throws {
     let schema: JSON = .object(["type": .string("object")])
-    let compiled = try CompiledSchema(schema: schema)
+    let compiled = CompiledSchema(schema: schema)
     #expect(compiled.anchors.isEmpty)
+  }
+
+  @Test("compiled — resolveRef with $anchor")
+  func resolveAnchor() throws {
+    let schema: JSON = .object([
+      "$anchor": .string("myAnchor"),
+      "type": .string("string"),
+    ])
+    let compiled = CompiledSchema(schema: schema)
+    let resolved = compiled.resolveRef("#myAnchor")
+    #expect(resolved != nil)
+    #expect(resolved?.isObject == true)
   }
 
   @Test("compiled — resolveRef $defs")
@@ -72,7 +84,7 @@ struct CompiledSchemaTests {
         "stringType": .object(["type": .string("string")])
       ])
     ])
-    let compiled = try CompiledSchema(schema: schema)
+    let compiled = CompiledSchema(schema: schema)
     let resolved = compiled.resolveRef("#/$defs/stringType")
     #expect(resolved != nil)
     #expect(resolved?.isObject == true)
@@ -81,7 +93,7 @@ struct CompiledSchemaTests {
   @Test("compiled — resolveRef root")
   func resolveRoot() throws {
     let schema: JSON = .object(["type": .string("object")])
-    let compiled = try CompiledSchema(schema: schema)
+    let compiled = CompiledSchema(schema: schema)
     let resolved = compiled.resolveRef("#")
     #expect(resolved != nil)
     #expect(resolved?.isObject == true)
@@ -90,7 +102,7 @@ struct CompiledSchemaTests {
   @Test("compiled — resolveRef non-existent returns nil")
   func resolveMissing() throws {
     let schema: JSON = .object(["type": .string("object")])
-    let compiled = try CompiledSchema(schema: schema)
+    let compiled = CompiledSchema(schema: schema)
     #expect(compiled.resolveRef("#/foo") == nil)
     #expect(compiled.resolveRef("#/$defs/nonexistent") == nil)
   }
@@ -98,7 +110,7 @@ struct CompiledSchemaTests {
   @Test("compiled — resolveRef external (non-#) returns nil")
   func resolveExternal() throws {
     let schema: JSON = .object(["type": .string("object")])
-    let compiled = try CompiledSchema(schema: schema)
+    let compiled = CompiledSchema(schema: schema)
     #expect(compiled.resolveRef("https://example.com/schema.json#/foo") == nil)
   }
 }

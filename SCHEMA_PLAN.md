@@ -138,6 +138,8 @@ Test file `JSONSchemaTests.swift` (1476 lines) split into:
 - `$dynamicRef`/`$dynamicAnchor` not implemented
 - `$defs` for Draft 7 (`definitions` keyword) not supported
 - `$anchor` declared on inner subschemas not collected — only root-level `$anchor` is parsed
+- `$defs` declared on inner subschemas not collected — only root-level `$defs` is parsed
+- `$ref` cycle detection: current depth-limit approach could be improved to track an in-flight set of ref pointers for better diagnostics (keyword: `"schema"` vs `"$ref"`)
 
 ---
 

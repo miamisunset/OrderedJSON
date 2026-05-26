@@ -56,6 +56,17 @@ internal struct CompiledSchema: Hashable, Sendable {
   func resolveRef(_ pointer: String) -> JSON? {
     guard pointer.hasPrefix("#") else { return nil }
 
+    // Root reference # returns the schema itself
+    if pointer == "#" {
+      return schemaJSON
+    }
+
+    // Check for $anchor references: #anchorName (no slash after #)
+    if !pointer.hasPrefix("#/") {
+      let anchorName = String(pointer.dropFirst())
+      return anchors[anchorName]
+    }
+
     // Build a JSON Pointer from the fragment (#/foo/bar → /foo/bar).
     // The JSONPointer struct handles RFC 6901 resolution including
     // escape sequences, array index validation, and leading-zero rejection.
