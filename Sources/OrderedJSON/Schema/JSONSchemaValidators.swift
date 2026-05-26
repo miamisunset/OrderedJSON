@@ -670,13 +670,17 @@ extension JSONSchema {
       }
     }
 
-    // if/then/else: match-check branch, then take that branch's evaluated keys
+    // if/then/else: only the matching branch's evaluated keys count.
     if let ifSchema = subschema["if"] {
       var ifErrors: [JSONSchemaError] = []
       let objectValue = JSON(dict)
       validateValue(objectValue, against: ifSchema, instancePath: instancePath,
         schemaPath: schemaPath + "/if", errors: &ifErrors, ctx: ctx)
       if ifErrors.isEmpty {
+        let ifKeys = evaluatedPropertyKeysRecursive(for: ifSchema, dict: dict,
+          instancePath: instancePath, schemaPath: schemaPath, ctx: ctx,
+          includeUnevaluatedProperties: true)
+        keys.formUnion(ifKeys)
         if let thenSchema = subschema["then"] {
           let thenKeys = evaluatedPropertyKeysRecursive(for: thenSchema, dict: dict,
             instancePath: instancePath, schemaPath: schemaPath, ctx: ctx,
@@ -691,10 +695,6 @@ extension JSONSchema {
           keys.formUnion(elseKeys)
         }
       }
-      let ifKeys = evaluatedPropertyKeysRecursive(for: ifSchema, dict: dict,
-        instancePath: instancePath, schemaPath: schemaPath, ctx: ctx,
-        includeUnevaluatedProperties: true)
-      keys.formUnion(ifKeys)
     }
 
     // unevaluatedProperties: when called from composition keyword context,
@@ -1066,13 +1066,21 @@ extension JSONSchema {
       }
     }
 
-    // if/then/else: match-check branch, then take that branch's evaluated indices
+    // if/then/else: only the matching branch's evaluated indices count.
+    // When if matches, take then's indices + if's own indices.
+    // When if fails, take else's indices (if present).
+    // If if fails and there's no else, NO indices from if are evaluated.
     if let ifSchema = subschema["if"] {
       var ifErrors: [JSONSchemaError] = []
       let arrayValue = JSON(data)
       validateValue(arrayValue, against: ifSchema, instancePath: instancePath,
         schemaPath: schemaPath + "/if", errors: &ifErrors, ctx: ctx)
       if ifErrors.isEmpty {
+        // if matches — take if's indices plus then's indices
+        let ifIndices = evaluatedItemIndices(for: ifSchema, data: data,
+          instancePath: instancePath, schemaPath: schemaPath, ctx: ctx,
+          includeUnevaluatedItems: true)
+        indices.formUnion(ifIndices)
         if let thenSchema = subschema["then"] {
           let thenIndices = evaluatedItemIndices(for: thenSchema, data: data,
             instancePath: instancePath, schemaPath: schemaPath, ctx: ctx,
@@ -1080,17 +1088,15 @@ extension JSONSchema {
           indices.formUnion(thenIndices)
         }
       } else {
+        // if fails — only else's indices count (if present)
         if let elseSchema = subschema["else"] {
           let elseIndices = evaluatedItemIndices(for: elseSchema, data: data,
             instancePath: instancePath, schemaPath: schemaPath, ctx: ctx,
             includeUnevaluatedItems: true)
           indices.formUnion(elseIndices)
         }
+        // No indices from if itself when if fails
       }
-      let ifIndices = evaluatedItemIndices(for: ifSchema, data: data,
-        instancePath: instancePath, schemaPath: schemaPath, ctx: ctx,
-        includeUnevaluatedItems: true)
-      indices.formUnion(ifIndices)
     }
 
     // unevaluatedItems: when called from composition keyword context,
