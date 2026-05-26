@@ -337,3 +337,123 @@ struct JSONSchemaDynamicRefTests {
     #expect(result.valid)
   }
 }
+
+// MARK: - Nested annotation collection tests
+
+@Suite("CompiledSchema nested annotations")
+struct CompiledSchemaNestedAnnotationTests {
+
+  @Test("compiled — collects $defs from properties subschema")
+  func nestedDefsInProperties() throws {
+    let schema: JSON = .object([
+      "properties": .object([
+        "inner": .object([
+          "$defs": .object([
+            "nestedType": .object(["type": .string("string")])
+          ]),
+          "type": .string("object"),
+        ])
+      ])
+    ])
+    let compiled = CompiledSchema(schema: schema)
+    #expect(compiled.defs["nestedType"]?.isObject == true)
+    #expect(compiled.defs.count >= 1)
+  }
+
+  @Test("compiled — collects $anchor from allOf subschema")
+  func nestedAnchorInAllOf() throws {
+    let schema: JSON = .object([
+      "allOf": .array([
+        .object([
+          "$anchor": .string("myAnchor"),
+          "type": .string("string"),
+        ])
+      ])
+    ])
+    let compiled = CompiledSchema(schema: schema)
+    #expect(compiled.anchors["myAnchor"]?.isObject == true)
+  }
+
+  @Test("compiled — collects $dynamicAnchor from nested location")
+  func nestedDynamicAnchor() throws {
+    let schema: JSON = .object([
+      "$defs": .object([
+        "node": .object([
+          "$dynamicAnchor": .string("nestedDynamic"),
+          "type": .string("object"),
+        ])
+      ])
+    ])
+    let compiled = CompiledSchema(schema: schema)
+    #expect(compiled.dynamicAnchors["nestedDynamic"]?.isObject == true)
+  }
+
+  @Test("compiled — resolves $ref to nested $defs")
+  func resolveRefNestedDefs() throws {
+    let schema: JSON = .object([
+      "properties": .object([
+        "inner": .object([
+          "$defs": .object([
+            "stringType": .object(["type": .string("string")])
+          ])
+        ])
+      ])
+    ])
+    let compiled = CompiledSchema(schema: schema)
+    let resolved = compiled.resolveRef("#/$defs/stringType")
+    #expect(resolved != nil)
+    #expect(resolved?.isObject == true)
+  }
+
+  @Test("compiled — both $anchor and $dynamicAnchor same name")
+  func bothAnchorTypes() throws {
+    let schema: JSON = .object([
+      "$anchor": .string("same"),
+      "$dynamicAnchor": .string("same"),
+    ])
+    let compiled = CompiledSchema(schema: schema)
+    #expect(compiled.anchors["same"]?.isObject == true)
+    #expect(compiled.dynamicAnchors["same"]?.isObject == true)
+    // They point to the same schema but are stored in separate dicts
+  }
+
+  @Test("compiled — deep nesting through anyOf > oneOf > properties")
+  func deepNestedAnnotations() throws {
+    let schema: JSON = .object([
+      "anyOf": .array([
+        .object([
+          "oneOf": .array([
+            .object([
+              "properties": .object([
+                "deep": .object([
+                  "$anchor": .string("deepAnchor"),
+                  "$dynamicAnchor": .string("deepDynamic"),
+                ])
+              ])
+            ])
+          ])
+        ])
+      ])
+    ])
+    let compiled = CompiledSchema(schema: schema)
+    #expect(compiled.anchors["deepAnchor"]?.isObject == true)
+    #expect(compiled.dynamicAnchors["deepDynamic"]?.isObject == true)
+  }
+
+  @Test("compiled — resolves $ref to $defs defined in nested properties")
+  func resolveRefNestedDefsValidation() throws {
+    let schema = try JSONSchema(
+      schema: .object([
+        "properties": .object([
+          "inner": .object([
+            "$defs": .object([
+              "stringType": .object(["type": .string("string")])
+            ])
+          ])
+        ]),
+        "$ref": .string("#/$defs/stringType"),
+      ]))
+    #expect(schema.validation(of: .string("hello")).valid)
+    #expect(!schema.validation(of: .number(.integer(42))).valid)
+  }
+}
