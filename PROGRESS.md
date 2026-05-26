@@ -510,6 +510,22 @@ Split `JSONSchemaTests.swift` (1476 lines) into:
 
 ### Phase 3 — Array & Object Keywords (complete, branch `phase-3-array-object-keywords-v2`)
 
+### Review fixes applied (post-PR review)
+- Extracted `evaluatedPropertyKeys` helper — shared by `additionalProperties` and `unevaluatedProperties`
+- `unevaluatedItems` short-circuits when `items` is present as schema (items covers everything past prefixItems)
+- `unevaluatedProperties` now includes `additionalProperties` keys in evaluated set
+- `try? NSRegularExpression` → `try!` with precondition comment in both `evaluatedPropertyKeys` and `validatePatternProperties`
+- `guard ... else { return }` on schema storage → `preconditionFailure` in `evaluatedPropertyKeys`
+- `||` test assertions → `errors.map(\.keyword).contains(...)` + `errors.count >= 1`
+- Doc comment on `validateItems` clarified (Draft 2020-12 vs Draft 7)
+- `minContains`/`maxContains` TODO added
+- Deviation tests added for `unevaluatedItems` with `items`/`contains`, `unevaluatedProperties` with `additionalProperties`, `contains` with `minContains`
+- `propertyNames` inner dispatch test added
+- `SCHEMA_PLAN.md` deviations updated
+
+### Tests
+- 169 total schema tests across 34 suites — all passing, lint clean
+
 ### What shipped
 - `items` — Draft 2020-12 schema mode + Draft 7 tuple mode
 - `prefixItems` — Draft 2020-12 tuple validation for first N items
