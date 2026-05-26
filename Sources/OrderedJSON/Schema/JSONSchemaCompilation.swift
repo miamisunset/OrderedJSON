@@ -115,11 +115,15 @@ extension JSON {
   internal func resolve(_ pointer: String) -> JSON? {
     guard pointer.hasPrefix("/") else { return nil }
 
-    let segments = pointer.dropFirst().split(separator: "/", omittingEmptySubstrings: false)
+    // Root pointer "/" returns self
+    let rest = pointer.dropFirst()
+    guard !rest.isEmpty else { return self }
+
+    let segments = rest.split(separator: "/", omittingEmptySubsequences: false)
     var current: JSON = self
 
     for segment in segments {
-      let decoded = decodePointerSegment(String(segment))
+      let decoded = Self.decodePointerSegment(String(segment))
       if let index = Int(decoded), current.isArray, let arr = current.arrayValue {
         guard index >= 0, index < arr.count else { return nil }
         current = arr[index]
@@ -137,7 +141,8 @@ extension JSON {
   /// Decodes a single JSON Pointer segment, replacing `~0` (tilde → `~`)
   /// and `~1` (forward slash → `/`).
   private static func decodePointerSegment(_ segment: String) -> String {
-    var decoded = segment
+    let decoded =
+      segment
       .replacingOccurrences(of: "~1", with: "/")
       .replacingOccurrences(of: "~0", with: "~")
     return decoded

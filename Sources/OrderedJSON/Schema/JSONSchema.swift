@@ -49,6 +49,8 @@ public struct JSONSchema: Hashable, Sendable {
   internal let schemaJSON: JSON
   /// The resolved draft version.
   internal let draft: Draft
+  /// The compiled schema with resolved `$ref`, `$defs`, `$id`, `$anchor`.
+  internal let compiled: CompiledSchema?
 
   /// Creates a compiled JSON Schema from a JSON representation.
   ///
@@ -84,8 +86,17 @@ public struct JSONSchema: Hashable, Sendable {
       try JSONSchema.validatePatterns(schema)
     }
 
+    // Compile the schema for $defs, $ref, $id, $anchor support
+    let compiled: CompiledSchema?
+    if schema.isObject {
+      compiled = try CompiledSchema(schema: schema)
+    } else {
+      compiled = nil
+    }
+
     self.schemaJSON = schema
     self.draft = resolvedDraft
+    self.compiled = compiled
   }
 
   // MARK: - Draft detection
@@ -212,6 +223,23 @@ public struct JSONSchema: Hashable, Sendable {
       return
     }
     guard subschema.isObject else { return }
+
+    // Resolve $ref before processing keywords — $ref replaces the entire
+    // subschema per spec (sibling keywords are ignored alongside $ref).
+    if let refStr = subschema["$ref"]?.stringValue {
+      if let target = compiled?.resolveRef(refStr) {
+        validateValue(
+          value, against: target, instancePath: instancePath,
+          schemaPath: schemaPath + "/$ref", errors: &errors)
+      } else {
+        errors.append(
+          JSONSchemaError(
+            instancePath: instancePath, schemaPath: schemaPath + "/$ref",
+            keyword: "$ref",
+            message: "unresolvable reference: '\(refStr)'"))
+      }
+      return
+    }
 
     validateType(
       value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
