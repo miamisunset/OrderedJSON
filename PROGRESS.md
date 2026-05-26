@@ -618,3 +618,23 @@ The `recursionDepth` parameter had a default of `0`, so every validator call tha
 - Nested `$defs` collection — resolves `#/$defs/...` from the compiled defs dictionary
 - Nested `$anchor`/`$dynamicAnchor` collection — both collected from all levels
 - 7 new tests, 201 total schema tests — all passing, lint clean
+
+### Phase 4c — Nested Annotation Collection (✅ Merged, PR #35)
+
+### What shipped
+- Schema tree walk (`collectAnnotationsRecursive`) visits 18+ subschema locations
+- Nested `$defs`, `$anchor`, `$dynamicAnchor` collection from all levels
+- `resolveRef` handles `#/$defs/<key>/<tail>` deep pointers with RFC 6901 unescaping
+- `CompiledSchema.init` throws on duplicate anchors (matches `validatePatterns` precedent)
+- `guard case .object` → `if case` with `preconditionFailure` for properties/patternProperties/dependentSchemas
+- 212 total schema tests — all passing, lint clean
+
+### Review outcomes
+- Deep `#/$defs/<key>/<tail>` resolution with head unescaping
+- Duplicate anchor detection at compile time
+- `$id` scoping deviation documented
+- Boolean schema invariant documented
+- `$dynamicRef` end-to-end test with nested `$dynamicAnchor`
+- Cross-arm anchor separation test
+- RFC 6901 escaping tests for `$defs` keys with `/` and `~`
+- `JSONSchema.init` throwing API consistent with existing `throws` doc

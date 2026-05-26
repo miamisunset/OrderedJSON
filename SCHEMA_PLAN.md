@@ -195,13 +195,21 @@ The `recursionDepth` parameter had a default of `0`, so every validator call tha
 **PR**: [#35](https://github.com/miamisunset/OrderedJSON/pull/35)
 
 ### What shipped
-- Schema tree walk collects `$defs`, `$anchor`, `$dynamicAnchor` from all subschema levels
-- `resolveRef` checks compiled `defs` dictionary for `#/$defs/...` paths
-- 7 tests, 201 total schema tests
+- Schema tree walk (`collectAnnotationsRecursive`) visits 18+ subschema locations
+- Nested `$defs`, `$anchor`, `$dynamicAnchor` collection from all levels
+- `resolveRef` handles `#/$defs/<key>/<tail>` deep pointers with RFC 6901 unescaping
+- `CompiledSchema.init` throws on duplicate anchors
+- `guard case .object` → `if case` with `preconditionFailure`
+- 18 new tests, 212 total schema tests
+
+### Deviations documented
+- Flat `$defs` collection (per-resource scoping deferred to Phase 4d)
+- `$id` scoping prerequisite deferred
+- Boolean schemas never contain annotations
 
 ### Remaining (deferred to Phase 4d)
 - External `$ref` (URIs without `#` fragment)
-- `$id` scoping — nested `$id` establishes a new base URI
+- `$id` scoping — per-resource anchor/`$defs` tables
 - Full schema compilation keyword tree
 
 ---
