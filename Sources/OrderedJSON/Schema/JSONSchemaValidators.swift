@@ -1090,4 +1090,103 @@ extension JSONSchema {
         schemaPath: childSchemaPath, errors: &errors, ctx: ctx)
     }
   }
+
+  // MARK: - Keyword: contentMediaType
+
+  /// Validates the `contentMediaType` keyword (Draft 2020-12 annotation).
+  /// In Draft 2020-12, `contentMediaType` is a pure annotation keyword and
+  /// does not produce validation errors. In Draft 7, it is also treated as
+  /// an annotation (non-assertion).
+  ///
+  /// This validator is a no-op — it exists for schema completeness and future
+  /// use if content-aware validation is added.
+  internal func validateContentMediaType(
+    _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
+    errors: inout [JSONSchemaError], ctx: EvaluationContext
+  ) {
+    guard subschema["contentMediaType"]?.isString == true else { return }
+    // contentMediaType is an annotation — no validation errors produced
+  }
+
+  // MARK: - Keyword: contentEncoding
+
+  /// Validates the `contentEncoding` keyword (Draft 2020-12 annotation).
+  /// In Draft 2020-12, `contentEncoding` is a pure annotation keyword and
+  /// does not produce validation errors. In Draft 7, it is also treated as
+  /// an annotation (non-assertion).
+  ///
+  /// This validator is a no-op — it exists for schema completeness and future
+  /// use if content-aware validation is added.
+  internal func validateContentEncoding(
+    _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
+    errors: inout [JSONSchemaError], ctx: EvaluationContext
+  ) {
+    guard subschema["contentEncoding"]?.isString == true else { return }
+    // contentEncoding is an annotation — no validation errors produced
+  }
+
+  // MARK: - Keyword: contentSchema
+
+  /// Validates the `contentSchema` keyword (Draft 2020-12) — validates the
+  /// decoded content of a string value against the given schema.
+  ///
+  /// If `contentEncoding` is `"base64"` and the value is a string, the
+  /// content is base64-decoded and then parsed as JSON before validation.
+  /// If no encoding is specified, the raw string is parsed as JSON.
+  ///
+  /// Non-string values are skipped. If the decoded content cannot be parsed
+  /// as JSON, a validation error is produced.
+  internal func validateContentSchema(
+    _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
+    errors: inout [JSONSchemaError], ctx: EvaluationContext
+  ) {
+    guard let contentSchema = subschema["contentSchema"] else { return }
+    guard let strVal = value.stringValue else { return }
+
+    // Determine the encoding from contentEncoding
+    let encoding = subschema["contentEncoding"]?.stringValue
+
+    // Decode the content based on encoding
+    let decodedString: String
+    if encoding == "base64" {
+      guard let data = Data(base64Encoded: strVal) else {
+        errors.append(
+          JSONSchemaError(
+            instancePath: instancePath, schemaPath: schemaPath + "/contentSchema",
+            keyword: "contentSchema",
+            message: "invalid base64 content for contentSchema validation"))
+        return
+      }
+      guard let utf8String = String(data: data, encoding: .utf8) else {
+        errors.append(
+          JSONSchemaError(
+            instancePath: instancePath, schemaPath: schemaPath + "/contentSchema",
+            keyword: "contentSchema",
+            message: "base64-decoded content is not valid UTF-8"))
+        return
+      }
+      decodedString = utf8String
+    } else {
+      decodedString = strVal
+    }
+
+    // Parse the decoded string as JSON
+    let decodedValue: JSON
+    do {
+      decodedValue = try JSON.parse(decodedString)
+    } catch {
+      errors.append(
+        JSONSchemaError(
+          instancePath: instancePath, schemaPath: schemaPath + "/contentSchema",
+          keyword: "contentSchema",
+          message: "decoded content is not valid JSON"))
+      return
+    }
+
+    // Validate the decoded value against the contentSchema
+    validateValue(
+      decodedValue, against: contentSchema,
+      instancePath: instancePath, schemaPath: schemaPath + "/contentSchema",
+      errors: &errors, ctx: ctx)
+  }
 }
