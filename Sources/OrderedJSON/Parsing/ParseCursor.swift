@@ -2,27 +2,18 @@ import Foundation
 
 /// Shared cursor for recursive descent JSON parsing.
 ///
-/// Tracks position in a source string, with line/column accounting.
+/// Tracks position in a source string by Unicode scalars (not grapheme clusters),
+/// with line/column accounting. This ensures combining characters like U+302E
+/// are treated as individual tokens rather than being merged with preceding
+/// grapheme bases.
+///
 /// Used by both the tree-building parser (`JSONParser`) and the
-/// SAX/callback parser (`JSONSAX`) to avoid duplicating position
-/// management.
-///
-/// ## Typical usage
-///
-/// Both parser files wrap `ParseCursor` in their own context struct:
-///
-/// ```swift
-/// struct MyContext {
-///   var cursor: ParseCursor
-///   var extraField: T
-///   mutating func advance() { cursor.advance() }
-/// }
-/// ```
+/// SAX/callback parser (`JSONSAX`) to avoid duplicating position management.
 internal struct ParseCursor {
   /// The source string being parsed.
   let string: String
-  /// Current position in the string.
-  var pos: String.Index
+  /// Current position in the Unicode scalar view.
+  var pos: String.UnicodeScalarIndex
   /// Current line number (1-based).
   var line: Int
   /// Current column number (1-based).
@@ -31,16 +22,16 @@ internal struct ParseCursor {
   /// Creates a cursor positioned at the start of `string`.
   init(string: String) {
     self.string = string
-    self.pos = string.startIndex
+    self.pos = string.unicodeScalars.startIndex
     self.line = 1
     self.column = 1
   }
 
-  /// Advance one character, updating line/column.
+  /// Advance by one Unicode scalar, updating line/column.
   mutating func advance() {
-    let c = string[pos]
-    pos = string.index(after: pos)
-    if c == "\n" {
+    let s = string.unicodeScalars[pos]
+    pos = string.unicodeScalars.index(after: pos)
+    if s == "\n" {
       line += 1
       column = 1
     } else {
@@ -48,13 +39,13 @@ internal struct ParseCursor {
     }
   }
 
-  /// Returns `true` if there are more characters to read.
-  var hasMore: Bool { pos < string.endIndex }
+  /// Returns `true` if there are more Unicode scalars to read.
+  var hasMore: Bool { pos < string.unicodeScalars.endIndex }
 
-  /// The character at the current position, or `nil` if at end.
-  var current: Character? {
+  /// The Unicode scalar at the current position, or `nil` if at end.
+  var current: UnicodeScalar? {
     guard hasMore else { return nil }
-    return string[pos]
+    return string.unicodeScalars[pos]
   }
 }
 
@@ -64,8 +55,9 @@ extension ParseCursor {
   /// Skips whitespace characters (space, newline, carriage return, tab).
   mutating func skipWhitespace() {
     while hasMore {
-      switch string[pos] {
-      case " ", "\n", "\r", "\t":
+      let s = string.unicodeScalars[pos]
+      switch s.value {
+      case 0x20, 0x0A, 0x0D, 0x09:  // space, \n, \r, \t
         advance()
       default:
         return
@@ -80,11 +72,18 @@ extension ParseCursor {
     var result = ""
     for _ in 0..<4 {
       guard hasMore else { break }
-      let c = string[pos]
-      guard c.isHexDigit else { break }
-      result.append(c)
+      let s = string.unicodeScalars[pos]
+      guard isHexScalar(s.value) else { break }
+      result.append(String(s))
       advance()
     }
     return result
+  }
+
+  /// Returns true if the given Unicode scalar value is a hex digit (0-9, A-F, a-f).
+  private func isHexScalar(_ value: UInt32) -> Bool {
+    return (value >= 0x30 && value <= 0x39) ||
+           (value >= 0x41 && value <= 0x46) ||
+           (value >= 0x61 && value <= 0x66)
   }
 }

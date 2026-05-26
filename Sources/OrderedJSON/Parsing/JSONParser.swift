@@ -141,19 +141,22 @@ extension JSON {
 
     /// The source string being parsed.
     var string: String { cursor.string }
-    /// Current position in the string.
-    var pos: String.Index { cursor.pos }
+    /// Current position in the Unicode scalar view.
+    var pos: String.UnicodeScalarIndex { cursor.pos }
     /// Current line number (1-based).
     var line: Int { cursor.line }
     /// Current column number (1-based).
     var column: Int { cursor.column }
 
-    /// Advance one character, updating line/column.
+    /// Advance by one Unicode scalar, updating line/column.
     mutating func advance() { cursor.advance() }
+
+    /// The Unicode scalar at the current position, or `nil` if at end.
+    var currentScalar: UnicodeScalar? { cursor.current }
 
     /// Creates a parse context from a source string.
     init(
-      string: String, pos: String.Index,
+      string: String, pos: String.UnicodeScalarIndex,
       options: ParserOptions, line: Int, column: Int, depth: Int
     ) {
       self.cursor = ParseCursor(string: string)
@@ -201,22 +204,21 @@ extension JSON {
 
   private static func parseValue(_ ctx: inout ParseContext) throws -> JSON {
     skipWhitespace(&ctx)
-    guard ctx.pos < ctx.string.endIndex else {
+    guard let s = ctx.currentScalar else {
       throw JSONParseError.unexpectedEnd()
     }
-    let c = ctx.string[ctx.pos]
-    switch c {
-    case "{":
+    switch s.value {
+    case 0x7B:   // {
       return try parseObject(&ctx)
-    case "[":
+    case 0x5B:   // [
       return try parseArray(&ctx)
-    case "\"":
+    case 0x22:   // "
       return try parseStringValue(&ctx)
-    case "t", "f":
+    case 0x74, 0x66:  // t, f
       return try parseBoolean(&ctx)
-    case "n":
+    case 0x6E:   // n
       return try parseNull(&ctx)
-    case "-", "0"..."9":
+    case 0x2D, 0x30...0x39:  // -, 0-9
       return try parseNumber(&ctx)
     default:
       throw error(at: ctx, kind: .unexpectedToken)
@@ -232,7 +234,7 @@ extension JSON {
       throw error(at: ctx, kind: .depthExceeded)
     }
     skipWhitespace(&ctx)
-    if ctx.pos < ctx.string.endIndex, ctx.string[ctx.pos] == "}" {
+    if let s = ctx.currentScalar, s.value == 0x7D {  // }
       ctx.depth -= 1
       ctx.advance()
       return .object(OrderedDictionary<String, JSON>())
@@ -242,25 +244,25 @@ extension JSON {
       skipWhitespace(&ctx)
       let key = try parseString(&ctx)
       skipWhitespace(&ctx)
-      guard ctx.pos < ctx.string.endIndex, ctx.string[ctx.pos] == ":" else {
+      guard let s = ctx.currentScalar, s.value == 0x3A else {  // :
         throw error(at: ctx, kind: .expectedColon)
       }
       ctx.advance()
       let value = try parseValue(&ctx)
       object[key] = value
       skipWhitespace(&ctx)
-      guard ctx.pos < ctx.string.endIndex, ctx.string[ctx.pos] == "," else { break }
+      guard let s = ctx.currentScalar, s.value == 0x2C else { break }  // ,
       ctx.advance()
       // Check for trailing comma: if next token (after whitespace) is }, stop.
       skipWhitespace(&ctx)
-      if ctx.pos < ctx.string.endIndex,
-        ctx.string[ctx.pos] == "}",
+      if let s = ctx.currentScalar,
+        s.value == 0x7D,  // }
         ctx.options.allowTrailingCommas
       {
         break
       }
     } while true
-    guard ctx.pos < ctx.string.endIndex, ctx.string[ctx.pos] == "}" else {
+    guard let s = ctx.currentScalar, s.value == 0x7D else {  // }
       throw error(at: ctx, kind: .expectedCloseBrace)
     }
     ctx.depth -= 1
@@ -277,7 +279,7 @@ extension JSON {
       throw error(at: ctx, kind: .depthExceeded)
     }
     skipWhitespace(&ctx)
-    if ctx.pos < ctx.string.endIndex, ctx.string[ctx.pos] == "]" {
+    if let s = ctx.currentScalar, s.value == 0x5D {  // ]
       ctx.depth -= 1
       ctx.advance()
       return .array([])
@@ -286,18 +288,18 @@ extension JSON {
     repeat {
       elements.append(try parseValue(&ctx))
       skipWhitespace(&ctx)
-      guard ctx.pos < ctx.string.endIndex, ctx.string[ctx.pos] == "," else { break }
+      guard let s = ctx.currentScalar, s.value == 0x2C else { break }  // ,
       ctx.advance()
       // Check for trailing comma: if next token (after whitespace) is ], stop.
       skipWhitespace(&ctx)
-      if ctx.pos < ctx.string.endIndex,
-        ctx.string[ctx.pos] == "]",
+      if let s = ctx.currentScalar,
+        s.value == 0x5D,  // ]
         ctx.options.allowTrailingCommas
       {
         break
       }
     } while true
-    guard ctx.pos < ctx.string.endIndex, ctx.string[ctx.pos] == "]" else {
+    guard let s = ctx.currentScalar, s.value == 0x5D else {  // ]
       throw error(at: ctx, kind: .expectedCloseBracket)
     }
     ctx.depth -= 1
@@ -312,55 +314,53 @@ extension JSON {
   }
 
   private static func parseString(_ ctx: inout ParseContext) throws -> String {
-    guard ctx.pos < ctx.string.endIndex, ctx.string[ctx.pos] == "\"" else {
+    guard let s = ctx.currentScalar, s.value == 0x22 else {  // "
       throw error(at: ctx, kind: .expectedString)
     }
     ctx.advance()
     var result = ""
-    while ctx.pos < ctx.string.endIndex {
-      let c = ctx.string[ctx.pos]
-      if c == "\"" {
+    while let s = ctx.currentScalar {
+      if s.value == 0x22 {  // "
         ctx.advance()
         return result
       }
-      if c == "\\" {
+      if s.value == 0x5C {  // \
         ctx.advance()
-        guard ctx.pos < ctx.string.endIndex else {
+        guard let es = ctx.currentScalar else {
           throw JSONParseError.unexpectedEnd()
         }
-        let escaped = ctx.string[ctx.pos]
-        switch escaped {
-        case "\"":
+        switch es.value {
+        case 0x22:  // "
           result += "\""
           ctx.advance()
-        case "\\":
+        case 0x5C:  // \
           result += "\\"
           ctx.advance()
-        case "/":
+        case 0x2F:  // /
           result += "/"
           ctx.advance()
-        case "n":
+        case 0x6E:  // n
           result += "\n"
           ctx.advance()
-        case "r":
+        case 0x72:  // r
           result += "\r"
           ctx.advance()
-        case "t":
+        case 0x74:  // t
           result += "\t"
           ctx.advance()
-        case "b":
+        case 0x62:  // b
           result += "\u{8}"
           ctx.advance()
-        case "f":
+        case 0x66:  // f
           result += "\u{0C}"
           ctx.advance()
-        case "u":
+        case 0x75:  // u
           result += try parseUnicodeEscape(&ctx)
         default:
           throw error(at: ctx, kind: .invalidEscape)
         }
       } else {
-        result.append(c)
+        result.append(String(s))
         ctx.advance()
       }
     }
@@ -379,11 +379,11 @@ extension JSON {
     // Check for high surrogate (U+D800..U+DBFF)
     if scalar >= 0xD800 && scalar <= 0xDBFF {
       // Expect a low surrogate (U+DC00..U+DFFF) following as \uXXXX
-      guard ctx.cursor.hasMore, ctx.cursor.current == "\\" else {
+      guard ctx.cursor.hasMore, ctx.cursor.current?.value == 0x5C else {  // \
         throw error(at: ctx, kind: .invalidUnicodeEscape)
       }
       ctx.cursor.advance()
-      guard ctx.cursor.hasMore, ctx.cursor.current == "u" else {
+      guard ctx.cursor.hasMore, ctx.cursor.current?.value == 0x75 else {  // u
         throw error(at: ctx, kind: .invalidUnicodeEscape)
       }
       ctx.cursor.advance()
@@ -419,20 +419,20 @@ extension JSON {
   // MARK: - Boolean
 
   private static func parseBoolean(_ ctx: inout ParseContext) throws -> JSON {
-    let end = ctx.string.endIndex
-    if ctx.string[ctx.pos] == "t" {
+    let end = ctx.string.unicodeScalars.endIndex
+    if ctx.currentScalar?.value == 0x74 {  // t
       // Manual lookahead for "true" — no Substring creation
       var idx = ctx.pos
-      idx = ctx.string.index(after: idx)
-      guard idx < end && ctx.string[idx] == "r" else {
+      idx = ctx.string.unicodeScalars.index(after: idx)
+      guard idx < end && ctx.string.unicodeScalars[idx].value == 0x72 else {  // r
         throw error(at: ctx, kind: .unexpectedToken)
       }
-      idx = ctx.string.index(after: idx)
-      guard idx < end && ctx.string[idx] == "u" else {
+      idx = ctx.string.unicodeScalars.index(after: idx)
+      guard idx < end && ctx.string.unicodeScalars[idx].value == 0x75 else {  // u
         throw error(at: ctx, kind: .unexpectedToken)
       }
-      idx = ctx.string.index(after: idx)
-      guard idx < end && ctx.string[idx] == "e" else {
+      idx = ctx.string.unicodeScalars.index(after: idx)
+      guard idx < end && ctx.string.unicodeScalars[idx].value == 0x65 else {  // e
         throw error(at: ctx, kind: .unexpectedToken)
       }
       ctx.advance()
@@ -443,14 +443,22 @@ extension JSON {
     }
     // Manual lookahead for "false" — no Substring creation
     var idx = ctx.pos
-    idx = ctx.string.index(after: idx)
-    guard idx < end && ctx.string[idx] == "a" else { throw error(at: ctx, kind: .unexpectedToken) }
-    idx = ctx.string.index(after: idx)
-    guard idx < end && ctx.string[idx] == "l" else { throw error(at: ctx, kind: .unexpectedToken) }
-    idx = ctx.string.index(after: idx)
-    guard idx < end && ctx.string[idx] == "s" else { throw error(at: ctx, kind: .unexpectedToken) }
-    idx = ctx.string.index(after: idx)
-    guard idx < end && ctx.string[idx] == "e" else { throw error(at: ctx, kind: .unexpectedToken) }
+    idx = ctx.string.unicodeScalars.index(after: idx)
+    guard idx < end && ctx.string.unicodeScalars[idx].value == 0x61 else {  // a
+      throw error(at: ctx, kind: .unexpectedToken)
+    }
+    idx = ctx.string.unicodeScalars.index(after: idx)
+    guard idx < end && ctx.string.unicodeScalars[idx].value == 0x6C else {  // l
+      throw error(at: ctx, kind: .unexpectedToken)
+    }
+    idx = ctx.string.unicodeScalars.index(after: idx)
+    guard idx < end && ctx.string.unicodeScalars[idx].value == 0x73 else {  // s
+      throw error(at: ctx, kind: .unexpectedToken)
+    }
+    idx = ctx.string.unicodeScalars.index(after: idx)
+    guard idx < end && ctx.string.unicodeScalars[idx].value == 0x65 else {  // e
+      throw error(at: ctx, kind: .unexpectedToken)
+    }
     ctx.advance()
     ctx.advance()
     ctx.advance()
@@ -462,14 +470,20 @@ extension JSON {
   // MARK: - Null
 
   private static func parseNull(_ ctx: inout ParseContext) throws -> JSON {
-    let end = ctx.string.endIndex
+    let end = ctx.string.unicodeScalars.endIndex
     var idx = ctx.pos
-    idx = ctx.string.index(after: idx)
-    guard idx < end && ctx.string[idx] == "u" else { throw error(at: ctx, kind: .unexpectedToken) }
-    idx = ctx.string.index(after: idx)
-    guard idx < end && ctx.string[idx] == "l" else { throw error(at: ctx, kind: .unexpectedToken) }
-    idx = ctx.string.index(after: idx)
-    guard idx < end && ctx.string[idx] == "l" else { throw error(at: ctx, kind: .unexpectedToken) }
+    idx = ctx.string.unicodeScalars.index(after: idx)
+    guard idx < end && ctx.string.unicodeScalars[idx].value == 0x75 else {  // u
+      throw error(at: ctx, kind: .unexpectedToken)
+    }
+    idx = ctx.string.unicodeScalars.index(after: idx)
+    guard idx < end && ctx.string.unicodeScalars[idx].value == 0x6C else {  // l
+      throw error(at: ctx, kind: .unexpectedToken)
+    }
+    idx = ctx.string.unicodeScalars.index(after: idx)
+    guard idx < end && ctx.string.unicodeScalars[idx].value == 0x6C else {  // l
+      throw error(at: ctx, kind: .unexpectedToken)
+    }
     ctx.advance()
     ctx.advance()
     ctx.advance()
@@ -484,44 +498,42 @@ extension JSON {
     let startLine = ctx.line
     let startColumn = ctx.column
 
-    if ctx.pos < ctx.string.endIndex, ctx.string[ctx.pos] == "-" {
+    if let s = ctx.currentScalar, s.value == 0x2D {  // -
       ctx.advance()
     }
     // Integer part
-    while ctx.pos < ctx.string.endIndex, ctx.string[ctx.pos] >= "0", ctx.string[ctx.pos] <= "9" {
+    while let s = ctx.currentScalar, s.value >= 0x30, s.value <= 0x39 {  // 0-9
       ctx.advance()
     }
     var isFloat = false
     // Fractional part
-    if ctx.pos < ctx.string.endIndex, ctx.string[ctx.pos] == "." {
+    if let s = ctx.currentScalar, s.value == 0x2E {  // .
       isFloat = true
       ctx.advance()
-      guard ctx.pos < ctx.string.endIndex, ctx.string[ctx.pos] >= "0", ctx.string[ctx.pos] <= "9"
-      else {
+      guard let s = ctx.currentScalar, s.value >= 0x30, s.value <= 0x39 else {  // 0-9
         throw JSONParseError.unexpectedEnd()
       }
-      while ctx.pos < ctx.string.endIndex, ctx.string[ctx.pos] >= "0", ctx.string[ctx.pos] <= "9" {
+      while let s = ctx.currentScalar, s.value >= 0x30, s.value <= 0x39 {
         ctx.advance()
       }
     }
     // Exponent part
-    if ctx.pos < ctx.string.endIndex, ctx.string[ctx.pos] == "e" || ctx.string[ctx.pos] == "E" {
+    if let s = ctx.currentScalar, s.value == 0x65 || s.value == 0x45 {  // e, E
       isFloat = true
       ctx.advance()
-      if ctx.pos < ctx.string.endIndex, ctx.string[ctx.pos] == "+" || ctx.string[ctx.pos] == "-" {
+      if let s = ctx.currentScalar, s.value == 0x2B || s.value == 0x2D {  // +, -
         ctx.advance()
       }
-      guard ctx.pos < ctx.string.endIndex, ctx.string[ctx.pos] >= "0", ctx.string[ctx.pos] <= "9"
-      else {
+      guard let s = ctx.currentScalar, s.value >= 0x30, s.value <= 0x39 else {  // 0-9
         throw JSONParseError.unexpectedEnd()
       }
-      while ctx.pos < ctx.string.endIndex, ctx.string[ctx.pos] >= "0", ctx.string[ctx.pos] <= "9" {
+      while let s = ctx.currentScalar, s.value >= 0x30, s.value <= 0x39 {
         ctx.advance()
       }
     }
 
-    // Substring slice on String.Index is O(1); no copying.
-    let numString = String(ctx.string[start..<ctx.pos])
+    // Substring slice on UnicodeScalar indices.
+    let numString = String(ctx.string.unicodeScalars[start..<ctx.pos])
     if isFloat {
       return .number(.float(try parseDouble(numString, line: startLine, column: startColumn)))
     }

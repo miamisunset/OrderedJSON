@@ -447,6 +447,9 @@ public struct JSONSchema: Hashable, Sendable {
     validateDependentRequired(
       value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
       errors: &errors, ctx: currentCtx)
+    validateDependencies(
+      value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
+      errors: &errors, ctx: currentCtx)
 
     // Array keywords
     validateItems(
@@ -508,7 +511,15 @@ public struct JSONSchema: Hashable, Sendable {
     case (.number(.float(let a)), .number(.float(let b))): return a == b
     case (.number(.integer(let a)), .number(.float(let b))): return Double(a) == b
     case (.number(.float(let a)), .number(.integer(let b))): return a == Double(b)
-    case (.string(let a), .string(let b)): return a == b
+    case (.string(let a), .string(let b)):
+      // Compare at Unicode scalar level, not canonical equivalence
+      let sa = a.unicodeScalars
+      let sb = b.unicodeScalars
+      guard sa.count == sb.count else { return false }
+      for (scalarA, scalarB) in zip(sa, sb) {
+        if scalarA.value != scalarB.value { return false }
+      }
+      return true
     case (.array(let a), .array(let b)):
       guard a.count == b.count else { return false }
       for (i, elem) in a.enumerated() { if !schemaEqual(elem, b[i]) { return false } }

@@ -39,12 +39,19 @@ extension JSONSchema {
   }
 
   /// Returns the JSON type name for a value (e.g., "string", "integer").
+  /// Per JSON Schema, a float with zero fractional part (e.g. 1.0) is an integer.
   internal func typeNameOf(_ value: JSON) -> String {
     switch value.storage {
     case .null: return "null"
     case .boolean: return "boolean"
     case .number(.integer): return "integer"
-    case .number(.float): return "number"
+    case .number(.float):
+      // A float that is mathematically a whole number counts as integer
+      guard let d = value.floatValue else { return "number" }
+      if d == d.rounded(.towardZero) && d.isFinite {
+        return "integer"
+      }
+      return "number"
     case .string: return "string"
     case .object: return "object"
     case .array: return "array"
@@ -168,10 +175,9 @@ extension JSONSchema {
   ) {
     guard let exclMin = subschema["exclusiveMinimum"] else { return }
 
-    if draft == .draft7 {
-      guard let exclBool = exclMin.boolValue, let minVal = subschema["minimum"] else { return }
+    if draft == .draft7, let exclBool = exclMin.boolValue, let minVal = subschema["minimum"] {
+      // Draft 7: boolean modifier on minimum
       guard let valDouble = value.floatValue, let minDouble = minVal.floatValue else { return }
-
       if exclBool {
         if let valInt = value.intValue, let minInt = minVal.intValue {
           if valInt <= minInt {
@@ -192,6 +198,7 @@ extension JSONSchema {
         }
       }
     } else {
+      // Draft 2020-12: numeric bound, or Draft 7 when exclusiveMinimum is numeric
       guard let exclDouble = exclMin.floatValue, let valDouble = value.floatValue else { return }
 
       if let valInt = value.intValue, let exclInt = exclMin.intValue {
@@ -224,10 +231,9 @@ extension JSONSchema {
   ) {
     guard let exclMax = subschema["exclusiveMaximum"] else { return }
 
-    if draft == .draft7 {
-      guard let exclBool = exclMax.boolValue, let maxVal = subschema["maximum"] else { return }
+    if draft == .draft7, let exclBool = exclMax.boolValue, let maxVal = subschema["maximum"] {
+      // Draft 7: boolean modifier on maximum
       guard let valDouble = value.floatValue, let maxDouble = maxVal.floatValue else { return }
-
       if exclBool {
         if let valInt = value.intValue, let maxInt = maxVal.intValue {
           if valInt >= maxInt {
@@ -248,6 +254,7 @@ extension JSONSchema {
         }
       }
     } else {
+      // Draft 2020-12: numeric bound, or Draft 7 when exclusiveMaximum is numeric
       guard let exclDouble = exclMax.floatValue, let valDouble = value.floatValue else { return }
 
       if let valInt = value.intValue, let exclInt = exclMax.intValue {
@@ -295,9 +302,13 @@ extension JSONSchema {
 
     guard let mDouble = mVal.floatValue, let valDouble = value.floatValue else { return }
     if mDouble > 0 {
-      let remainder = valDouble.truncatingRemainder(dividingBy: mDouble)
-      let epsilon = max(1e-12 * mDouble, 1e-12)
-      if abs(remainder) > epsilon && abs(remainder - mDouble) > epsilon {
+      // Use division-based check: valDouble / mDouble should be very close to an integer.
+      // This avoids precision issues with large values and tiny divisors.
+      let ratio = valDouble / mDouble
+      let rounded = ratio.rounded(.towardZero)
+      let diff = abs(ratio - rounded)
+      let epsilon = max(1e-12 * ratio, 1e-12)
+      if diff > epsilon {
         errors.append(
           JSONSchemaError(
             instancePath: instancePath, schemaPath: schemaPath + "/multipleOf",
@@ -627,6 +638,52 @@ extension JSONSchema {
     }
   }
 
+  // MARK: - Composition: dependencies (Draft 7)
+
+  /// Validates the `dependencies` keyword (Draft 7) — when a property key
+  /// is present, the dependency is either a schema (object) or a required
+  /// array (array of strings). Each entry in the object triggers either
+  /// schema validation or required-key checking based on its type.
+  internal func validateDependencies(
+    _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
+    errors: inout [JSONSchemaError], ctx: EvaluationContext
+  ) {
+    guard let deps = subschema["dependencies"], deps.isObject, value.isObject else { return }
+    guard case .object(let depDict) = deps.storage else { return }
+
+    for (key, depValue) in depDict {
+      guard value[key] != nil else { continue }
+
+      if depValue.isObject {
+        // Schema dependency — entire object must validate
+        var subErrors: [JSONSchemaError] = []
+        validateValue(
+          value, against: depValue, instancePath: instancePath,
+          schemaPath: schemaPath + "/dependencies/" + key, errors: &subErrors,
+          ctx: ctx)
+        if let firstError = subErrors.first {
+          errors.append(
+            JSONSchemaError(
+              instancePath: instancePath, schemaPath: schemaPath + "/dependencies/" + key,
+              keyword: "dependencies",
+              message: "dependency for key '\(key)' failed: \(firstError.message)"))
+        }
+      } else if depValue.isArray {
+        // Property dependency — required keys must be present
+        for reqKey in depValue.arrayValue ?? [] {
+          guard let reqKeyStr = reqKey.stringValue else { continue }
+          if value[reqKeyStr] == nil {
+            errors.append(
+              JSONSchemaError(
+                instancePath: instancePath, schemaPath: schemaPath + "/dependencies/" + key,
+                keyword: "dependencies",
+                message: "key '\(key)' requires key '\(reqKeyStr)'"))
+          }
+        }
+      }
+    }
+  }
+
   // MARK: - Composition: dependentRequired
 
   /// Validates the `dependentRequired` keyword — when a property key is
@@ -667,6 +724,19 @@ extension JSONSchema {
   ) {
     guard let items = subschema["items"], let arr = value.arrayValue else { return }
 
+    // Determine how many items are already covered by prefixItems (Draft 2020-12)
+    // or by tuple-mode items array (Draft 7). `items` as a schema only applies
+    // to items beyond that count.
+    let prefixCount: Int
+    if let prefixItems = subschema["prefixItems"], prefixItems.isArray {
+      prefixCount = prefixItems.arrayValue?.count ?? 0
+    } else if draft == .draft7, items.isArray {
+      // Draft 7 tuple mode handled below; for schema mode, no prefix
+      prefixCount = 0
+    } else {
+      prefixCount = 0
+    }
+
     if draft == .draft7, items.isArray {
       // Draft 7 tuple mode: items array validates first N items
       let tupleSchemas = items.arrayValue ?? []
@@ -679,11 +749,14 @@ extension JSONSchema {
           schemaPath: childSchemaPath, errors: &errors, ctx: ctx)
       }
     } else {
-      // Schema mode: apply to all items (Draft 2020-12) or remaining items (Draft 7)
-      for (index, item) in arr.enumerated() {
+      // Schema mode: apply to items beyond prefixItems (Draft 2020-12)
+      // or all items (Draft 7 without prefixItems)
+      let remaining = arr.dropFirst(prefixCount)
+      for (index, item) in remaining.enumerated() {
+        let actualIndex = index + prefixCount
         let childSchemaPath = schemaPath + "/items"
         let childInstancePath =
-          instancePath.isEmpty ? String(index) : instancePath + "/" + String(index)
+          instancePath.isEmpty ? String(actualIndex) : instancePath + "/" + String(actualIndex)
         validateValue(
           item, against: items, instancePath: childInstancePath,
           schemaPath: childSchemaPath, errors: &errors, ctx: ctx)
@@ -718,6 +791,8 @@ extension JSONSchema {
 
   /// Validates `additionalItems` (Draft 7 only) — schema for items beyond
   /// the tuple length defined by `items` (when items is an array).
+  /// When `items` is a schema (not array), `additionalItems` is ignored
+  /// because `items` already applies to all items.
   internal func validateAdditionalItems(
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
     errors: inout [JSONSchemaError], ctx: EvaluationContext
@@ -725,13 +800,10 @@ extension JSONSchema {
     guard let additionalItems = subschema["additionalItems"], let arr = value.arrayValue
     else { return }
 
-    let tupleCount: Int
-    if let items = subschema["items"], items.isArray {
-      tupleCount = items.arrayValue?.count ?? 0
-    } else {
-      tupleCount = 0
-    }
+    // additionalItems only applies when items is an array (tuple mode)
+    guard let items = subschema["items"], items.isArray else { return }
 
+    let tupleCount = items.arrayValue?.count ?? 0
     for (index, item) in arr.enumerated() {
       if index < tupleCount { continue }
       let childSchemaPath = schemaPath + "/additionalItems"

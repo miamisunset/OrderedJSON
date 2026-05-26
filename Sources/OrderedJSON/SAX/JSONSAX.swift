@@ -79,7 +79,7 @@ extension JSON {
     let ok = saxParseValue(&ctx)
     if !ok { return false }
     skipWhitespace(&ctx)
-    if ctx.pos < ctx.string.endIndex {
+    if ctx.pos < ctx.string.unicodeScalars.endIndex {
       let data = Data(ctx.string.utf8)
       return handler.parseError(
         .unexpectedToken(line: ctx.line, column: ctx.column),
@@ -108,7 +108,7 @@ extension JSON {
     var ctx = SAXContext(string: jsonString)
     guard saxAcceptValue(&ctx) else { return false }
     skipWhitespace(&ctx)
-    return ctx.pos >= ctx.string.endIndex
+    return ctx.pos >= ctx.string.unicodeScalars.endIndex
   }
 
   // MARK: - SAX Context
@@ -122,15 +122,18 @@ extension JSON {
 
     /// The source string being parsed.
     var string: String { cursor.string }
-    /// Current position in the string.
-    var pos: String.Index { cursor.pos }
+    /// Current position in the Unicode scalar view.
+    var pos: String.UnicodeScalarIndex { cursor.pos }
     /// Current line number (1-based).
     var line: Int { cursor.line }
     /// Current column number (1-based).
     var column: Int { cursor.column }
 
-    /// Advance one character, updating line/column.
+    /// Advance by one Unicode scalar, updating line/column.
     mutating func advance() { cursor.advance() }
+
+    /// The Unicode scalar at the current position, or `nil` if at end.
+    var currentScalar: UnicodeScalar? { cursor.current }
 
     init(string: String, handler: any JSONSAXEventHandler) {
       self.cursor = ParseCursor(string: string)
@@ -146,7 +149,8 @@ extension JSON {
 
     /// Returns the current error data (bytes from current position onward).
     func errorData() -> Data {
-      return Data(cursor.string[cursor.pos...].utf8)
+      let remaining = String(cursor.string.unicodeScalars[cursor.pos...])
+      return Data(remaining.utf8)
     }
 
     /// Creates a parse error at the current position and calls handler.
@@ -162,21 +166,21 @@ extension JSON {
 
   private static func saxParseValue(_ ctx: inout SAXContext) -> Bool {
     skipWhitespace(&ctx)
-    guard ctx.pos < ctx.string.endIndex else {
+    guard let s = ctx.currentScalar else {
       return ctx.emitError(.unexpectedEnd)
     }
-    switch ctx.string[ctx.pos] {
-    case "{":
+    switch s.value {
+    case 0x7B:  // {
       return saxParseObject(&ctx)
-    case "[":
+    case 0x5B:  // [
       return saxParseArray(&ctx)
-    case "\"":
+    case 0x22:  // "
       return saxParseString(&ctx)
-    case "t", "f":
+    case 0x74, 0x66:  // t, f
       return saxParseBoolean(&ctx)
-    case "n":
+    case 0x6E:  // n
       return saxParseNull(&ctx)
-    case "-", "0"..."9":
+    case 0x2D, 0x30...0x39:  // -, 0-9
       return saxParseNumber(&ctx)
     default:
       return ctx.emitError(.unexpectedToken(line: ctx.line, column: ctx.column))
@@ -187,7 +191,7 @@ extension JSON {
     ctx.advance()  // skip '{'
     guard ctx.handler?.startObject() ?? true else { return false }
     skipWhitespace(&ctx)
-    if ctx.pos < ctx.string.endIndex, ctx.string[ctx.pos] == "}" {
+    if let s = ctx.currentScalar, s.value == 0x7D {  // }
       ctx.advance()
       return ctx.handler?.endObject() ?? true
     }
@@ -196,16 +200,16 @@ extension JSON {
       let key = saxParseStringValue(&ctx)
       guard ctx.handler?.key(key) ?? true else { return false }
       skipWhitespace(&ctx)
-      guard ctx.pos < ctx.string.endIndex, ctx.string[ctx.pos] == ":" else {
+      guard let s = ctx.currentScalar, s.value == 0x3A else {  // :
         return ctx.emitError(.expectedColon(line: ctx.line, column: ctx.column))
       }
       ctx.advance()
       guard saxParseValue(&ctx) else { return false }
       skipWhitespace(&ctx)
-      guard ctx.pos < ctx.string.endIndex, ctx.string[ctx.pos] == "," else { break }
+      guard let s = ctx.currentScalar, s.value == 0x2C else { break }  // ,
       ctx.advance()
     } while true
-    guard ctx.pos < ctx.string.endIndex, ctx.string[ctx.pos] == "}" else {
+    guard let s = ctx.currentScalar, s.value == 0x7D else {  // }
       return ctx.emitError(.expectedCloseBrace(line: ctx.line, column: ctx.column))
     }
     ctx.advance()
@@ -216,17 +220,17 @@ extension JSON {
     ctx.advance()  // skip '['
     guard ctx.handler?.startArray() ?? true else { return false }
     skipWhitespace(&ctx)
-    if ctx.pos < ctx.string.endIndex, ctx.string[ctx.pos] == "]" {
+    if let s = ctx.currentScalar, s.value == 0x5D {  // ]
       ctx.advance()
       return ctx.handler?.endArray() ?? true
     }
     repeat {
       guard saxParseValue(&ctx) else { return false }
       skipWhitespace(&ctx)
-      guard ctx.pos < ctx.string.endIndex, ctx.string[ctx.pos] == "," else { break }
+      guard let s = ctx.currentScalar, s.value == 0x2C else { break }  // ,
       ctx.advance()
     } while true
-    guard ctx.pos < ctx.string.endIndex, ctx.string[ctx.pos] == "]" else {
+    guard let s = ctx.currentScalar, s.value == 0x5D else {  // ]
       return ctx.emitError(.expectedCloseBracket(line: ctx.line, column: ctx.column))
     }
     ctx.advance()
@@ -239,19 +243,19 @@ extension JSON {
   }
 
   private static func saxParseBoolean(_ ctx: inout SAXContext) -> Bool {
-    let end = ctx.string.endIndex
-    if ctx.string[ctx.pos] == "t" {
+    let end = ctx.string.unicodeScalars.endIndex
+    if ctx.currentScalar?.value == 0x74 {  // t
       var idx = ctx.pos
-      idx = ctx.string.index(after: idx)
-      guard idx < end && ctx.string[idx] == "r" else {
+      idx = ctx.string.unicodeScalars.index(after: idx)
+      guard idx < end && ctx.string.unicodeScalars[idx].value == 0x72 else {  // r
         return ctx.emitError(.unexpectedToken(line: ctx.line, column: ctx.column))
       }
-      idx = ctx.string.index(after: idx)
-      guard idx < end && ctx.string[idx] == "u" else {
+      idx = ctx.string.unicodeScalars.index(after: idx)
+      guard idx < end && ctx.string.unicodeScalars[idx].value == 0x75 else {  // u
         return ctx.emitError(.unexpectedToken(line: ctx.line, column: ctx.column))
       }
-      idx = ctx.string.index(after: idx)
-      guard idx < end && ctx.string[idx] == "e" else {
+      idx = ctx.string.unicodeScalars.index(after: idx)
+      guard idx < end && ctx.string.unicodeScalars[idx].value == 0x65 else {  // e
         return ctx.emitError(.unexpectedToken(line: ctx.line, column: ctx.column))
       }
       ctx.advance()
@@ -261,20 +265,20 @@ extension JSON {
       return ctx.handler?.boolean(true) ?? true
     }
     var idx = ctx.pos
-    idx = ctx.string.index(after: idx)
-    guard idx < end && ctx.string[idx] == "a" else {
+    idx = ctx.string.unicodeScalars.index(after: idx)
+    guard idx < end && ctx.string.unicodeScalars[idx].value == 0x61 else {  // a
       return ctx.emitError(.unexpectedToken(line: ctx.line, column: ctx.column))
     }
-    idx = ctx.string.index(after: idx)
-    guard idx < end && ctx.string[idx] == "l" else {
+    idx = ctx.string.unicodeScalars.index(after: idx)
+    guard idx < end && ctx.string.unicodeScalars[idx].value == 0x6C else {  // l
       return ctx.emitError(.unexpectedToken(line: ctx.line, column: ctx.column))
     }
-    idx = ctx.string.index(after: idx)
-    guard idx < end && ctx.string[idx] == "s" else {
+    idx = ctx.string.unicodeScalars.index(after: idx)
+    guard idx < end && ctx.string.unicodeScalars[idx].value == 0x73 else {  // s
       return ctx.emitError(.unexpectedToken(line: ctx.line, column: ctx.column))
     }
-    idx = ctx.string.index(after: idx)
-    guard idx < end && ctx.string[idx] == "e" else {
+    idx = ctx.string.unicodeScalars.index(after: idx)
+    guard idx < end && ctx.string.unicodeScalars[idx].value == 0x65 else {  // e
       return ctx.emitError(.unexpectedToken(line: ctx.line, column: ctx.column))
     }
     ctx.advance()
@@ -286,18 +290,18 @@ extension JSON {
   }
 
   private static func saxParseNull(_ ctx: inout SAXContext) -> Bool {
-    let end = ctx.string.endIndex
+    let end = ctx.string.unicodeScalars.endIndex
     var idx = ctx.pos
-    idx = ctx.string.index(after: idx)
-    guard idx < end && ctx.string[idx] == "u" else {
+    idx = ctx.string.unicodeScalars.index(after: idx)
+    guard idx < end && ctx.string.unicodeScalars[idx].value == 0x75 else {  // u
       return ctx.emitError(.unexpectedToken(line: ctx.line, column: ctx.column))
     }
-    idx = ctx.string.index(after: idx)
-    guard idx < end && ctx.string[idx] == "l" else {
+    idx = ctx.string.unicodeScalars.index(after: idx)
+    guard idx < end && ctx.string.unicodeScalars[idx].value == 0x6C else {  // l
       return ctx.emitError(.unexpectedToken(line: ctx.line, column: ctx.column))
     }
-    idx = ctx.string.index(after: idx)
-    guard idx < end && ctx.string[idx] == "l" else {
+    idx = ctx.string.unicodeScalars.index(after: idx)
+    guard idx < end && ctx.string.unicodeScalars[idx].value == 0x6C else {  // l
       return ctx.emitError(.unexpectedToken(line: ctx.line, column: ctx.column))
     }
     ctx.advance()
@@ -312,52 +316,38 @@ extension JSON {
     let startLine = ctx.line
     let startColumn = ctx.column
 
-    if ctx.pos < ctx.string.endIndex, ctx.string[ctx.pos] == "-" {
+    if let s = ctx.currentScalar, s.value == 0x2D {  // -
       ctx.advance()
     }
-    while ctx.pos < ctx.string.endIndex,
-      ctx.string[ctx.pos] >= "0", ctx.string[ctx.pos] <= "9"
-    {
+    while let s = ctx.currentScalar, s.value >= 0x30, s.value <= 0x39 {  // 0-9
       ctx.advance()
     }
     var isFloat = false
-    if ctx.pos < ctx.string.endIndex, ctx.string[ctx.pos] == "." {
+    if let s = ctx.currentScalar, s.value == 0x2E {  // .
       isFloat = true
       ctx.advance()
-      guard ctx.pos < ctx.string.endIndex,
-        ctx.string[ctx.pos] >= "0", ctx.string[ctx.pos] <= "9"
-      else {
+      guard let s = ctx.currentScalar, s.value >= 0x30, s.value <= 0x39 else {  // 0-9
         return ctx.emitError(.invalidNumber(line: ctx.line, column: ctx.column))
       }
-      while ctx.pos < ctx.string.endIndex,
-        ctx.string[ctx.pos] >= "0", ctx.string[ctx.pos] <= "9"
-      {
+      while let s = ctx.currentScalar, s.value >= 0x30, s.value <= 0x39 {
         ctx.advance()
       }
     }
-    if ctx.pos < ctx.string.endIndex,
-      ctx.string[ctx.pos] == "e" || ctx.string[ctx.pos] == "E"
-    {
+    if let s = ctx.currentScalar, s.value == 0x65 || s.value == 0x45 {  // e, E
       isFloat = true
       ctx.advance()
-      if ctx.pos < ctx.string.endIndex,
-        ctx.string[ctx.pos] == "+" || ctx.string[ctx.pos] == "-"
-      {
+      if let s = ctx.currentScalar, s.value == 0x2B || s.value == 0x2D {  // +, -
         ctx.advance()
       }
-      guard ctx.pos < ctx.string.endIndex,
-        ctx.string[ctx.pos] >= "0", ctx.string[ctx.pos] <= "9"
-      else {
+      guard let s = ctx.currentScalar, s.value >= 0x30, s.value <= 0x39 else {  // 0-9
         return ctx.emitError(.invalidNumber(line: ctx.line, column: ctx.column))
       }
-      while ctx.pos < ctx.string.endIndex,
-        ctx.string[ctx.pos] >= "0", ctx.string[ctx.pos] <= "9"
-      {
+      while let s = ctx.currentScalar, s.value >= 0x30, s.value <= 0x39 {
         ctx.advance()
       }
     }
 
-    let numString = String(ctx.string[start..<ctx.pos])
+    let numString = String(ctx.string.unicodeScalars[start..<ctx.pos])
     if isFloat {
       guard let d = Double(numString) else {
         return ctx.emitError(.invalidNumber(line: startLine, column: startColumn))
@@ -377,52 +367,51 @@ extension JSON {
   }
 
   private static func saxParseStringValue(_ ctx: inout SAXContext) -> String {
-    guard ctx.pos < ctx.string.endIndex, ctx.string[ctx.pos] == "\"" else {
+    guard let s = ctx.currentScalar, s.value == 0x22 else {  // "
       return ""
     }
     ctx.advance()
     var result = ""
-    while ctx.pos < ctx.string.endIndex {
-      let c = ctx.string[ctx.pos]
-      if c == "\"" {
+    while let s = ctx.currentScalar {
+      if s.value == 0x22 {  // "
         ctx.advance()
         return result
       }
-      if c == "\\" {
+      if s.value == 0x5C {  // \\
         ctx.advance()
-        guard ctx.pos < ctx.string.endIndex else { return "" }
-        switch ctx.string[ctx.pos] {
-        case "\"":
+        guard let es = ctx.currentScalar else { return "" }
+        switch es.value {
+        case 0x22:  // "
           result += "\""
           ctx.advance()
-        case "\\":
+        case 0x5C:  // \\
           result += "\\"
           ctx.advance()
-        case "/":
+        case 0x2F:  // /
           result += "/"
           ctx.advance()
-        case "n":
+        case 0x6E:  // n
           result += "\n"
           ctx.advance()
-        case "r":
+        case 0x72:  // r
           result += "\r"
           ctx.advance()
-        case "t":
+        case 0x74:  // t
           result += "\t"
           ctx.advance()
-        case "b":
+        case 0x62:  // b
           result += "\u{8}"
           ctx.advance()
-        case "f":
+        case 0x66:  // f
           result += "\u{0C}"
           ctx.advance()
-        case "u":
+        case 0x75:  // u
           result += parseUnicodeEscape(&ctx)
         default:
           return ""
         }
       } else {
-        result.append(c)
+        result.append(String(s))
         ctx.advance()
       }
     }
@@ -445,9 +434,9 @@ extension JSON {
 
     // Check for high surrogate (U+D800..U+DBFF)
     if scalar >= 0xD800 && scalar <= 0xDBFF {
-      guard ctx.cursor.hasMore, ctx.cursor.current == "\\" else { return "" }
+      guard ctx.cursor.hasMore, ctx.cursor.current?.value == 0x5C else { return "" }  // \\
       ctx.cursor.advance()
-      guard ctx.cursor.hasMore, ctx.cursor.current == "u" else { return "" }
+      guard ctx.cursor.hasMore, ctx.cursor.current?.value == 0x75 else { return "" }  // u
       ctx.cursor.advance()
       let lowHex = ctx.cursor.readHexDigits()
       guard lowHex.count == 4, let low = UInt16(lowHex, radix: 16) else { return "" }
@@ -470,41 +459,41 @@ extension JSON {
 extension JSON {
   private static func saxAcceptValue(_ ctx: inout SAXContext) -> Bool {
     skipWhitespace(&ctx)
-    guard ctx.pos < ctx.string.endIndex else { return false }
-    switch ctx.string[ctx.pos] {
-    case "{": return saxAcceptObject(&ctx)
-    case "[": return saxAcceptArray(&ctx)
-    case "\"":
+    guard let s = ctx.currentScalar else { return false }
+    switch s.value {
+    case 0x7B: return saxAcceptObject(&ctx)  // {
+    case 0x5B: return saxAcceptArray(&ctx)   // [
+    case 0x22:  // "
       let _ = saxParseStringValue(&ctx)
       return true
-    case "t":
+    case 0x74:  // t
       do {
-        let end = ctx.string.endIndex
+        let end = ctx.string.unicodeScalars.endIndex
         var idx = ctx.pos
-        idx = ctx.string.index(after: idx)
-        guard idx < end && ctx.string[idx] == "r" else { return false }
-        idx = ctx.string.index(after: idx)
-        guard idx < end && ctx.string[idx] == "u" else { return false }
-        idx = ctx.string.index(after: idx)
-        guard idx < end && ctx.string[idx] == "e" else { return false }
+        idx = ctx.string.unicodeScalars.index(after: idx)
+        guard idx < end && ctx.string.unicodeScalars[idx].value == 0x72 else { return false }  // r
+        idx = ctx.string.unicodeScalars.index(after: idx)
+        guard idx < end && ctx.string.unicodeScalars[idx].value == 0x75 else { return false }  // u
+        idx = ctx.string.unicodeScalars.index(after: idx)
+        guard idx < end && ctx.string.unicodeScalars[idx].value == 0x65 else { return false }  // e
         ctx.advance()
         ctx.advance()
         ctx.advance()
         ctx.advance()
         return true
       }
-    case "f":
+    case 0x66:  // f
       do {
-        let end = ctx.string.endIndex
+        let end = ctx.string.unicodeScalars.endIndex
         var idx = ctx.pos
-        idx = ctx.string.index(after: idx)
-        guard idx < end && ctx.string[idx] == "a" else { return false }
-        idx = ctx.string.index(after: idx)
-        guard idx < end && ctx.string[idx] == "l" else { return false }
-        idx = ctx.string.index(after: idx)
-        guard idx < end && ctx.string[idx] == "s" else { return false }
-        idx = ctx.string.index(after: idx)
-        guard idx < end && ctx.string[idx] == "e" else { return false }
+        idx = ctx.string.unicodeScalars.index(after: idx)
+        guard idx < end && ctx.string.unicodeScalars[idx].value == 0x61 else { return false }  // a
+        idx = ctx.string.unicodeScalars.index(after: idx)
+        guard idx < end && ctx.string.unicodeScalars[idx].value == 0x6C else { return false }  // l
+        idx = ctx.string.unicodeScalars.index(after: idx)
+        guard idx < end && ctx.string.unicodeScalars[idx].value == 0x73 else { return false }  // s
+        idx = ctx.string.unicodeScalars.index(after: idx)
+        guard idx < end && ctx.string.unicodeScalars[idx].value == 0x65 else { return false }  // e
         ctx.advance()
         ctx.advance()
         ctx.advance()
@@ -512,49 +501,39 @@ extension JSON {
         ctx.advance()
         return true
       }
-    case "n":
+    case 0x6E:  // n
       do {
-        let end = ctx.string.endIndex
+        let end = ctx.string.unicodeScalars.endIndex
         var idx = ctx.pos
-        idx = ctx.string.index(after: idx)
-        guard idx < end && ctx.string[idx] == "u" else { return false }
-        idx = ctx.string.index(after: idx)
-        guard idx < end && ctx.string[idx] == "l" else { return false }
-        idx = ctx.string.index(after: idx)
-        guard idx < end && ctx.string[idx] == "l" else { return false }
+        idx = ctx.string.unicodeScalars.index(after: idx)
+        guard idx < end && ctx.string.unicodeScalars[idx].value == 0x75 else { return false }  // u
+        idx = ctx.string.unicodeScalars.index(after: idx)
+        guard idx < end && ctx.string.unicodeScalars[idx].value == 0x6C else { return false }  // l
+        idx = ctx.string.unicodeScalars.index(after: idx)
+        guard idx < end && ctx.string.unicodeScalars[idx].value == 0x6C else { return false }  // l
         ctx.advance()
         ctx.advance()
         ctx.advance()
         ctx.advance()
         return true
       }
-    case "-", "0"..."9":
-      if ctx.string[ctx.pos] == "-" { ctx.advance() }
-      while ctx.pos < ctx.string.endIndex,
-        ctx.string[ctx.pos] >= "0", ctx.string[ctx.pos] <= "9"
-      {
+    case 0x2D, 0x30...0x39:  // -, 0-9
+      if ctx.currentScalar?.value == 0x2D { ctx.advance() }
+      while let s = ctx.currentScalar, s.value >= 0x30, s.value <= 0x39 {
         ctx.advance()
       }
-      if ctx.pos < ctx.string.endIndex, ctx.string[ctx.pos] == "." {
+      if let s = ctx.currentScalar, s.value == 0x2E {  // .
         ctx.advance()
-        while ctx.pos < ctx.string.endIndex,
-          ctx.string[ctx.pos] >= "0", ctx.string[ctx.pos] <= "9"
-        {
+        while let s = ctx.currentScalar, s.value >= 0x30, s.value <= 0x39 {
           ctx.advance()
         }
       }
-      if ctx.pos < ctx.string.endIndex,
-        ctx.string[ctx.pos] == "e" || ctx.string[ctx.pos] == "E"
-      {
+      if let s = ctx.currentScalar, s.value == 0x65 || s.value == 0x45 {  // e, E
         ctx.advance()
-        if ctx.pos < ctx.string.endIndex,
-          ctx.string[ctx.pos] == "+" || ctx.string[ctx.pos] == "-"
-        {
+        if let s = ctx.currentScalar, s.value == 0x2B || s.value == 0x2D {  // +, -
           ctx.advance()
         }
-        while ctx.pos < ctx.string.endIndex,
-          ctx.string[ctx.pos] >= "0", ctx.string[ctx.pos] <= "9"
-        {
+        while let s = ctx.currentScalar, s.value >= 0x30, s.value <= 0x39 {
           ctx.advance()
         }
       }
@@ -567,7 +546,7 @@ extension JSON {
   private static func saxAcceptObject(_ ctx: inout SAXContext) -> Bool {
     ctx.advance()  // skip '{'
     skipWhitespace(&ctx)
-    if ctx.pos < ctx.string.endIndex, ctx.string[ctx.pos] == "}" {
+    if let s = ctx.currentScalar, s.value == 0x7D {  // }
       ctx.advance()
       return true
     }
@@ -575,14 +554,14 @@ extension JSON {
       skipWhitespace(&ctx)
       let _ = saxParseStringValue(&ctx)
       skipWhitespace(&ctx)
-      guard ctx.pos < ctx.string.endIndex, ctx.string[ctx.pos] == ":" else { return false }
+      guard let s = ctx.currentScalar, s.value == 0x3A else { return false }  // :
       ctx.advance()
       guard saxAcceptValue(&ctx) else { return false }
       skipWhitespace(&ctx)
-      guard ctx.pos < ctx.string.endIndex, ctx.string[ctx.pos] == "," else { break }
+      guard let s = ctx.currentScalar, s.value == 0x2C else { break }  // ,
       ctx.advance()
     } while true
-    guard ctx.pos < ctx.string.endIndex, ctx.string[ctx.pos] == "}" else { return false }
+    guard let s = ctx.currentScalar, s.value == 0x7D else { return false }  // }
     ctx.advance()
     return true
   }
@@ -590,17 +569,17 @@ extension JSON {
   private static func saxAcceptArray(_ ctx: inout SAXContext) -> Bool {
     ctx.advance()  // skip '['
     skipWhitespace(&ctx)
-    if ctx.pos < ctx.string.endIndex, ctx.string[ctx.pos] == "]" {
+    if let s = ctx.currentScalar, s.value == 0x5D {  // ]
       ctx.advance()
       return true
     }
     repeat {
       guard saxAcceptValue(&ctx) else { return false }
       skipWhitespace(&ctx)
-      guard ctx.pos < ctx.string.endIndex, ctx.string[ctx.pos] == "," else { break }
+      guard let s = ctx.currentScalar, s.value == 0x2C else { break }  // ,
       ctx.advance()
     } while true
-    guard ctx.pos < ctx.string.endIndex, ctx.string[ctx.pos] == "]" else { return false }
+    guard let s = ctx.currentScalar, s.value == 0x5D else { return false }  // ]
     ctx.advance()
     return true
   }
