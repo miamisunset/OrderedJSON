@@ -626,9 +626,9 @@ extension JSONSchema {
   // MARK: - Keyword: items
 
   /// Validates the `items` keyword.
-  /// - Draft 2020-12: schema applies to all array items.
+  /// - Draft 2020-12: schema applies to all array items (after `prefixItems`).
   /// - Draft 7: can be a schema (all items) or an array of schemas (tuple).
-  ///   If `prefixItems` exists, items applies to items beyond the prefix.
+  ///   `prefixItems` does not exist in Draft 7, so `items` always applies to all items.
   internal func validateItems(
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
     errors: inout [JSONSchemaError]
@@ -875,7 +875,8 @@ extension JSONSchema {
     else { return }
 
     for (pattern, schema) in patternDict {
-      guard let regex = try? NSRegularExpression(pattern: pattern, options: []) else { continue }
+      // Regex was validated at init time by validatePatterns — safe to force-unwrap
+      let regex = try! NSRegularExpression(pattern: pattern, options: [])
       for (key, val) in dict {
         let range = NSRange(key.startIndex..<key.endIndex, in: key)
         if regex.firstMatch(in: key, options: [], range: range) != nil {
@@ -887,6 +888,76 @@ extension JSONSchema {
         }
       }
     }
+  }
+
+  // MARK: - Shared property-key evaluation
+
+  /// Computes the set of property keys in `dict` that are evaluated by
+  /// `properties`, `patternProperties`, and optionally `additionalProperties`
+  /// and `dependentSchemas` keywords in `subschema`.
+  ///
+  /// - Parameters:
+  ///   - subschema: The schema keyword dictionary.
+  ///   - dict: The instance object dictionary to check keys against.
+  ///   - includeAdditionalProperties: Whether to also include keys evaluated
+  ///     by `additionalProperties` (needed for `unevaluatedProperties`).
+  internal func evaluatedPropertyKeys(
+    for subschema: JSON,
+    from dict: OrderedDictionary<String, JSON>,
+    includeAdditionalProperties: Bool = false
+  ) -> Set<String> {
+    var keys: Set<String> = []
+
+    // Keys listed in properties are always evaluated
+    if let properties = subschema["properties"], properties.isObject {
+      guard case .object(let props) = properties.storage else {
+        preconditionFailure("properties.isObject was true but storage pattern match failed")
+      }
+      for (key, _) in props {
+        keys.insert(key)
+      }
+    }
+
+    // Keys matched by patternProperties are evaluated
+    if let pp = subschema["patternProperties"], pp.isObject {
+      guard case .object(let patternDict) = pp.storage else {
+        preconditionFailure("patternProperties.isObject was true but storage pattern match failed")
+      }
+      for (pattern, _) in patternDict {
+        // Regex was validated at init time by validatePatterns — safe to force-unwrap
+        let regex = try! NSRegularExpression(pattern: pattern, options: [])
+        for (key, _) in dict {
+          let range = NSRange(key.startIndex..<key.endIndex, in: key)
+          if regex.firstMatch(in: key, options: [], range: range) != nil {
+            keys.insert(key)
+          }
+        }
+      }
+    }
+
+    // Keys evaluated by additionalProperties are also considered evaluated
+    // (relevant for unevaluatedProperties, which must not re-check them)
+    if includeAdditionalProperties, subschema["additionalProperties"] != nil {
+      // additionalProperties evaluates every key not covered by properties/patternProperties,
+      // so in practice all keys in dict are evaluated. We don't need to enumerate them.
+      for (key, _) in dict {
+        keys.insert(key)
+      }
+    }
+
+    // Keys evaluated by dependentSchemas (key presence triggers evaluation)
+    if let depSchemas = subschema["dependentSchemas"], depSchemas.isObject {
+      guard case .object(let depDict) = depSchemas.storage else {
+        preconditionFailure("dependentSchemas.isObject was true but storage pattern match failed")
+      }
+      for (key, _) in depDict {
+        if subschema[key] != nil {
+          keys.insert(key)
+        }
+      }
+    }
+
+    return keys
   }
 
   // MARK: - Keyword: additionalProperties
@@ -901,26 +972,8 @@ extension JSONSchema {
     else { return }
     guard case .object(let dict) = value.storage else { return }
 
-    // Collect keys covered by properties or patternProperties
-    var coveredKeys: Set<String> = []
-    if let properties = subschema["properties"], properties.isObject {
-      guard case .object(let props) = properties.storage else { return }
-      for (key, _) in props {
-        coveredKeys.insert(key)
-      }
-    }
-    if let pp = subschema["patternProperties"], pp.isObject {
-      guard case .object(let patternDict) = pp.storage else { return }
-      for (pattern, _) in patternDict {
-        guard let regex = try? NSRegularExpression(pattern: pattern, options: []) else { continue }
-        for (key, _) in dict {
-          let range = NSRange(key.startIndex..<key.endIndex, in: key)
-          if regex.firstMatch(in: key, options: [], range: range) != nil {
-            coveredKeys.insert(key)
-          }
-        }
-      }
-    }
+    let coveredKeys = evaluatedPropertyKeys(
+      for: subschema, from: dict, includeAdditionalProperties: false)
 
     for (key, val) in dict {
       if !coveredKeys.contains(key) {
@@ -936,8 +989,11 @@ extension JSONSchema {
   // MARK: - Keyword: unevaluatedProperties
 
   /// Validates `unevaluatedProperties` (Draft 2020-12) — schema for
-  /// properties not evaluated by `properties`, `patternProperties`, or
-  /// `dependentSchemas`.
+  /// properties not evaluated by `properties`, `patternProperties`,
+  /// `additionalProperties`, or `dependentSchemas`.
+  ///
+  /// - Todo: In-place applicators (`allOf`, `anyOf`, `oneOf`, `if`/`then`/`else`)
+  ///   can also evaluate properties — their evaluated keys should be tracked.
   internal func validateUnevaluatedProperties(
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
     errors: inout [JSONSchemaError]
@@ -946,38 +1002,8 @@ extension JSONSchema {
     else { return }
     guard case .object(let dict) = value.storage else { return }
 
-    // Collect keys evaluated by properties
-    var evaluatedKeys: Set<String> = []
-    if let properties = subschema["properties"], properties.isObject {
-      guard case .object(let props) = properties.storage else { return }
-      for (key, _) in props {
-        evaluatedKeys.insert(key)
-      }
-    }
-
-    // Collect keys evaluated by patternProperties
-    if let pp = subschema["patternProperties"], pp.isObject {
-      guard case .object(let patternDict) = pp.storage else { return }
-      for (pattern, _) in patternDict {
-        guard let regex = try? NSRegularExpression(pattern: pattern, options: []) else { continue }
-        for (key, _) in dict {
-          let range = NSRange(key.startIndex..<key.endIndex, in: key)
-          if regex.firstMatch(in: key, options: [], range: range) != nil {
-            evaluatedKeys.insert(key)
-          }
-        }
-      }
-    }
-
-    // Collect keys evaluated by dependentSchemas
-    if let depSchemas = subschema["dependentSchemas"], depSchemas.isObject {
-      guard case .object(let depDict) = depSchemas.storage else { return }
-      for (key, _) in depDict {
-        if value[key] != nil {
-          evaluatedKeys.insert(key)
-        }
-      }
-    }
+    let evaluatedKeys = evaluatedPropertyKeys(
+      for: subschema, from: dict, includeAdditionalProperties: true)
 
     for (key, val) in dict {
       if !evaluatedKeys.contains(key) {
@@ -993,13 +1019,22 @@ extension JSONSchema {
   // MARK: - Keyword: unevaluatedItems
 
   /// Validates `unevaluatedItems` (Draft 2020-12) — schema for items not
-  /// evaluated by `prefixItems` or `contains`.
+  /// evaluated by `prefixItems`, `items`, or `contains`.
+  ///
+  /// - Note: If `items` is present as a schema, all items past `prefixItems`
+  ///   are evaluated by `items`, making `unevaluatedItems` a no-op.
+  /// - Todo: Track `contains` match indices — items matched by `contains`
+  ///   are also evaluated and should be excluded from `unevaluatedItems`.
   internal func validateUnevaluatedItems(
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
     errors: inout [JSONSchemaError]
   ) {
     guard let unevaluated = subschema["unevaluatedItems"], let arr = value.arrayValue
     else { return }
+
+    // If `items` is present as a schema, it evaluates all items past prefixItems,
+    // so unevaluatedItems has nothing to evaluate.
+    if let items = subschema["items"], items.isObject { return }
 
     // Determine which items were evaluated by prefixItems
     let prefixCount: Int
@@ -1009,6 +1044,7 @@ extension JSONSchema {
       prefixCount = 0
     }
 
+    // TODO: Also exclude items matched by `contains` — those indices are evaluated.
     for (index, item) in arr.enumerated() {
       if index < prefixCount { continue }
       let childSchemaPath = schemaPath + "/unevaluatedItems"

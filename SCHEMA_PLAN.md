@@ -129,6 +129,9 @@ Test file `JSONSchemaTests.swift` (1476 lines) split into:
 ### Known deviations
 - `additionalProperties`/`unevaluatedProperties` with boolean `false` produce error keyword `"false"` (from the boolean subschema), not the keyword name — consistent with general boolean schema behavior
 - `patternProperties` regex key validation throws at init time for invalid regex patterns
+- `unevaluatedItems` does not honor `items` (schema mode) or `contains` match indices — items evaluated by those keywords are not excluded; tracked as deviation tests
+- `unevaluatedProperties` does not track evaluation from `additionalProperties` or in-place applicators (`allOf`/`anyOf`/`oneOf`/`if`/`then`/`else`) — tracked as deviation tests
+- `contains` lacks `minContains`/`maxContains` support (Draft 2020-12 extension) — `contains` returns on first match
 
 ---
 

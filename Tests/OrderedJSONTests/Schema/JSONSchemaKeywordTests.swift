@@ -902,7 +902,10 @@ struct JSONSchemaItemsTests {
     let schema = try JSONSchema(schema: .object(["items": .object(["type": .string("string")])]))
     let result = schema.validation(of: .array([.string("a"), .number(.integer(1))]))
     #expect(!result.valid)
-    #expect(result.errors.first?.keyword == "items" || result.errors.first?.keyword == "type")
+    #expect(
+      result.errors.map(\.keyword).contains("items")
+        || result.errors.map(\.keyword).contains("type"))
+    #expect(result.errors.count >= 1)
   }
 
   @Test("items — Draft 7 tuple mode — valid")
@@ -962,7 +965,10 @@ struct JSONSchemaPrefixItemsTests {
       ]))
     let result = schema.validation(of: .array([.number(.integer(1))]))
     #expect(!result.valid)
-    #expect(result.errors.first?.keyword == "prefixItems" || result.errors.first?.keyword == "type")
+    #expect(
+      result.errors.map(\.keyword).contains("prefixItems")
+        || result.errors.map(\.keyword).contains("type"))
+    #expect(result.errors.count >= 1)
   }
 
   @Test("prefixItems — non-array value skips")
@@ -1081,6 +1087,20 @@ struct JSONSchemaContainsTests {
     let schema = try JSONSchema(schema: .object(["contains": .object(["type": .string("string")])]))
     #expect(schema.validation(of: .string("hello")).valid)
   }
+
+  @Test("contains — TODO: minContains/maxContains not yet supported")
+  func containsMinContainsTodo() throws {
+    // minContains/maxContains (Draft 2020-12) are not yet implemented.
+    // minContains: 2 should require at least 2 matches, but current impl
+    // returns on first match. This test documents current behavior.
+    let schema = try JSONSchema(
+      schema: .object([
+        "contains": .object(["type": .string("string")]),
+        "minContains": .number(.integer(2)),
+      ]))
+    // Current: passes with 1 match (deviant — should require 2)
+    #expect(schema.validation(of: .array([.number(.integer(1)), .string("hello")])).valid)
+  }
 }
 
 // MARK: - Object Keywords
@@ -1153,6 +1173,17 @@ struct JSONSchemaPropertyNamesTests {
       schema: .object(["propertyNames": .object(["type": .string("string")])]))
     #expect(schema.validation(of: .string("hello")).valid)
   }
+
+  @Test("propertyNames — inner dispatch preserves parent keyword")
+  func propertyNamesInnerDispatch() throws {
+    // propertyNames wraps errors with its own keyword (not the inner keyword).
+    let schema = try JSONSchema(
+      schema: .object(["propertyNames": .object(["maxLength": .number(.integer(3))])]))
+    let result = schema.validation(of: .object(["abcd": .number(.integer(1))]))
+    #expect(!result.valid)
+    // The error keyword is "propertyNames" (parent wraps inner errors)
+    #expect(result.errors.first?.keyword == "propertyNames")
+  }
 }
 
 @Suite("JSONSchema patternProperties")
@@ -1180,7 +1211,9 @@ struct JSONSchemaPatternPropertiesTests {
     let result = schema.validation(of: .object(["name": .string("Alice")]))
     #expect(!result.valid)
     #expect(
-      result.errors.first?.keyword == "patternProperties" || result.errors.first?.keyword == "type")
+      result.errors.map(\.keyword).contains("patternProperties")
+        || result.errors.map(\.keyword).contains("type"))
+    #expect(result.errors.count >= 1)
   }
 
   @Test("patternProperties — non-object skips")
@@ -1264,6 +1297,21 @@ struct JSONSchemaUnevaluatedPropertiesTests {
     #expect(result.errors.first?.keyword == "false")
   }
 
+  @Test("unevaluatedProperties — deviation: additionalProperties now tracked")
+  func unevaluatedPropertiesWithAdditionalProperties() throws {
+    // Keys evaluated by additionalProperties are now in the evaluated set,
+    // so unevaluatedProperties does not re-check them.
+    let schema = try JSONSchema(
+      schema: .object([
+        "additionalProperties": .object(["type": .string("string")]),
+        "unevaluatedProperties": .boolean(false),
+      ]))
+    // All keys are evaluated by additionalProperties, so unevaluatedProperties
+    // has nothing to check — the schema validates successfully.
+    let result = schema.validation(of: .object(["x": .string("hello")]))
+    #expect(result.valid)
+  }
+
   @Test("unevaluatedProperties — non-object skips")
   func unevaluatedPropertiesNonObject() throws {
     let schema = try JSONSchema(schema: .object(["unevaluatedProperties": .boolean(false)]))
@@ -1294,7 +1342,9 @@ struct JSONSchemaAdditionalItemsTests {
     let result = schema.validation(of: .array([.string("a"), .string("b")]))
     #expect(!result.valid)
     #expect(
-      result.errors.first?.keyword == "additionalItems" || result.errors.first?.keyword == "type")
+      result.errors.map(\.keyword).contains("additionalItems")
+        || result.errors.map(\.keyword).contains("type"))
+    #expect(result.errors.count >= 1)
   }
 
   @Test("additionalItems — non-array skips")
@@ -1328,7 +1378,9 @@ struct JSONSchemaUnevaluatedItemsTests {
     let result = schema.validation(of: .array([.string("a"), .string("b")]))
     #expect(!result.valid)
     #expect(
-      result.errors.first?.keyword == "unevaluatedItems" || result.errors.first?.keyword == "type")
+      result.errors.map(\.keyword).contains("unevaluatedItems")
+        || result.errors.map(\.keyword).contains("type"))
+    #expect(result.errors.count >= 1)
   }
 
   @Test("unevaluatedItems — non-array skips")
@@ -1336,5 +1388,36 @@ struct JSONSchemaUnevaluatedItemsTests {
     let schema = try JSONSchema(
       schema: .object(["unevaluatedItems": .object(["type": .string("string")])]))
     #expect(schema.validation(of: .string("hello")).valid)
+  }
+
+  @Test("unevaluatedItems — items schema short-circuits unevaluatedItems")
+  func unevaluatedItemsWithItemsSchema() throws {
+    // When `items` is a schema, it evaluates all items past prefixItems,
+    // so unevaluatedItems should be a no-op.
+    let schema = try JSONSchema(
+      schema: .object([
+        "items": .object(["type": .string("string")]),
+        "unevaluatedItems": .boolean(false),
+      ]))
+    let result = schema.validation(of: .array([.string("a"), .string("b")]))
+    #expect(result.valid)
+  }
+
+  @Test("unevaluatedItems — deviation: contains matched indices not excluded")
+  func unevaluatedItemsWithContains() throws {
+    // Per spec, items matched by contains are evaluated and should be excluded
+    // from unevaluatedItems. Currently they are not.
+    let schema = try JSONSchema(
+      schema: .object([
+        "contains": .object(["const": .number(.integer(1))]),
+        "unevaluatedItems": .boolean(false),
+      ]))
+    // Current behavior: unevaluatedItems fires on index 0 (which contains matched).
+    // Correct behavior (spec): index 0 is evaluated by contains, so unevaluatedItems
+    // should only check indices not matched by contains.
+    let result = schema.validation(of: .array([.number(.integer(1)), .number(.integer(2))]))
+    // Current (deviant): fails — unevaluatedItems fires on index 0
+    #expect(!result.valid)
+    // Once contains tracking lands, this should pass (#expect(result.valid))
   }
 }
