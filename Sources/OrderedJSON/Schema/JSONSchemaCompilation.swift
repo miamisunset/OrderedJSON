@@ -322,7 +322,10 @@ internal struct CompiledSchema: Hashable, Sendable {
       uriPart = String(parts[0])
       fragmentPart = ""
     } else {
-      return nil
+      // Unreachable: with maxSplits=1 and omittingEmptySubsequences=false,
+      // split always produces 1 or 2 parts. A preconditionFailure here
+      // documents the invariant.
+      preconditionFailure("unexpected parts count from split")
     }
 
     // Determine which resource scope to use
@@ -385,14 +388,14 @@ internal struct CompiledSchema: Hashable, Sendable {
   ///
   /// - Parameters:
   ///   - pointer: The `$dynamicRef` pointer string.
-  ///   - dynamicScope: The current stack of dynamic anchor tuples (name, schema),
+  ///   - dynamicScope: The current stack of dynamic anchor frames (name, schema),
   ///     innermost first.
   ///   - currentResourceURI: The base URI of the resource from which this
   ///     `$dynamicRef` is being resolved.
   /// - Returns: The resolved schema JSON, or `nil` if unresolvable.
   func resolveDynamicRef(
     _ pointer: String,
-    dynamicScope: [(String, JSON)],
+    dynamicScope: [DynamicAnchorFrame],
     currentResourceURI: String = ""
   ) -> JSON? {
     guard pointer.hasPrefix("#") else { return nil }
@@ -406,9 +409,9 @@ internal struct CompiledSchema: Hashable, Sendable {
     }
 
     // Check the dynamic scope stack (innermost first)
-    for (name, target) in dynamicScope.reversed() {
-      if name == anchorName {
-        return target
+    for frame in dynamicScope.reversed() {
+      if frame.name == anchorName {
+        return frame.schema
       }
     }
 

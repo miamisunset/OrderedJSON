@@ -882,7 +882,7 @@ struct CompiledSchemaNestedAnnotationTests {
     let schema = try JSONSchema(
       schema: .object([
         "$id": .string("/root"),
-        "defs": .object([
+        "$defs": .object([
           "A": .object(["type": .string("string")])
         ]),
         "properties": .object([
@@ -936,6 +936,21 @@ struct CompiledSchemaNestedAnnotationTests {
     #expect(!result2.valid)
   }
 
+  @Test("bare URI $ref — unresolvable URI fails")
+  func bareUriRefUnresolvable() throws {
+    let schema = try JSONSchema(
+      schema: .object([
+        "$id": .string("/root"),
+        "properties": .object([
+          "badRef": .object(["$ref": .string("/nonexistent")])
+        ]),
+      ]))
+    // /nonexistent doesn't match any compiled resource, so $ref should fail
+    let result = schema.validation(of: .object(["badRef": .string("hello")]))
+    #expect(!result.valid)
+    #expect(result.errors.first?.keyword == "$ref")
+  }
+
   @Test("cross-resource anchor isolation — #rootAnchor not reachable from /child")
   func crossResourceAnchorIsolation() throws {
     let schema = try JSONSchema(
@@ -953,6 +968,7 @@ struct CompiledSchemaNestedAnnotationTests {
     // anchor named "rootAnchor". The $ref should fail.
     let result = schema.validation(of: .object(["child": .object([:])]))
     #expect(!result.valid)
+    #expect(result.errors.first?.keyword == "$ref")
   }
 
   @Test("external pointer with tail — #/$defs/A/properties/x")

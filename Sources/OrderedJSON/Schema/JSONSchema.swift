@@ -217,7 +217,7 @@ public struct JSONSchema: Hashable, Sendable {
     instancePath: String,
     schemaPath: String,
     errors: inout [JSONSchemaError],
-    ctx: EvaluationContext = EvaluationContext()
+    ctx: EvaluationContext
   ) {
     // Recursion depth guard — prevents stack overflow from deeply nested schemas
     guard ctx.recursionDepth < Self.maxRecursionDepth else {

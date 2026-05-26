@@ -20,7 +20,7 @@ internal struct EvaluationContext: Sendable {
   var currentResourceURI: String
   /// Dynamic scope stack: `$dynamicAnchor` frames encountered during
   /// validation. Innermost frame is last. Each frame is `(name, schema)`.
-  var dynamicScope: [(String, JSON)]
+  var dynamicScope: [DynamicAnchorFrame]
 
   /// Creates a context with default values for top-level validation.
   /// - Parameters:
@@ -30,7 +30,7 @@ internal struct EvaluationContext: Sendable {
   init(
     recursionDepth: Int = 0,
     currentResourceURI: String = "",
-    dynamicScope: [(String, JSON)] = []
+    dynamicScope: [DynamicAnchorFrame] = []
   ) {
     self.recursionDepth = recursionDepth
     self.currentResourceURI = currentResourceURI
@@ -61,7 +61,17 @@ internal struct EvaluationContext: Sendable {
     var next = self
     next.recursionDepth += 1
     next.currentResourceURI = resourceURI
-    next.dynamicScope = dynamicScope + [(name, schema)]
+    next.dynamicScope = dynamicScope + [DynamicAnchorFrame(name: name, schema: schema)]
     return next
   }
+}
+
+// MARK: - Dynamic anchor frame
+
+/// A single `$dynamicAnchor` frame on the dynamic scope stack.
+/// Named tuple that carries `name` and `schema`, enabling `Equatable`/`Hashable`
+/// conformance for future memoization.
+internal struct DynamicAnchorFrame: Sendable, Hashable {
+  let name: String
+  let schema: JSON
 }

@@ -258,13 +258,14 @@ The `recursionDepth` parameter had a default of `0`, so every validator call tha
 - **Relative `$id` resolution (RFC 3986)** — `resolveRelativeID` helper joins nested `$id` values against parent base URI.
 - **Bare URI `$ref`** — `resolveRef` handles pointers without `#` fragment.
 - **`$dynamicRef` resource-scope fallback** — consults `resources[currentResourceURI].dynamicAnchors`.
+- **Review fixes applied** — dropped `ctx: EvaluationContext = EvaluationContext()` defaults from all internal validators, added `DynamicAnchorFrame` struct, fixed `"defs"`→`$defs` typo, added `preconditionFailure` in unreachable split branch, added negative bare-URI test, pinned `crossResourceAnchorIsolation` error keyword.
 
 ### Remaining (deferred)
 - Keyword tree compilation (performance)
 - External-resource loading with resolver callback
 
 ### Tests
-- 9 new tests, 227 total schema tests — all passing, lint clean
+- 10 new tests, 228 total schema tests — all passing, lint clean
 
 ---
 
