@@ -132,39 +132,40 @@ Test file `JSONSchemaTests.swift` (1476 lines) split into:
 - `unevaluatedItems` does not honor `items` (schema mode) or `contains` match indices — items evaluated by those keywords are not excluded; tracked as deviation tests
 - `unevaluatedProperties` does not track evaluation from `additionalProperties` or in-place applicators (`allOf`/`anyOf`/`oneOf`/`if`/`then`/`else`) — tracked as deviation tests
 - `contains` lacks `minContains`/`maxContains` support (Draft 2020-12 extension) — `contains` returns on first match
+- `$ref` sibling-keyword semantics: Draft 2019-09+ allows annotations alongside `$ref`; current impl short-circuits all sibling keywords (safe default, deviating from latest spec)
+- `$ref` cycle detection uses recursion depth limit (100) rather than pointer-set tracking — catches cycles but keyword is `"schema"` not `"$ref"`
+- External `$ref` (remote URIs) not supported — only local `#` pointers
+- `$dynamicRef`/`$dynamicAnchor` not implemented
+- `$defs` for Draft 7 (`definitions` keyword) not supported
+- `$anchor` declared on inner subschemas not collected — only root-level `$anchor` is parsed
+- `$defs` declared on inner subschemas not collected — only root-level `$defs` is parsed
+- `$ref` cycle detection: current depth-limit approach could be improved to track an in-flight set of ref pointers for better diagnostics (keyword: `"schema"` vs `"$ref"`)
 
 ---
 
-## Phase 4 — `$ref` Resolution & Schema Compilation
+## Phase 4a — `$ref` Resolution + `$defs` + `$id`/`$anchor` (✅ Complete)
 
-**Goal**: Resolve `$ref`, `$defs`, `$dynamicRef` and compile schemas for performance.
+**Branch**: `phase-4-ref-resolution`
+**PR**: [#33](https://github.com/miamisunset/OrderedJSON/pull/33)
 
-### Features
+### What shipped
+- `CompiledSchema` struct — parses `$defs`, `$id`, `$anchor` at init time
+- `$ref` resolution — resolves local JSON Pointer references (`#`, `#/$defs/name`) at validation time
+- `JSON.resolve(_:)` — RFC 6901 JSON Pointer implementation
+- `$comment` — ignored during validation
+- Unresolvable `$ref` produces validation error
+- 25 tests, 194 total schema tests
 
-- `$ref` — JSON Pointer reference to another schema or `$defs` entry
-- `$defs` — reusable schema definitions (replaces `definitions` in Draft 7)
-- `$id` — schema identity for URI resolution
-- `$anchor` — local anchor for `$ref` with fragment
-- `$dynamicRef` / `$dynamicAnchor` — dynamic reference for recursive schemas
-- `$comment` — ignore during validation
-- `$schema` — draft detection
-
-### Resolution algorithm
-
-1. Parse `$id` to establish base URI
-2. Resolve `$ref` against base URI (with JSON Pointer fragment)
-3. Follow `$defs` entries for local definitions
-4. For `$dynamicRef`: resolve against the nearest `$dynamicAnchor` in the validation chain
-5. Handle recursive schemas with cycle detection (depth limit)
-
-### Schema compilation
-
-Pre-parse a JSON Schema into a compiled keyword tree:
-- Avoid re-parsing the schema JSON on every validation
-- Each keyword node stores its parsed parameters
-- `$ref` nodes resolve once and cache the target schema
+### Known limitations (deferred to Phase 4b)
+- External `$ref` (remote URIs) not supported
+- `$dynamicRef`/`$dynamicAnchor` not implemented
+- `$id` used for base URI extraction but not for URI resolution
+- Schema compilation (keyword tree) deferred — `$ref` resolved at validation time
+- `$defs` for Draft 7 (`definitions` keyword) not supported
 
 ---
+
+## Phase 4b — `$dynamicRef`/`$dynamicAnchor`, External `$ref`, Schema Compilation
 
 ## Phase 5 — Format Validation
 

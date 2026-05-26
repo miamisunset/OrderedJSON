@@ -49,6 +49,8 @@ public struct JSONSchema: Hashable, Sendable {
   internal let schemaJSON: JSON
   /// The resolved draft version.
   internal let draft: Draft
+  /// The compiled schema with resolved `$ref`, `$defs`, `$id`, `$anchor`.
+  internal let compiled: CompiledSchema?
 
   /// Creates a compiled JSON Schema from a JSON representation.
   ///
@@ -84,8 +86,17 @@ public struct JSONSchema: Hashable, Sendable {
       try JSONSchema.validatePatterns(schema)
     }
 
+    // Compile the schema for $defs, $ref, $id, $anchor support
+    let compiled: CompiledSchema?
+    if schema.isObject {
+      compiled = CompiledSchema(schema: schema)
+    } else {
+      compiled = nil
+    }
+
     self.schemaJSON = schema
     self.draft = resolvedDraft
+    self.compiled = compiled
   }
 
   // MARK: - Draft detection
@@ -157,7 +168,7 @@ public struct JSONSchema: Hashable, Sendable {
     var errors: [JSONSchemaError] = []
     validateValue(
       document, against: schemaJSON, instancePath: "", schemaPath: "",
-      errors: &errors)
+      errors: &errors, recursionDepth: 0)
     if let first = errors.first {
       throw first
     }
@@ -175,7 +186,7 @@ public struct JSONSchema: Hashable, Sendable {
     var errors: [JSONSchemaError] = []
     validateValue(
       document, against: schemaJSON, instancePath: "", schemaPath: "",
-      errors: &errors)
+      errors: &errors, recursionDepth: 0)
     return JSONSchemaResult(valid: errors.isEmpty, errors: errors)
   }
 
@@ -188,20 +199,37 @@ public struct JSONSchema: Hashable, Sendable {
     var errors: [JSONSchemaError] = []
     validateValue(
       document, against: schemaJSON, instancePath: "", schemaPath: "",
-      errors: &errors)
+      errors: &errors, recursionDepth: 0)
     return errors.isEmpty
   }
 
   // MARK: - Core validation
 
   /// Validates a single value against a subschema, collecting errors.
+  /// Maximum recursion depth for schema validation.
+  /// Prevents stack overflow from deeply nested or circular schemas.
+  private static let maxRecursionDepth = 100
+
   internal func validateValue(
     _ value: JSON,
     against subschema: JSON,
     instancePath: String,
     schemaPath: String,
-    errors: inout [JSONSchemaError]
+    errors: inout [JSONSchemaError],
+    recursionDepth: Int = 0
   ) {
+    // Recursion depth guard — prevents stack overflow from deeply nested schemas
+    guard recursionDepth < Self.maxRecursionDepth else {
+      errors.append(
+        JSONSchemaError(
+          instancePath: instancePath, schemaPath: schemaPath,
+          keyword: "schema",
+          message: "maximum recursion depth exceeded"))
+      return
+    }
+
+    let nextDepth = recursionDepth + 1
+
     if let boolVal = subschema.boolValue {
       if !boolVal {
         errors.append(
@@ -212,6 +240,24 @@ public struct JSONSchema: Hashable, Sendable {
       return
     }
     guard subschema.isObject else { return }
+
+    // Resolve $ref before processing keywords — $ref replaces the entire
+    // subschema per spec (sibling keywords are ignored alongside $ref).
+    if let refStr = subschema["$ref"]?.stringValue {
+      if let target = compiled?.resolveRef(refStr) {
+        validateValue(
+          value, against: target, instancePath: instancePath,
+          schemaPath: schemaPath + "/$ref", errors: &errors,
+          recursionDepth: nextDepth)
+      } else {
+        errors.append(
+          JSONSchemaError(
+            instancePath: instancePath, schemaPath: schemaPath + "/$ref",
+            keyword: "$ref",
+            message: "unresolvable reference: '\(refStr)'"))
+      }
+      return
+    }
 
     validateType(
       value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
