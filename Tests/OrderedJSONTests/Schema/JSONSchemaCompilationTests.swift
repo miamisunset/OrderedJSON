@@ -309,9 +309,11 @@ struct JSONSchemaDynamicRefTests {
 
   @Test("$dynamicRef — recursive schema via $defs")
   func dynamicRefRecursive() throws {
-    // A recursive schema where a node can contain a child node.
-    // Dynamic scope propagates through keyword validators, enabling
-    // recursive validation via $dynamicRef/$dynamicAnchor.
+    // Canonical recursive schema pattern: a node can contain a child node
+    // of the same type. $dynamicRef/$dynamicAnchor enables this by
+    // propagating the dynamic scope through keyword validators.
+    // Instance recursion terminates because deeper nodes don't have a
+    // "child" key — no further validation is needed.
     let schema = try JSONSchema(
       schema: .object([
         "$defs": .object([

@@ -208,6 +208,7 @@ public struct JSONSchema: Hashable, Sendable {
   /// Validates a single value against a subschema, collecting errors.
   /// Maximum recursion depth for schema validation.
   /// Prevents stack overflow from deeply nested or circular schemas.
+  /// Conservative; revisit if OpenAPI/AsyncAPI corpora hit the wall.
   private static let maxRecursionDepth = 20
 
   internal func validateValue(

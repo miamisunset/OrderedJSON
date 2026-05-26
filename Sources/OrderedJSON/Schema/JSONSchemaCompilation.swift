@@ -102,7 +102,10 @@ internal struct CompiledSchema: Hashable, Sendable {
   ) -> JSON? {
     guard pointer.hasPrefix("#") else { return nil }
 
-    // Extract the anchor name (the fragment after #)
+    // Extract the anchor name (the fragment after #).
+    // Bare "#" means root pointer (RFC 6901), not a dynamic anchor —
+    // it won't match any declared $dynamicAnchor and falls through
+    // to static $anchor resolution.
     let anchorName: String
     if pointer == "#" {
       anchorName = ""
