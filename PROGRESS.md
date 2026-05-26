@@ -591,3 +591,22 @@ Split `JSONSchemaTests.swift` (1476 lines) into:
 - Dynamic scope doesn't propagate through keyword validators
 - Only root-level `$dynamicAnchor` collected
 - Self-reference guard prevents recursive schemas from working
+
+### Phase 4b — `$dynamicRef` / `$dynamicAnchor` (✅ Merged, PR #34)
+
+### What shipped
+- `$dynamicAnchor` parsed at init into `CompiledSchema.dynamicAnchors`
+- `$dynamicRef` resolved against dynamic scope stack at validation time
+- Dynamic scope propagates through ALL keyword validators
+- Recursion depth tracking propagates through ALL keyword validators (bug fix)
+- Tuple scope frames (`[(String, JSON)]`) instead of `[OrderedDictionary<String, JSON>]`
+- Self-reference guard removed — depth guard handles cycles
+- `maxRecursionDepth` set to 20 (conservative)
+
+### Bug fix: depth tracking through validators
+The `recursionDepth` parameter had a default of `0`, so every validator call that invoked `validateValue` reset depth tracking. Composition keywords (`allOf`, `anyOf`, `oneOf`) and property validators called `validateValue` with depth=0, defeating the recursion guard and causing stack overflow (SIGBUS). Fixed by threading `recursionDepth` and `dynamicScope` through all 34 validator call sites. Internal validators now require explicit `recursionDepth: Int` (no default) — compiler catches missing propagation.
+
+### Tests
+- 6 new tests: self-referential depth guard, fallback to `$anchor`, unresolvable, compiled storage, recursive schema (positive case), allOf cycle
+- Recursive schema test (`$defs/node` with `$dynamicRef` inside `properties`) now passes
+- 194 total schema tests — all passing, lint clean

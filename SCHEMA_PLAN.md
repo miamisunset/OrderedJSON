@@ -167,25 +167,30 @@ Test file `JSONSchemaTests.swift` (1476 lines) split into:
 
 ## Phase 4b — `$dynamicRef`/`$dynamicAnchor` (✅ Complete)
 
-**Branch**: `phase-4b-dynamic-ref`
 **PR**: [#34](https://github.com/miamisunset/OrderedJSON/pull/34)
 
 ### What shipped
 - `$dynamicAnchor` parsed at init into `CompiledSchema.dynamicAnchors`
 - `$dynamicRef` resolved against dynamic scope stack at validation time
-- Self-reference guard prevents infinite recursion
-- Fallback chain: dynamic scope → schema's `$dynamicAnchors` → static `$anchor`
-- Recursion depth limit reduced to 20
-- 5 tests, 193 total schema tests
+- Dynamic scope propagates through ALL keyword validators
+- Recursion depth tracking propagates through ALL keyword validators
+- Tuple scope frames (`[(String, JSON)]`) instead of `[OrderedDictionary<String, JSON>]`
+- Self-reference guard removed — depth guard handles cycles
+- `maxRecursionDepth` set to 20 (conservative)
+- Internal validators require explicit `recursionDepth: Int` (no default)
+- 6 tests, 194 total schema tests
 
-### Known limitations (deferred to later)
-- Dynamic scope doesn't propagate through keyword validators
-- Only root-level `$dynamicAnchor` collected
-- Self-reference guard prevents recursive schemas from working
+### Bug fix: depth tracking through validators
+The `recursionDepth` parameter had a default of `0`, so every validator call that invoked `validateValue` reset depth tracking. Composition keywords and property validators called `validateValue` with depth=0, defeating the recursion guard and causing stack overflow. Fixed by threading `recursionDepth` and `dynamicScope` through all 34 validator call sites.
+
+### Deviations updated
+- Self-reference guard removed — no longer a deviation
+- Dynamic scope propagation — no longer a deviation
+- Recursive schemas work — canonical `$defs/node` pattern passes
 
 ---
 
-## Phase 4c — External `$ref`, Schema Compilation, Nested `$defs`/`$anchor`
+## Phase 4c — External `$ref`, Schema Compilation Keyword Tree, Nested `$defs`/`$anchor`
 
 ## Phase 5 — Format Validation
 
