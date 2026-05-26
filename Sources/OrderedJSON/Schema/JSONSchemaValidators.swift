@@ -623,7 +623,8 @@ extension JSONSchema {
     dict: OrderedDictionary<String, JSON>,
     instancePath: String,
     schemaPath: String,
-    ctx: EvaluationContext
+    ctx: EvaluationContext,
+    includeUnevaluatedProperties: Bool = false
   ) -> Set<String> {
     var keys = evaluatedPropertyKeys(for: subschema, from: dict, includeAdditionalProperties: true)
 
@@ -631,7 +632,8 @@ extension JSONSchema {
     if let allOf = subschema["allOf"], allOf.isArray {
       for sub in allOf {
         let subKeys = evaluatedPropertyKeysRecursive(for: sub, dict: dict,
-          instancePath: instancePath, schemaPath: schemaPath, ctx: ctx)
+          instancePath: instancePath, schemaPath: schemaPath, ctx: ctx,
+          includeUnevaluatedProperties: true)
         keys.formUnion(subKeys)
       }
     }
@@ -645,7 +647,8 @@ extension JSONSchema {
           schemaPath: schemaPath + "/anyOf", errors: &subErrors, ctx: ctx)
         if subErrors.isEmpty {
           let subKeys = evaluatedPropertyKeysRecursive(for: sub, dict: dict,
-            instancePath: instancePath, schemaPath: schemaPath, ctx: ctx)
+            instancePath: instancePath, schemaPath: schemaPath, ctx: ctx,
+            includeUnevaluatedProperties: true)
           keys.formUnion(subKeys)
         }
       }
@@ -660,7 +663,8 @@ extension JSONSchema {
           schemaPath: schemaPath + "/oneOf", errors: &subErrors, ctx: ctx)
         if subErrors.isEmpty {
           let subKeys = evaluatedPropertyKeysRecursive(for: sub, dict: dict,
-            instancePath: instancePath, schemaPath: schemaPath, ctx: ctx)
+            instancePath: instancePath, schemaPath: schemaPath, ctx: ctx,
+            includeUnevaluatedProperties: true)
           keys.formUnion(subKeys)
         }
       }
@@ -675,19 +679,32 @@ extension JSONSchema {
       if ifErrors.isEmpty {
         if let thenSchema = subschema["then"] {
           let thenKeys = evaluatedPropertyKeysRecursive(for: thenSchema, dict: dict,
-            instancePath: instancePath, schemaPath: schemaPath, ctx: ctx)
+            instancePath: instancePath, schemaPath: schemaPath, ctx: ctx,
+            includeUnevaluatedProperties: true)
           keys.formUnion(thenKeys)
         }
       } else {
         if let elseSchema = subschema["else"] {
           let elseKeys = evaluatedPropertyKeysRecursive(for: elseSchema, dict: dict,
-            instancePath: instancePath, schemaPath: schemaPath, ctx: ctx)
+            instancePath: instancePath, schemaPath: schemaPath, ctx: ctx,
+            includeUnevaluatedProperties: true)
           keys.formUnion(elseKeys)
         }
       }
       let ifKeys = evaluatedPropertyKeysRecursive(for: ifSchema, dict: dict,
-        instancePath: instancePath, schemaPath: schemaPath, ctx: ctx)
+        instancePath: instancePath, schemaPath: schemaPath, ctx: ctx,
+        includeUnevaluatedProperties: true)
       keys.formUnion(ifKeys)
+    }
+
+    // unevaluatedProperties: when called from composition keyword context,
+    // keys validated by unevaluatedProperties are also considered evaluated.
+    if includeUnevaluatedProperties, let _ = subschema["unevaluatedProperties"] {
+      for (key, _) in dict {
+        if !keys.contains(key) {
+          keys.insert(key)
+        }
+      }
     }
 
     return keys
