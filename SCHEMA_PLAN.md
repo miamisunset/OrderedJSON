@@ -340,27 +340,53 @@ schema.formatOptions = opts
 
 ---
 
-## Phase 7 — Output & Error Reporting
+## Phase 7 — Output & Error Reporting (✅ Complete)
+
+**Branch**: `phase-7-output-error-reporting`
 
 **Goal**: Rich error messages with schema path tracking.
 
-### Output modes
+### What shipped
 
-- **Basic** (default): flat list of errors with path, keyword, message
-- **Verbose**: hierarchical errors showing which schema keyword failed at which path
+#### Error detail
+`JSONSchemaError` now includes optional `failedValue: JSON?` and `parentSchema: JSON?` properties (defaults to `nil` for backward compatibility).
 
-### Error detail
+#### Output modes
 
-```swift
-struct JSONSchemaError: Error, Hashable, Sendable {
-    let instancePath: String      // JSON Pointer to the failing value
-    let schemaPath: String        // JSON Pointer into the schema
-    let keyword: String           // e.g. "type", "minimum", "required"
-    let message: String           // Human-readable message
-    let failedValue: JSON?        // The value that failed (optional)
-    let parentSchema: JSON?       // The schema that produced this error (optional)
-}
-```
+- **`OutputMode.basic`** (default): flat list of errors with path, keyword, message — unchanged behavior
+- **`OutputMode.verbose`**: hierarchical error trees via `VerboseResult` and `VerboseError` structs
+
+#### New types
+
+| Type | Purpose |
+|------|---------|
+| `OutputMode` | Enum on `JSONSchema` with `.basic` / `.verbose` cases |
+| `VerboseError` | Hierarchical error with `error: JSONSchemaError` + `children: [VerboseError]` |
+| `VerboseResult` | Result wrapper with both flat `errors` and `verboseErrors` trees |
+
+#### New API
+
+- `JSONSchema(outputMode:)` — init parameter, defaults to `.basic`
+- `schema.verboseValidation(of:)` — returns `VerboseResult` with hierarchical errors
+- `buildVerboseErrors(from:)` — groups flat errors by first schema-path segment
+
+#### Tests
+
+12 new tests covering:
+- OutputMode default and verbose setting
+- Error `failedValue`/`parentSchema` (nil default, set values, Hashable)
+- VerboseResult flat/hierarchical errors, throwIfInvalid
+- VerboseError description with/without children
+- buildVerboseErrors grouping behavior
+
+### Files changed
+
+| File | Change |
+|------|--------|
+| `JSONSchemaError.swift` | Added `failedValue` and `parentSchema` (optional, default nil) |
+| `JSONSchemaOutput.swift` | New file: `VerboseError`, `VerboseResult`, `OutputMode` |
+| `JSONSchema.swift` | Added `OutputMode` enum, `outputMode` property, `validation(of:)` returns `VerboseResult`, `buildVerboseErrors` |
+| `JSONSchemaCoreTests.swift` | 12 new output/verbose tests |
 
 ---
 
@@ -490,8 +516,11 @@ Draft 7 uses these as boolean modifiers on `minimum`/`maximum`. Draft 2020-12 us
 ### 5. String length: code points vs grapheme clusters
 `minLength`/`maxLength` use `unicodeScalars.count` (code points per RFC 8259). Grapheme clusters (e.g. emoji sequences) may have multiple code points but count as 1 grapheme. This is spec-compliant.
 
-### 6. Schema compilation
+### 7. Schema compilation
 Currently the schema JSON is held as-is and walked on each `validate()` call. Pattern regexes are pre-compiled at init time. Full compiled keyword tree optimization is deferred to Phase 4/10.
 
-### 6. Output format
-Phase 1 uses a flat error list (`JSONSchemaResult.errors`). The official JSON Schema Output Format (basic/verbose) will be implemented in Phase 7.
+### 8. Output format
+Phase 1 used a flat error list (`JSONSchemaResult.errors`). Phase 7 implemented `VerboseResult` with hierarchical errors via `outputMode`. The `buildVerboseErrors` grouping is a heuristic (groups by first schema-path segment) rather than true keyword-context tracking. A proper implementation would thread keyword context through all 34 validators — deferred to a future optimization phase.
+
+### 9. `buildVerboseErrors` heuristic (deferred)
+`buildVerboseErrors` groups flat errors by their first schema-path segment rather than tracking keyword context during validation. This works well for composition keywords (`allOf`/`anyOf`/`oneOf`) but may produce flat groups for deeply nested schemas. Fix: thread keyword context through all validators and build the hierarchy at error collection time. Deferred to Phase 10 (Performance Optimization).

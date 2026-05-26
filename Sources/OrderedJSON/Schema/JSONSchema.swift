@@ -54,6 +54,21 @@ public struct JSONSchema: Hashable, Sendable {
   /// Options for format validation (which formats to enable/disable).
   internal let formatOptions: JSONSchemaFormatOptions
 
+  /// The output mode for validation results.
+  internal let outputMode: OutputMode
+
+  /// Controls the detail level of validation results.
+  ///
+  /// - `.basic` (default): flat list of errors with path, keyword, message.
+  /// - `.verbose`: hierarchical errors grouped by schema path, with failed
+  ///   value and parent schema information.
+  public enum OutputMode: Hashable, Sendable {
+    /// Flat list of errors with instance path, schema path, keyword, message.
+    case basic
+    /// Hierarchical errors with nested sub-errors for composition keywords.
+    case verbose
+  }
+
   /// Creates a compiled JSON Schema from a JSON representation.
   ///
   /// The schema JSON is validated internally — malformed schemas (e.g., invalid
@@ -63,10 +78,12 @@ public struct JSONSchema: Hashable, Sendable {
   ///   - schema: The JSON representation of the schema.
   ///   - draft: The draft version to use. Defaults to `.auto`.
   ///   - formatOptions: Options for format validation. Defaults to all enabled.
+  ///   - outputMode: The output mode for validation results. Defaults to `.basic`.
   /// - Throws: `JSONSchemaError` if the schema itself is invalid.
   public init(
     schema: JSON, draft: Draft = .auto,
-    formatOptions: JSONSchemaFormatOptions = JSONSchemaFormatOptions()
+    formatOptions: JSONSchemaFormatOptions = JSONSchemaFormatOptions(),
+    outputMode: OutputMode = .basic
   ) throws {
     // Detect draft from $schema if auto
     let resolvedDraft: Draft
@@ -104,6 +121,7 @@ public struct JSONSchema: Hashable, Sendable {
     self.draft = resolvedDraft
     self.compiled = compiled
     self.formatOptions = formatOptions
+    self.outputMode = outputMode
   }
 
   // MARK: - Draft detection
@@ -185,16 +203,27 @@ public struct JSONSchema: Hashable, Sendable {
   /// Validates a JSON document against this schema and returns a result
   /// containing **all** validation errors (if any). Does **not** throw.
   ///
-  /// Use this when you need to inspect every error rather than fail-fast.
+  /// When `outputMode` is `.verbose`, the result includes hierarchical
+  /// error trees via `verboseErrors`. Use `VerboseResult.errors` for a
+  /// flat list regardless of mode.
   ///
   /// - Parameter document: The JSON document to validate.
-  /// - Returns: A `JSONSchemaResult` with all errors collected.
-  public func validation(of document: JSON) -> JSONSchemaResult {
+  /// - Returns: A `VerboseResult` with all errors collected.
+  public func validation(of document: JSON) -> VerboseResult {
     var errors: [JSONSchemaError] = []
     validateValue(
       document, against: schemaJSON, instancePath: "", schemaPath: "",
       errors: &errors, ctx: EvaluationContext())
-    return JSONSchemaResult(valid: errors.isEmpty, errors: errors)
+    let verboseErrors: [VerboseError]
+    if outputMode == .verbose {
+      verboseErrors = buildVerboseErrors(from: errors)
+    } else {
+      verboseErrors = []
+    }
+    return VerboseResult(
+      valid: errors.isEmpty,
+      errors: errors,
+      verboseErrors: verboseErrors)
   }
 
   /// Checks whether a JSON document is valid against this schema.
@@ -208,6 +237,51 @@ public struct JSONSchema: Hashable, Sendable {
       document, against: schemaJSON, instancePath: "", schemaPath: "",
       errors: &errors, ctx: EvaluationContext())
     return errors.isEmpty
+  }
+
+  // MARK: - Verbose output
+
+  /// Builds hierarchical error trees from a flat list of errors.
+  /// Groups errors by their first schema path segment (e.g., `/allOf`,
+  /// `/properties/name`), nesting child errors under their parent.
+  ///
+  /// Within each group, the error whose keyword best matches the group
+  /// key (e.g., keyword `"allOf"` for group `allOf`) is used as the parent.
+  /// If no keyword matches, the first error alphabetically is used.
+  internal func buildVerboseErrors(from errors: [JSONSchemaError]) -> [VerboseError] {
+    // Group errors by their first schema-path segment
+    var groups: [String: [JSONSchemaError]] = [:]
+    for error in errors {
+      let segments = error.schemaPath.split(separator: "/", omittingEmptySubsequences: true)
+      let groupKey: String
+      if let first = segments.first {
+        groupKey = String(first)
+      } else {
+        groupKey = ""
+      }
+      groups[groupKey, default: []].append(error)
+    }
+
+    // Sort groups by schema path for deterministic output
+    let sortedKeys = groups.keys.sorted()
+    var result: [VerboseError] = []
+    for key in sortedKeys {
+      let groupErrors = groups[key]!
+      // Prefer an error whose keyword matches the group key as parent.
+      // This ensures composition keyword errors (e.g., keyword "allOf"
+      // for group "allOf") are used as the parent when present.
+      let parentIndex = groupErrors.firstIndex(where: { $0.keyword == key }) ?? 0
+      let parent = groupErrors[parentIndex]
+      let children = groupErrors.enumerated().filter { $0.offset != parentIndex }.map {
+        VerboseError(error: $0.element)
+      }
+      if children.isEmpty {
+        result.append(VerboseError(error: parent))
+      } else {
+        result.append(VerboseError(error: parent, children: children))
+      }
+    }
+    return result
   }
 
   // MARK: - Core validation
