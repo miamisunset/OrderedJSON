@@ -207,12 +207,19 @@ extension JSONSchema {
     guard let mDouble = mVal.floatValue, let valDouble = value.floatValue else { return }
     if mDouble > 0 {
       let ratio = valDouble / mDouble
-      let rounded = ratio.rounded(.towardZero)
-      let diff = abs(ratio - rounded)
-      let epsilon = max(1e-12 * ratio, 1e-12)
-      if diff > epsilon { errors.append(JSONSchemaError(
-        instancePath: instancePath, schemaPath: schemaPath + "/multipleOf",
-        keyword: "multipleOf", message: "\(valDouble) is not a multiple of \(mDouble)")) }
+      if !ratio.isFinite {
+        // Division overflowed — the value cannot be an exact multiple
+        errors.append(JSONSchemaError(
+          instancePath: instancePath, schemaPath: schemaPath + "/multipleOf",
+          keyword: "multipleOf", message: "\(valDouble) is not a multiple of \(mDouble)"))
+      } else {
+        let rounded = ratio.rounded(.towardZero)
+        let diff = abs(ratio - rounded)
+        let epsilon = max(1e-12 * ratio, 1e-12)
+        if diff > epsilon { errors.append(JSONSchemaError(
+          instancePath: instancePath, schemaPath: schemaPath + "/multipleOf",
+          keyword: "multipleOf", message: "\(valDouble) is not a multiple of \(mDouble)")) }
+      }
     }
   }
 
@@ -461,15 +468,23 @@ extension JSONSchema {
     errors: inout [JSONSchemaError], ctx: EvaluationContext
   ) {
     guard let containsSchema = subschema["contains"], let arr = value.arrayValue else { return }
+    // When minContains is 0, contains imposes no constraint (Draft 2020-12).
+    let minContains = subschema["minContains"]?.intValue
+    if let minC = minContains, minC == 0 { return }
+    let required = minContains ?? 1
+    var matchCount = 0
     for item in arr {
       var itemErrors: [JSONSchemaError] = []
       validateValue(item, against: containsSchema, instancePath: instancePath,
         schemaPath: schemaPath + "/contains", errors: &itemErrors, ctx: ctx)
-      if itemErrors.isEmpty { return }
+      if itemErrors.isEmpty {
+        matchCount += 1
+        if matchCount >= required { return }
+      }
     }
     errors.append(JSONSchemaError(
       instancePath: instancePath, schemaPath: schemaPath + "/contains", keyword: "contains",
-      message: "array does not contain an item matching the subschema"))
+      message: "array does not contain \(required) item(s) matching the subschema"))
   }
 
   // MARK: - Object keywords (shared)
@@ -598,11 +613,83 @@ extension JSONSchema {
     if includeAdditionalProperties, subschema["additionalProperties"] != nil {
       for (key, _) in dict { keys.insert(key) }
     }
-    if let depSchemas = subschema["dependentSchemas"], depSchemas.isObject {
-      guard case .object(let depDict) = depSchemas.storage else {
-        preconditionFailure("dependentSchemas.isObject was true but storage pattern match failed") }
-      for (key, _) in depDict { if dict[key] != nil { keys.insert(key) } }
+    return keys
+  }
+
+  /// Recursively computes the set of property keys that a schema (including
+  /// its composition keywords) evaluates for the given object data.
+  internal func evaluatedPropertyKeysRecursive(
+    for subschema: JSON,
+    dict: OrderedDictionary<String, JSON>,
+    instancePath: String,
+    schemaPath: String,
+    ctx: EvaluationContext
+  ) -> Set<String> {
+    var keys = evaluatedPropertyKeys(for: subschema, from: dict, includeAdditionalProperties: true)
+
+    // allOf: union of all subschemas' evaluated keys
+    if let allOf = subschema["allOf"], allOf.isArray {
+      for sub in allOf {
+        let subKeys = evaluatedPropertyKeysRecursive(for: sub, dict: dict,
+          instancePath: instancePath, schemaPath: schemaPath, ctx: ctx)
+        keys.formUnion(subKeys)
+      }
     }
+
+    // anyOf: union of matching subschemas' evaluated keys
+    if let anyOf = subschema["anyOf"], anyOf.isArray {
+      let objectValue = JSON(dict)
+      for sub in anyOf {
+        var subErrors: [JSONSchemaError] = []
+        validateValue(objectValue, against: sub, instancePath: instancePath,
+          schemaPath: schemaPath + "/anyOf", errors: &subErrors, ctx: ctx)
+        if subErrors.isEmpty {
+          let subKeys = evaluatedPropertyKeysRecursive(for: sub, dict: dict,
+            instancePath: instancePath, schemaPath: schemaPath, ctx: ctx)
+          keys.formUnion(subKeys)
+        }
+      }
+    }
+
+    // oneOf: union of matching subschemas' evaluated keys
+    if let oneOf = subschema["oneOf"], oneOf.isArray {
+      let objectValue = JSON(dict)
+      for sub in oneOf {
+        var subErrors: [JSONSchemaError] = []
+        validateValue(objectValue, against: sub, instancePath: instancePath,
+          schemaPath: schemaPath + "/oneOf", errors: &subErrors, ctx: ctx)
+        if subErrors.isEmpty {
+          let subKeys = evaluatedPropertyKeysRecursive(for: sub, dict: dict,
+            instancePath: instancePath, schemaPath: schemaPath, ctx: ctx)
+          keys.formUnion(subKeys)
+        }
+      }
+    }
+
+    // if/then/else: match-check branch, then take that branch's evaluated keys
+    if let ifSchema = subschema["if"] {
+      var ifErrors: [JSONSchemaError] = []
+      let objectValue = JSON(dict)
+      validateValue(objectValue, against: ifSchema, instancePath: instancePath,
+        schemaPath: schemaPath + "/if", errors: &ifErrors, ctx: ctx)
+      if ifErrors.isEmpty {
+        if let thenSchema = subschema["then"] {
+          let thenKeys = evaluatedPropertyKeysRecursive(for: thenSchema, dict: dict,
+            instancePath: instancePath, schemaPath: schemaPath, ctx: ctx)
+          keys.formUnion(thenKeys)
+        }
+      } else {
+        if let elseSchema = subschema["else"] {
+          let elseKeys = evaluatedPropertyKeysRecursive(for: elseSchema, dict: dict,
+            instancePath: instancePath, schemaPath: schemaPath, ctx: ctx)
+          keys.formUnion(elseKeys)
+        }
+      }
+      let ifKeys = evaluatedPropertyKeysRecursive(for: ifSchema, dict: dict,
+        instancePath: instancePath, schemaPath: schemaPath, ctx: ctx)
+      keys.formUnion(ifKeys)
+    }
+
     return keys
   }
 
@@ -836,43 +923,191 @@ extension JSONSchema {
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
     errors: inout [JSONSchemaError], ctx: EvaluationContext
   ) {
-    guard let items = subschema["items"], items.isObject, let arr = value.arrayValue else { return }
+    guard let items = subschema["items"], let arr = value.arrayValue else { return }
     let prefixCount: Int
     if let prefixItems = subschema["prefixItems"], prefixItems.isArray {
       prefixCount = prefixItems.arrayValue?.count ?? 0
     } else { prefixCount = 0 }
     let remaining = arr.dropFirst(prefixCount)
-    for (index, item) in remaining.enumerated() {
-      let actualIndex = index + prefixCount
-      validateValue(item, against: items,
-        instancePath: instancePath.isEmpty ? String(actualIndex) : instancePath + "/" + String(actualIndex),
-        schemaPath: schemaPath + "/items", errors: &errors, ctx: ctx)
+    if items.isObject {
+      for (index, item) in remaining.enumerated() {
+        let actualIndex = index + prefixCount
+        validateValue(item, against: items,
+          instancePath: instancePath.isEmpty ? String(actualIndex) : instancePath + "/" + String(actualIndex),
+          schemaPath: schemaPath + "/items", errors: &errors, ctx: ctx)
+      }
+    } else if let boolVal = items.boolValue {
+      if !boolVal {
+        for (index, item) in remaining.enumerated() {
+          let actualIndex = index + prefixCount
+          validateValue(item, against: items,
+            instancePath: instancePath.isEmpty ? String(actualIndex) : instancePath + "/" + String(actualIndex),
+            schemaPath: schemaPath + "/items", errors: &errors, ctx: ctx)
+        }
+      }
+      // If items is true, all remaining items pass (no validation needed)
     }
+  }
+
+  // MARK: - Evaluation tracking helpers
+
+  /// Recursively computes the set of item indices that a schema (including
+  /// its composition keywords) evaluates for the given array data.
+  ///
+  /// Examines `prefixItems`, `items`, `contains`, and in-place applicators
+  /// (`allOf`, `anyOf`, `oneOf`, `if`/`then`/`else`) to determine which
+  /// indices are considered evaluated.
+  internal func evaluatedItemIndices(
+    for subschema: JSON,
+    data: [JSON],
+    instancePath: String,
+    schemaPath: String,
+    ctx: EvaluationContext,
+    includeUnevaluatedItems: Bool = false
+  ) -> Set<Int> {
+    var indices: Set<Int> = []
+
+    // prefixItems: indices 0..<count are evaluated
+    if let prefixItems = subschema["prefixItems"], prefixItems.isArray {
+      let count = prefixItems.arrayValue?.count ?? 0
+      for i in 0..<min(count, data.count) {
+        indices.insert(i)
+      }
+    }
+
+    // items: if a schema, all remaining indices are evaluated
+    if let items = subschema["items"] {
+      if items.isObject {
+        let prefixCount = subschema["prefixItems"]?.arrayValue?.count ?? 0
+        for i in prefixCount..<data.count {
+          indices.insert(i)
+        }
+      } else if let boolVal = items.boolValue, boolVal {
+        let prefixCount = subschema["prefixItems"]?.arrayValue?.count ?? 0
+        for i in prefixCount..<data.count {
+          indices.insert(i)
+        }
+      }
+    }
+
+    // contains: matching items are evaluated
+    if let containsSchema = subschema["contains"] {
+      let prefixCount = subschema["prefixItems"]?.arrayValue?.count ?? 0
+      for i in 0..<prefixCount {
+        indices.insert(i)
+      }
+      for i in prefixCount..<data.count {
+        var itemErrors: [JSONSchemaError] = []
+        validateValue(data[i], against: containsSchema,
+          instancePath: instancePath.isEmpty ? String(i) : instancePath + "/" + String(i),
+          schemaPath: schemaPath + "/contains", errors: &itemErrors, ctx: ctx)
+        if itemErrors.isEmpty {
+          indices.insert(i)
+        }
+      }
+    }
+
+    // allOf: union of all subschemas' evaluated indices
+    if let allOf = subschema["allOf"], allOf.isArray {
+      for sub in allOf {
+        let subIndices = evaluatedItemIndices(for: sub, data: data,
+          instancePath: instancePath, schemaPath: schemaPath, ctx: ctx,
+          includeUnevaluatedItems: true)
+        indices.formUnion(subIndices)
+      }
+    }
+
+    // anyOf: union of matching subschemas' evaluated indices
+    if let anyOf = subschema["anyOf"], anyOf.isArray {
+      let arrayValue = JSON(data)
+      for sub in anyOf {
+        var subErrors: [JSONSchemaError] = []
+        validateValue(arrayValue, against: sub, instancePath: instancePath,
+          schemaPath: schemaPath + "/anyOf", errors: &subErrors, ctx: ctx)
+        if subErrors.isEmpty {
+          let subIndices = evaluatedItemIndices(for: sub, data: data,
+            instancePath: instancePath, schemaPath: schemaPath, ctx: ctx,
+            includeUnevaluatedItems: true)
+          indices.formUnion(subIndices)
+        }
+      }
+    }
+
+    // oneOf: union of matching subschemas' evaluated indices
+    if let oneOf = subschema["oneOf"], oneOf.isArray {
+      let arrayValue = JSON(data)
+      for sub in oneOf {
+        var subErrors: [JSONSchemaError] = []
+        validateValue(arrayValue, against: sub, instancePath: instancePath,
+          schemaPath: schemaPath + "/oneOf", errors: &subErrors, ctx: ctx)
+        if subErrors.isEmpty {
+          let subIndices = evaluatedItemIndices(for: sub, data: data,
+            instancePath: instancePath, schemaPath: schemaPath, ctx: ctx,
+            includeUnevaluatedItems: true)
+          indices.formUnion(subIndices)
+        }
+      }
+    }
+
+    // if/then/else: match-check branch, then take that branch's evaluated indices
+    if let ifSchema = subschema["if"] {
+      var ifErrors: [JSONSchemaError] = []
+      let arrayValue = JSON(data)
+      validateValue(arrayValue, against: ifSchema, instancePath: instancePath,
+        schemaPath: schemaPath + "/if", errors: &ifErrors, ctx: ctx)
+      if ifErrors.isEmpty {
+        if let thenSchema = subschema["then"] {
+          let thenIndices = evaluatedItemIndices(for: thenSchema, data: data,
+            instancePath: instancePath, schemaPath: schemaPath, ctx: ctx,
+            includeUnevaluatedItems: true)
+          indices.formUnion(thenIndices)
+        }
+      } else {
+        if let elseSchema = subschema["else"] {
+          let elseIndices = evaluatedItemIndices(for: elseSchema, data: data,
+            instancePath: instancePath, schemaPath: schemaPath, ctx: ctx,
+            includeUnevaluatedItems: true)
+          indices.formUnion(elseIndices)
+        }
+      }
+      let ifIndices = evaluatedItemIndices(for: ifSchema, data: data,
+        instancePath: instancePath, schemaPath: schemaPath, ctx: ctx,
+        includeUnevaluatedItems: true)
+      indices.formUnion(ifIndices)
+    }
+
+    // unevaluatedItems: when called from composition keyword context,
+    // items validated by unevaluatedItems are also considered evaluated.
+    if includeUnevaluatedItems, let _ = subschema["unevaluatedItems"] {
+      for i in 0..<data.count {
+        if !indices.contains(i) {
+          indices.insert(i)
+        }
+      }
+    }
+
+    return indices
   }
 
   // MARK: - Keyword: unevaluatedItems
 
   /// Validates `unevaluatedItems` (Draft 2020-12) — schema for items not
-  /// evaluated by `prefixItems`, `items`, or `contains`.
-  ///
-  /// - Note: If `items` is present as a schema, all items past `prefixItems`
-  ///   are evaluated by `items`, making `unevaluatedItems` a no-op.
-  /// - Todo: Track `contains` match indices — items matched by `contains`
-  ///   are also evaluated and should be excluded from `unevaluatedItems`.
-  /// - Todo: Track items evaluated by in-place applicators (allOf, anyOf,
-  ///   oneOf, if/then/else) — their evaluated indices should also be excluded.
+  /// evaluated by `prefixItems`, `items`, `contains`, or in-place
+  /// applicators (`allOf`, `anyOf`, `oneOf`, `if`/`then`/`else`).
   internal func validateUnevaluatedItems(
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
     errors: inout [JSONSchemaError], ctx: EvaluationContext
   ) {
     guard let unevaluated = subschema["unevaluatedItems"], let arr = value.arrayValue else { return }
+    // If items is a schema (not boolean), all items past prefixItems are
+    // evaluated — unevaluatedItems doesn't apply.
     if let items = subschema["items"], items.isObject { return }
-    let prefixCount: Int
-    if let prefixItems = subschema["prefixItems"], prefixItems.isArray {
-      prefixCount = prefixItems.arrayValue?.count ?? 0
-    } else { prefixCount = 0 }
+    // Compute the set of indices evaluated by this schema (including
+    // composition keywords).
+    let evaluated = evaluatedItemIndices(for: subschema, data: arr,
+      instancePath: instancePath, schemaPath: schemaPath, ctx: ctx)
     for (index, item) in arr.enumerated() {
-      if index < prefixCount { continue }
+      if evaluated.contains(index) { continue }
       validateValue(item, against: unevaluated,
         instancePath: instancePath.isEmpty ? String(index) : instancePath + "/" + String(index),
         schemaPath: schemaPath + "/unevaluatedItems", errors: &errors, ctx: ctx)
@@ -893,7 +1128,8 @@ extension JSONSchema {
   ) {
     guard let unevaluated = subschema["unevaluatedProperties"], value.isObject else { return }
     guard case .object(let dict) = value.storage else { return }
-    let evaluatedKeys = evaluatedPropertyKeys(for: subschema, from: dict, includeAdditionalProperties: true)
+    let evaluatedKeys = evaluatedPropertyKeysRecursive(for: subschema, dict: dict,
+      instancePath: instancePath, schemaPath: schemaPath, ctx: ctx)
     for (key, val) in dict {
       if !evaluatedKeys.contains(key) {
         validateValue(val, against: unevaluated,
