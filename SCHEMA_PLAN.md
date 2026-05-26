@@ -269,37 +269,47 @@ The `recursionDepth` parameter had a default of `0`, so every validator call tha
 
 ---
 
-## Phase 5 — Format Validation
+## Phase 5 — Format Validation (branch `phase-5-format-validation`)
 
 **Goal**: Validate string formats.
 
-### Formats
+### Completed
 
-| Format | Validation |
-|--------|-----------|
-| `date-time` | RFC 3339 / ISO 8601 |
-| `date` | RFC 3339 date |
-| `time` | RFC 3339 time |
-| `duration` | ISO 8601 duration |
-| `email` | Basic email regex |
-| `hostname` | RFC 1034 hostname |
-| `ipv4` | IPv4 address |
-| `ipv6` | IPv6 address |
-| `uuid` | UUID format |
-| `uri` | RFC 3986 URI |
-| `uri-reference` | URI or relative reference |
-| `json-pointer` | RFC 6901 JSON Pointer |
-| `regex` | Valid regex pattern |
-| `date-time` | ISO 8601 with timezone |
+| Format | Validation | Foundation API Used |
+|--------|-----------|-------------------|
+| `date-time` | RFC 3339 / ISO 8601 | `ISO8601DateFormatter` (with/without fractional fallback) |
+| `date` | RFC 3339 date | Regex + month-aware day range check |
+| `time` | RFC 3339 time | Regex + range check |
+| `duration` | ISO 8601 duration | Regex-based parser |
+| `email` | Basic email regex | Regex (`^[^\s@]+@[^\s@]+\.[a-zA-Z]{2,}$`) |
+| `hostname` | RFC 1034 hostname | Regex (URL host parsing inconsistent for edge cases) |
+| `ipv4` | IPv4 address | `inet_pton` (POSIX standard API) |
+| `ipv6` | IPv6 address | `inet_pton` (POSIX standard API) |
+| `uuid` | UUID format | `UUID(uuidString:)` |
+| `uri` | RFC 3986 URI | `URL` with scheme + host check |
+| `uri-reference` | URI or relative reference | `URL` (any valid URL) |
+| `json-pointer` | RFC 6901 JSON Pointer | Custom check (empty or starts with `/`) |
+| `regex` | Valid regex pattern | `NSRegularExpression` (compilation check) |
 
 ### Configurable
 
-`JSONSchemaFormatOptions` to enable/disable specific formats:
+`JSONSchemaFormatOptions` with `FormatSet` bitmask on `JSONSchema`:
 ```swift
-var formatOptions = JSONSchemaFormatOptions()
-formatOptions.enabledFormats = .all
-formatOptions.disabledFormats = [.regex, .json-pointer]
+var opts = JSONSchemaFormatOptions()
+opts.disable(.regex)
+schema.formatOptions = opts
 ```
+
+### Files changed
+- `Sources/OrderedJSON/Schema/JSONSchemaFormat.swift` (new) — 13 format validators
+- `Sources/OrderedJSON/Schema/JSONSchemaFormatOptions.swift` (new) — options struct + FormatSet bitmask
+- `Sources/OrderedJSON/Schema/JSONSchema.swift` — formatOptions property set at init
+- `Sources/OrderedJSON/Schema/JSONSchemaValidators.swift` — validateFormat with draft-aware assertion
+- `Tests/OrderedJSONTests/Schema/JSONSchemaKeywordTests.swift` — format tests
+
+### Tests
+- 30+ format tests covering valid/invalid for all 13 formats, plus edge cases
+- 258+ total schema tests — all passing, lint clean
 
 ---
 

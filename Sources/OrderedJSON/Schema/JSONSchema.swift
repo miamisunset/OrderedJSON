@@ -51,6 +51,8 @@ public struct JSONSchema: Hashable, Sendable {
   internal let draft: Draft
   /// The compiled schema with resolved `$ref`, `$defs`, `$id`, `$anchor`.
   internal let compiled: CompiledSchema?
+  /// Options for format validation (which formats to enable/disable).
+  internal let formatOptions: JSONSchemaFormatOptions
 
   /// Creates a compiled JSON Schema from a JSON representation.
   ///
@@ -60,8 +62,12 @@ public struct JSONSchema: Hashable, Sendable {
   /// - Parameters:
   ///   - schema: The JSON representation of the schema.
   ///   - draft: The draft version to use. Defaults to `.auto`.
+  ///   - formatOptions: Options for format validation. Defaults to all enabled.
   /// - Throws: `JSONSchemaError` if the schema itself is invalid.
-  public init(schema: JSON, draft: Draft = .auto) throws {
+  public init(
+    schema: JSON, draft: Draft = .auto,
+    formatOptions: JSONSchemaFormatOptions = JSONSchemaFormatOptions()
+  ) throws {
     // Detect draft from $schema if auto
     let resolvedDraft: Draft
     if draft == .auto {
@@ -97,6 +103,7 @@ public struct JSONSchema: Hashable, Sendable {
     self.schemaJSON = schema
     self.draft = resolvedDraft
     self.compiled = compiled
+    self.formatOptions = formatOptions
   }
 
   // MARK: - Draft detection
@@ -319,6 +326,9 @@ public struct JSONSchema: Hashable, Sendable {
       value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
       errors: &errors, ctx: currentCtx)
     validatePattern(
+      value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
+      errors: &errors, ctx: currentCtx)
+    validateFormat(
       value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
       errors: &errors, ctx: currentCtx)
     validateEnum(
