@@ -1799,3 +1799,16 @@ func contentSchemaAbsent() throws {
   let schema = try JSONSchema(schema: .object([:]))
   #expect(schema.validation(of: .string("test")).valid)
 }
+
+@Test("contentSchema — base64 decodes to non-UTF-8 data fails")
+func contentSchemaBase64NonUTF8() throws {
+  let schema = try JSONSchema(
+    schema: .object([
+      "contentEncoding": .string("base64"),
+      "contentSchema": .object(["type": .string("object")]),
+    ]))
+  // Base64-encoded non-UTF-8 byte (\xFE is invalid UTF-8)
+  let result = schema.validation(of: .string("/g=="))
+  #expect(!result.valid)
+  #expect(result.errors.first?.keyword == "contentSchema")
+}

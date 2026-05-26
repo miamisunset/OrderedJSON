@@ -1157,7 +1157,15 @@ extension JSONSchema {
             message: "invalid base64 content for contentSchema validation"))
         return
       }
-      decodedString = String(data: data, encoding: .utf8) ?? strVal
+      guard let utf8String = String(data: data, encoding: .utf8) else {
+        errors.append(
+          JSONSchemaError(
+            instancePath: instancePath, schemaPath: schemaPath + "/contentSchema",
+            keyword: "contentSchema",
+            message: "base64-decoded content is not valid UTF-8"))
+        return
+      }
+      decodedString = utf8String
     } else {
       decodedString = strVal
     }
