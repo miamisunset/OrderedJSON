@@ -208,7 +208,7 @@ public struct JSONSchema: Hashable, Sendable {
   /// Validates a single value against a subschema, collecting errors.
   /// Maximum recursion depth for schema validation.
   /// Prevents stack overflow from deeply nested or circular schemas.
-  private static let maxRecursionDepth = 100
+  private static let maxRecursionDepth = 20
 
   internal func validateValue(
     _ value: JSON,
@@ -216,7 +216,8 @@ public struct JSONSchema: Hashable, Sendable {
     instancePath: String,
     schemaPath: String,
     errors: inout [JSONSchemaError],
-    recursionDepth: Int = 0
+    recursionDepth: Int = 0,
+    dynamicScope: [OrderedDictionary<String, JSON>] = []
   ) {
     // Recursion depth guard — prevents stack overflow from deeply nested schemas
     guard recursionDepth < Self.maxRecursionDepth else {
@@ -241,6 +242,37 @@ public struct JSONSchema: Hashable, Sendable {
     }
     guard subschema.isObject else { return }
 
+    // Compute the dynamic scope for this subschema — push any $dynamicAnchor
+    // declarations onto the stack.
+    let currentScope: [OrderedDictionary<String, JSON>]
+    if let dynAnchorStr = subschema["$dynamicAnchor"]?.stringValue,
+      let compiled = compiled
+    {
+      let newEntry: OrderedDictionary<String, JSON> = [dynAnchorStr: subschema]
+      currentScope = dynamicScope + [newEntry]
+    } else {
+      currentScope = dynamicScope
+    }
+
+    // Resolve $dynamicRef before $ref — $dynamicRef takes priority per spec.
+    if let dynRefStr = subschema["$dynamicRef"]?.stringValue {
+      if let target = compiled?.resolveDynamicRef(
+        dynRefStr, dynamicScope: currentScope, currentSchema: subschema)
+      {
+        validateValue(
+          value, against: target, instancePath: instancePath,
+          schemaPath: schemaPath + "/$dynamicRef", errors: &errors,
+          recursionDepth: nextDepth, dynamicScope: currentScope)
+      } else {
+        errors.append(
+          JSONSchemaError(
+            instancePath: instancePath, schemaPath: schemaPath + "/$dynamicRef",
+            keyword: "$dynamicRef",
+            message: "unresolvable dynamic reference: '\(dynRefStr)'"))
+      }
+      return
+    }
+
     // Resolve $ref before processing keywords — $ref replaces the entire
     // subschema per spec (sibling keywords are ignored alongside $ref).
     if let refStr = subschema["$ref"]?.stringValue {
@@ -248,7 +280,7 @@ public struct JSONSchema: Hashable, Sendable {
         validateValue(
           value, against: target, instancePath: instancePath,
           schemaPath: schemaPath + "/$ref", errors: &errors,
-          recursionDepth: nextDepth)
+          recursionDepth: nextDepth, dynamicScope: currentScope)
       } else {
         errors.append(
           JSONSchemaError(

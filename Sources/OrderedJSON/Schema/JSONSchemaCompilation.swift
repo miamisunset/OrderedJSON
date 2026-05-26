@@ -19,6 +19,8 @@ internal struct CompiledSchema: Hashable, Sendable {
   let baseURI: String?
   /// Local anchors from `$anchor` keywords: anchor name → schema JSON.
   let anchors: OrderedDictionary<String, JSON>
+  /// Dynamic anchors from `$dynamicAnchor` keywords: anchor name → schema JSON.
+  let dynamicAnchors: OrderedDictionary<String, JSON>
 
   /// Creates a compiled schema from raw JSON.
   /// - Parameter schema: The raw schema JSON.
@@ -31,6 +33,7 @@ internal struct CompiledSchema: Hashable, Sendable {
         defs = [:]
         baseURI = nil
         anchors = [:]
+        dynamicAnchors = [:]
         return
       }
       defs = defDict
@@ -46,6 +49,13 @@ internal struct CompiledSchema: Hashable, Sendable {
       anchors = [anchorStr: schema]
     } else {
       anchors = [:]
+    }
+
+    // Parse $dynamicAnchor
+    if let dynAnchorStr = schema["$dynamicAnchor"]?.stringValue {
+      dynamicAnchors = [dynAnchorStr: schema]
+    } else {
+      dynamicAnchors = [:]
     }
   }
 
@@ -72,5 +82,57 @@ internal struct CompiledSchema: Hashable, Sendable {
     // escape sequences, array index validation, and leading-zero rejection.
     guard let ptr = try? JSONPointer(fragment: pointer) else { return nil }
     return ptr.resolve(schemaJSON)
+  }
+
+  /// Resolves a `$dynamicRef` pointer against the dynamic scope.
+  ///
+  /// Per Draft 2020-12, `$dynamicRef` with a fragment like `#myAnchor`
+  /// resolves against the nearest `$dynamicAnchor` with that name in the
+  /// validation chain. If no dynamic anchor is found, falls back to normal
+  /// `$ref` resolution against the schema's own anchors.
+  ///
+  /// - Parameters:
+  ///   - pointer: The `$dynamicRef` pointer string.
+  ///   - dynamicScope: The current stack of dynamic anchor schemas, innermost first.
+  ///   - currentSchema: The schema containing the `$dynamicRef` (for self-reference guard).
+  /// - Returns: The resolved schema JSON, or `nil` if unresolvable.
+  func resolveDynamicRef(
+    _ pointer: String,
+    dynamicScope: [OrderedDictionary<String, JSON>],
+    currentSchema: JSON
+  ) -> JSON? {
+    guard pointer.hasPrefix("#") else { return nil }
+
+    // Extract the anchor name (the fragment after #)
+    let anchorName: String
+    if pointer == "#" {
+      anchorName = ""
+    } else {
+      anchorName = String(pointer.dropFirst())
+    }
+
+    // Check the dynamic scope stack (innermost first)
+    for scope in dynamicScope.reversed() {
+      if let target = scope[anchorName] {
+        // Self-reference guard: if the target is the schema that contains
+        // the $dynamicRef, return nil to avoid infinite recursion.
+        // The depth guard in validateValue will catch remaining cycles.
+        if target == currentSchema { return nil }
+        return target
+      }
+    }
+
+    // Fall back to the schema's own dynamic anchors
+    if let target = dynamicAnchors[anchorName] {
+      if target == currentSchema { return nil }
+      return target
+    }
+
+    // Final fallback: treat as normal $ref (static anchor)
+    if let target = anchors[anchorName] {
+      if target == currentSchema { return nil }
+      return target
+    }
+    return nil
   }
 }
