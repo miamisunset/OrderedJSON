@@ -594,4 +594,76 @@ struct CompiledSchemaNestedAnnotationTests {
     // the root defs (walk order: root first, then properties).
     #expect(compiled.defs["sameKey"]?["type"]?.stringValue == "number")
   }
+
+  // MARK: - Cross-arm anchor separation
+
+  @Test("compiled — $anchor and $dynamicAnchor in different subtrees, same name")
+  func crossArmAnchorSeparation() throws {
+    // $anchor in one subtree, $dynamicAnchor in another, same name.
+    // They go into separate dicts and should not collide.
+    let schema: JSON = .object([
+      "allOf": .array([
+        .object(["$anchor": .string("shared")]),
+        .object(["$dynamicAnchor": .string("shared")]),
+      ])
+    ])
+    let compiled = try CompiledSchema(schema: schema)
+    #expect(compiled.anchors["shared"]?.isObject == true)
+    #expect(compiled.dynamicAnchors["shared"]?.isObject == true)
+  }
+
+  // MARK: - Deep-pointer head escaping
+
+  @Test("compiled — resolves #/$defs/<key> with escaped / in key")
+  func resolveRefDefsKeyWithSlash() throws {
+    // $defs key contains '/' which is escaped as ~1 in the pointer
+    let schema: JSON = .object([
+      "$defs": .object([
+        "a/b": .object(["type": .string("string")])
+      ])
+    ])
+    let compiled = try CompiledSchema(schema: schema)
+    // Pointer: #/$defs/a~1b  (RFC 6901: / → ~1)
+    let resolved = compiled.resolveRef("#/$defs/a~1b")
+    #expect(resolved != nil)
+    #expect(resolved?["type"]?.stringValue == "string")
+  }
+
+  @Test("compiled — resolves #/$defs/<key>/<tail> with escaped ~ in key")
+  func resolveRefDefsKeyWithTilde() throws {
+    // $defs key contains '~' which is escaped as ~0 in the pointer
+    let schema: JSON = .object([
+      "$defs": .object([
+        "c~d": .object([
+          "properties": .object([
+            "name": .object(["type": .string("string")])
+          ])
+        ])
+      ])
+    ])
+    let compiled = try CompiledSchema(schema: schema)
+    // Pointer: #/$defs/c~0d/name  (RFC 6901: ~ → ~0)
+    let resolved = compiled.resolveRef("#/$defs/c~0d/properties/name")
+    #expect(resolved != nil)
+    #expect(resolved?["type"]?.stringValue == "string")
+  }
+
+  // MARK: - init throwing API change
+
+  @Test("JSONSchema — init throws on duplicate $anchor")
+  func jsonSchemaInitThrowsOnDuplicateAnchor() throws {
+    do {
+      let _ = try JSONSchema(
+        schema: .object([
+          "$anchor": .string("dup"),
+          "properties": .object([
+            "child": .object(["$anchor": .string("dup")])
+          ]),
+        ]))
+      #expect(false, "Expected throw but succeeded")
+    } catch {
+      #expect(true)
+    }
+  }
+
 }

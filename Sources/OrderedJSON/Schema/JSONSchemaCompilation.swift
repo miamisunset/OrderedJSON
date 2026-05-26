@@ -128,6 +128,8 @@ internal struct CompiledSchema: Hashable, Sendable {
           try collectAnnotationsRecursive(
             propSchema, defs: &defs, anchors: &anchors, dynamicAnchors: &dynamicAnchors)
         }
+      } else {
+        preconditionFailure("properties.isObject true but storage not .object")
       }
     }
 
@@ -176,6 +178,8 @@ internal struct CompiledSchema: Hashable, Sendable {
           try collectAnnotationsRecursive(
             patternSchema, defs: &defs, anchors: &anchors, dynamicAnchors: &dynamicAnchors)
         }
+      } else {
+        preconditionFailure("patternProperties.isObject true but storage not .object")
       }
     }
 
@@ -218,6 +222,8 @@ internal struct CompiledSchema: Hashable, Sendable {
           try collectAnnotationsRecursive(
             depSchema, defs: &defs, anchors: &anchors, dynamicAnchors: &dynamicAnchors)
         }
+      } else {
+        preconditionFailure("dependentSchemas.isObject true but storage not .object")
       }
     }
   }
@@ -250,17 +256,21 @@ internal struct CompiledSchema: Hashable, Sendable {
     // in the compiled defs dictionary, then resolve the tail against it.
     if pointer.hasPrefix("#/$defs/") {
       let rest = String(pointer.dropFirst("#/$defs/".count))
-      // Split on the first '/' to get head and tail
+      // Split on the first '/' to get head and tail.
+      // The head segment is an RFC 6901 pointer segment (may contain ~0/~1),
+      // so we unescape before looking up in defs.
       if let slashIndex = rest.firstIndex(of: "/") {
-        let head = String(rest[rest.startIndex..<slashIndex])
+        let headRaw = String(rest[rest.startIndex..<slashIndex])
+        let head = unescapeJSONPointerSegment(headRaw)
         let tail = String(rest[slashIndex...])  // includes leading '/'
         if let target = defs[head] {
           guard let ptr = try? JSONPointer(tail) else { return nil }
           return ptr.resolve(target)
         }
       } else {
-        // No trailing path — direct defs lookup
-        if let target = defs[rest] {
+        // No trailing path — direct defs lookup (unescape the key)
+        let key = unescapeJSONPointerSegment(rest)
+        if let target = defs[key] {
           return target
         }
       }
