@@ -45,12 +45,8 @@ Swift library that preserves JSON key order with a rich method-based API mirrori
 - Prefer `package` access for testability over `public` on internal helpers
 
 ## Plan Reference
-- After completing each phase, update `PROGRESS.md` with key outcomes and any deviations from plan.
-
-## Progress Tracking
-- Never append raw phase logs to this file.
-- Maintain a clean, up-to-date summary of active phases in `PROGRESS.md`.
-- For completed phases: summarize key outcomes + decisions concisely in `PROGRESS.md`, then archive details if needed.
+- Track active phases in `SCHEMA_PLAN.md`.
+- For completed phases: summarize key outcomes + decisions in `SCHEMA_PLAN.md`, then archive details if needed.
 - Keep `AGENTS.md` length under ~800–1500 tokens when possible.
 
 ## Coverage
