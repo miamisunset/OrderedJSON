@@ -804,4 +804,240 @@ struct CompiledSchemaNestedAnnotationTests {
     // anchor named "rootAnchor". The $ref should fail.
     #expect(!schema.validation(of: .object(["child": .object([:])])).valid)
   }
+
+  // MARK: - Phase 4e: relative $id resolution & external ref
+
+  @Test("relative $id — nested child resolves against parent base URI")
+  func relativeIdNestedChild() throws {
+    let schema = try JSONSchema(
+      schema: .object([
+        "$id": .string("https://example.com/root"),
+        "properties": .object([
+          "child": .object([
+            "$id": .string("child"),
+            "type": .string("string"),
+          ])
+        ]),
+      ]))
+    // The child resource should have baseURI = "https://example.com/child"
+    let compiled = schema.compiled!
+    #expect(compiled.resources["https://example.com/child"]?.scopeSchema.isObject == true)
+  }
+
+  @Test("relative $id — absolute URI stays as-is")
+  func relativeIdAbsoluteStays() throws {
+    let schema = try JSONSchema(
+      schema: .object([
+        "$id": .string("https://example.com/root"),
+        "properties": .object([
+          "child": .object([
+            "$id": .string("https://other.com/schema"),
+            "type": .string("string"),
+          ])
+        ]),
+      ]))
+    let compiled = schema.compiled!
+    #expect(compiled.resources["https://other.com/schema"]?.scopeSchema.isObject == true)
+  }
+
+  @Test("relative $id — network-path URI starts with //")
+  func relativeIdNetworkPath() throws {
+    let schema = try JSONSchema(
+      schema: .object([
+        "$id": .string("https://example.com/root"),
+        "properties": .object([
+          "child": .object([
+            "$id": .string("//other.com/schema"),
+            "type": .string("string"),
+          ])
+        ]),
+      ]))
+    let compiled = schema.compiled!
+    // URL(string: "//other.com/schema", relativeTo: base) should produce
+    // https://other.com/schema (authority replaced)
+    #expect(compiled.resources["https://other.com/schema"]?.scopeSchema.isObject == true)
+  }
+
+  @Test("relative $id — child with absolute path /foo/bar")
+  func relativeIdAbsolutePath() throws {
+    let schema = try JSONSchema(
+      schema: .object([
+        "$id": .string("https://example.com/root"),
+        "properties": .object([
+          "child": .object([
+            "$id": .string("/foo/bar"),
+            "type": .string("string"),
+          ])
+        ]),
+      ]))
+    let compiled = schema.compiled!
+    // /foo/bar resolved against https://example.com/root → https://example.com/foo/bar
+    #expect(compiled.resources["https://example.com/foo/bar"]?.scopeSchema.isObject == true)
+  }
+
+  @Test("relative $id — $ref resolves against resolved URI")
+  func relativeIdRefResolves() throws {
+    // Child resource has $id: "child", resolved to /child (relative to root /root).
+    // A $ref from outside should be able to reference /child#.
+    let schema = try JSONSchema(
+      schema: .object([
+        "$id": .string("/root"),
+        "$defs": .object([
+          "A": .object(["type": .string("string")])
+        ]),
+        "properties": .object([
+          "child": .object([
+            "$id": .string("child"),
+            "$defs": .object([
+              "A": .object(["type": .string("number")])
+            ]),
+          ]),
+          "refTarget": .object(["$ref": .string("/child#/$defs/A")]),
+        ]),
+      ]))
+    // /child is the resolved URI (root=/root, child="child" → /child)
+    // $ref: "/child#/$defs/A" should resolve to /child's defs["A"]
+    let result = schema.validation(
+      of: .object([
+        "child": .object([:]),
+        "refTarget": .number(.integer(42)),
+      ]))
+    #expect(result.valid)
+  }
+
+  @Test("bare URI $ref (no #) resolves to resource root")
+  func bareUriRefResolves() throws {
+    let schema = try JSONSchema(
+      schema: .object([
+        "$id": .string("/root"),
+        "properties": .object([
+          "child": .object([
+            "$id": .string("/child"),
+            "type": .string("string"),
+          ]),
+          "refTarget": .object(["$ref": .string("/child")]),
+        ]),
+      ]))
+    // $ref: "/child" (no #) should resolve to /child's scope schema (which has type: string)
+    // So refTarget must be a string
+    let result = schema.validation(
+      of: .object([
+        "child": .string("hello"),
+        "refTarget": .string("world"),
+      ]))
+    #expect(result.valid)
+
+    // refTarget as number should fail
+    let result2 = schema.validation(
+      of: .object([
+        "child": .string("hello"),
+        "refTarget": .number(.integer(42)),
+      ]))
+    #expect(!result2.valid)
+  }
+
+  @Test("bare URI $ref — unresolvable URI fails")
+  func bareUriRefUnresolvable() throws {
+    let schema = try JSONSchema(
+      schema: .object([
+        "$id": .string("/root"),
+        "properties": .object([
+          "badRef": .object(["$ref": .string("/nonexistent")])
+        ]),
+      ]))
+    // /nonexistent doesn't match any compiled resource, so $ref should fail
+    let result = schema.validation(of: .object(["badRef": .string("hello")]))
+    #expect(!result.valid)
+    #expect(result.errors.first?.keyword == "$ref")
+  }
+
+  @Test("cross-resource anchor isolation — #rootAnchor not reachable from /child")
+  func crossResourceAnchorIsolation() throws {
+    let schema = try JSONSchema(
+      schema: .object([
+        "$anchor": .string("rootAnchor"),
+        "properties": .object([
+          "child": .object([
+            "$id": .string("/child"),
+            "$ref": .string("#rootAnchor"),
+          ])
+        ]),
+      ]))
+    // #rootAnchor from inside /child should NOT resolve to root's anchor
+    // because the current resource URI is "/child", and /child has no
+    // anchor named "rootAnchor". The $ref should fail.
+    let result = schema.validation(of: .object(["child": .object([:])]))
+    #expect(!result.valid)
+    #expect(result.errors.first?.keyword == "$ref")
+  }
+
+  @Test("external pointer with tail — #/$defs/A/properties/x")
+  func externalPointerWithTail() throws {
+    let schema = try JSONSchema(
+      schema: .object([
+        "$id": .string("/root"),
+        "$defs": .object([
+          "A": .object([
+            "type": .string("object"),
+            "properties": .object([
+              "x": .object(["type": .string("string")])
+            ]),
+          ])
+        ]),
+        "$ref": .string("#/$defs/A/properties/x"),
+      ]))
+    // #/$defs/A/properties/x should resolve to the x subschema (type: string)
+    let result = schema.validation(of: .string("hello"))
+    #expect(result.valid)
+
+    let result2 = schema.validation(of: .number(.integer(42)))
+    #expect(!result2.valid)
+  }
+
+  @Test("$dynamicRef inside embedded $id resource — falls back to child's dynamicAnchors")
+  func dynamicRefFallbackInsideEmbedded() throws {
+    // Root has no $dynamicAnchor with name "childAnchor".
+    // Child resource has $dynamicAnchor: "childAnchor" → $defs/numberType (type: number).
+    // x has $dynamicRef: "#childAnchor". The dynamic scope at x has no
+    // matching frame, so resolveDynamicRef falls back to the current resource's
+    // dynamicAnchors table, finding child's "childAnchor" → $defs/numberType → number.
+    let schema = try JSONSchema(
+      schema: .object([
+        "$id": .string("/root"),
+        "type": .string("object"),
+        "$defs": .object([
+          "numberType": .object(["type": .string("number")])
+        ]),
+        "properties": .object([
+          "child": .object([
+            "$id": .string("/child"),
+            "$defs": .object([
+              "numberTarget": .object([
+                "$dynamicAnchor": .string("childAnchor"),
+                "type": .string("number"),
+              ])
+            ]),
+            "properties": .object([
+              "x": .object(["$dynamicRef": .string("#childAnchor")])
+            ]),
+          ])
+        ]),
+      ]))
+    // Root schema: type object. Root's $defs/numberType: type number (not used here).
+    // Child resource: $defs/numberTarget has $dynamicAnchor "childAnchor" and type: number.
+    // x: $dynamicRef "#childAnchor" → falls back to child's dynamicAnchors["childAnchor"]
+    // which points to $defs/numberTarget (type: number). So x must be a number.
+    let result = schema.validation(
+      of: .object([
+        "child": .object(["x": .number(.integer(42))])
+      ]))
+    #expect(result.valid)
+
+    // x as object should fail (type number expected)
+    let result2 = schema.validation(
+      of: .object([
+        "child": .object(["x": .object([:])])
+      ]))
+    #expect(!result2.valid)
+  }
 }

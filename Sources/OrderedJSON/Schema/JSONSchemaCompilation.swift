@@ -26,6 +26,23 @@ internal struct ResourceScope: Hashable, Sendable {
 /// - Identifies embedded resources via `$id` keywords
 /// - Collects `$defs`, `$anchor`, `$dynamicAnchor` per resource
 /// - The root resource (no `$id`) uses an empty-string key
+///
+/// ### Relative `$id` resolution
+///
+/// Per Draft 2020-12 / RFC 3986, a nested `$id` value is resolved against
+/// its parent resource's base URI to form an absolute URI. For example:
+///
+/// ```json
+/// {
+///   "$id": "https://example.com/root",
+///   "properties": {
+///     "child": { "$id": "child", ... }
+///   }
+/// }
+/// ```
+///
+/// The child resource's base URI becomes `https://example.com/child`.
+/// A subsequent `$ref: "https://example.com/child#"` will match.
 internal struct CompiledSchema: Hashable, Sendable {
   /// The raw schema JSON (kept for un-compiled keyword access).
   let schemaJSON: JSON
@@ -49,6 +66,41 @@ internal struct CompiledSchema: Hashable, Sendable {
     return resources[""]
   }
 
+  // MARK: - RFC 3986 URI joining
+
+  /// Resolves a relative `$id` value against a parent base URI per RFC 3986.
+  ///
+  /// Uses Foundation's `URL` type which handles the common cases:
+  /// - Absolute URIs (with scheme): returned as-is
+  /// - Network-path URIs (starting with `//`): authority replaced
+  /// - Absolute path URIs (starting with `/`): path+query replaced
+  /// - Relative path URIs: merged with parent's path
+  /// - Fragment-only URIs (`#foo`): parent URI with fragment replaced
+  /// - Empty `$id` (or missing `$id`): parent URI returned unchanged
+  ///
+  /// - Parameters:
+  ///   - child: The `$id` value from the subschema (may be empty/absent).
+  ///   - parent: The parent resource's base URI (empty for root).
+  /// - Returns: The resolved absolute URI string.
+  internal static func resolveRelativeID(_ child: String?, parent: String) -> String {
+    guard let child = child, !child.isEmpty else { return parent }
+
+    // Absolute URI — use as-is
+    if let url = URL(string: child), url.scheme != nil {
+      return child
+    }
+
+    // Parent is empty (root with no $id) — use child as-is
+    if parent.isEmpty {
+      return child
+    }
+
+    // Resolve relative URI against parent base
+    guard let base = URL(string: parent) else { return child }
+    guard let resolved = URL(string: child, relativeTo: base)?.absoluteString else { return child }
+    return resolved
+  }
+
   /// Collects per-resource annotations by walking the schema tree.
   private static func collectResources(from schema: JSON) throws -> OrderedDictionary<
     String, ResourceScope
@@ -66,13 +118,10 @@ internal struct CompiledSchema: Hashable, Sendable {
   ) throws {
     guard schema.isObject else { return }
 
-    // Determine the base URI for this subschema
-    let baseURI: String
-    if let id = schema["$id"]?.stringValue {
-      baseURI = id
-    } else {
-      baseURI = currentBaseURI
-    }
+    // Determine the base URI for this subschema by resolving the `$id`
+    // value against the parent's base URI per RFC 3986.
+    let childID = schema["$id"]?.stringValue
+    let baseURI = resolveRelativeID(childID, parent: currentBaseURI)
 
     // Ensure a resource scope exists for this base URI.
     // Duplicate $id is an authoring error per spec.
@@ -260,13 +309,24 @@ internal struct CompiledSchema: Hashable, Sendable {
   /// - Returns: The resolved schema JSON, or `nil` if unresolvable.
   func resolveRef(_ pointer: String, currentResourceURI: String = "") -> JSON? {
     // Split on '#' to separate URI from fragment.
-    // TODO: bare URIs without # (e.g., "foo.json") are external-resource refs
-    // that should resolve to the resource root. Currently returns nil.
     let parts = pointer.split(separator: "#", maxSplits: 1, omittingEmptySubsequences: false)
-    guard parts.count == 2 else { return nil }
 
-    let uriPart = String(parts[0])
-    let fragmentPart = String(parts[1])
+    let uriPart: String
+    let fragmentPart: String
+
+    if parts.count == 2 {
+      uriPart = String(parts[0])
+      fragmentPart = String(parts[1])
+    } else if parts.count == 1 {
+      // Bare URI without # fragment — treat as reference to resource root.
+      uriPart = String(parts[0])
+      fragmentPart = ""
+    } else {
+      // Unreachable: with maxSplits=1 and omittingEmptySubsequences=false,
+      // split always produces 1 or 2 parts. A preconditionFailure here
+      // documents the invariant.
+      preconditionFailure("unexpected parts count from split")
+    }
 
     // Determine which resource scope to use
     let resourceBaseURI: String
@@ -328,14 +388,14 @@ internal struct CompiledSchema: Hashable, Sendable {
   ///
   /// - Parameters:
   ///   - pointer: The `$dynamicRef` pointer string.
-  ///   - dynamicScope: The current stack of dynamic anchor tuples (name, schema),
+  ///   - dynamicScope: The current stack of dynamic anchor frames (name, schema),
   ///     innermost first.
   ///   - currentResourceURI: The base URI of the resource from which this
   ///     `$dynamicRef` is being resolved.
   /// - Returns: The resolved schema JSON, or `nil` if unresolvable.
   func resolveDynamicRef(
     _ pointer: String,
-    dynamicScope: [(String, JSON)],
+    dynamicScope: [DynamicAnchorFrame],
     currentResourceURI: String = ""
   ) -> JSON? {
     guard pointer.hasPrefix("#") else { return nil }
@@ -349,9 +409,9 @@ internal struct CompiledSchema: Hashable, Sendable {
     }
 
     // Check the dynamic scope stack (innermost first)
-    for (name, target) in dynamicScope.reversed() {
-      if name == anchorName {
-        return target
+    for frame in dynamicScope.reversed() {
+      if frame.name == anchorName {
+        return frame.schema
       }
     }
 
