@@ -482,3 +482,23 @@ All 403 tests pass. Build produces zero errors. CI pipeline passes (SwiftFormat 
 - UBJSON/BJDA: negative lengths throw instead of silently clamping
 - Tests use `#expect(throws: JSONError.self)` for error-type matching
 
+## Phase 13 — JSON Schema Support (in progress, branch `json-schema-support`)
+
+### Full plan
+See `SCHEMA_PLAN.md` for the complete 10-phase breakdown.
+
+### Phase 1 — Core Type + Basic Validation Keywords (in progress)
+
+#### What ships
+- `JSONSchema` struct with draft detection (`.draft7`, `.draft202012`, `.auto`)
+- `JSONSchemaResult` with `valid` flag and `errors` array
+- `JSONSchemaError` with instance path, schema path, keyword, message
+- Keyword validation: `type`, `properties`, `required`, `minimum`/`maximum`/`exclusiveMinimum`/`exclusiveMaximum`, `multipleOf`, `pattern`, `enum`, `const`
+- Convenience: `schema.validate(_:) throws -> Bool`, `schema.validates(_:) -> Bool`
+
+### Key decisions
+- Draft 2020-12 is primary target; Draft 7 supported for backward compat
+- Schema is compiled into keyword tree at init time (not re-parsed on each validate call)
+- `auto` draft detection reads `$schema` from the schema JSON
+- Error messages include both instance path (where in document) and schema path (which keyword)
+
