@@ -179,19 +179,32 @@ struct JSONSchemaOutputModeTests {
     #expect(e1.hashValue == e2.hashValue)
   }
 
-  @Test("VerboseResult — wraps flat errors")
+  @Test("VerboseResult — wraps flat errors (basic mode)")
   func verboseResultBasic() throws {
     let schema = try JSONSchema(schema: .object(["type": .string("number")]))
-    let result = schema.verboseValidation(of: .string("hello"))
+    let result = schema.validation(of: .string("hello"))
     #expect(!result.valid)
     #expect(result.errors.count == 1)
-    #expect(result.verboseErrors.count > 0)
+    // Basic mode: verboseErrors is empty
+    #expect(result.verboseErrors.isEmpty)
+  }
+
+  @Test("VerboseResult — wraps flat errors (verbose mode)")
+  func verboseResultVerbose() throws {
+    let schema = try JSONSchema(
+      schema: .object(["type": .string("number")]),
+      outputMode: .verbose)
+    let result = schema.validation(of: .string("hello"))
+    #expect(!result.valid)
+    #expect(result.errors.count == 1)
+    // Verbose mode: verboseErrors is populated
+    #expect(result.verboseErrors.count == 1)
   }
 
   @Test("VerboseResult — valid result has no errors")
   func verboseResultValid() throws {
     let schema = try JSONSchema(schema: .object([:]))
-    let result = schema.verboseValidation(of: .string("hello"))
+    let result = schema.validation(of: .string("hello"))
     #expect(result.valid)
     #expect(result.errors.isEmpty)
     #expect(result.verboseErrors.isEmpty)
@@ -200,7 +213,7 @@ struct JSONSchemaOutputModeTests {
   @Test("VerboseResult — throwIfInvalid throws on first error")
   func verboseResultThrowIfInvalid() throws {
     let schema = try JSONSchema(schema: .object(["type": .string("number")]))
-    let result = schema.verboseValidation(of: .string("hello"))
+    let result = schema.validation(of: .string("hello"))
     #expect(throws: JSONSchemaError.self) {
       try result.throwIfInvalid()
     }
@@ -235,13 +248,14 @@ struct JSONSchemaOutputModeTests {
   @Test("buildVerboseErrors — groups errors by schema path segment")
   func buildVerboseErrorsGrouping() throws {
     let schema = try JSONSchema(
-      schema: .object([
-        "allOf": .array([
+      schema: JSON.object([
+        "allOf": JSON.array([
           .object(["type": .string("string")]),
           .object(["minimum": .number(.integer(100))]),
         ])
-      ]))
-    let result = schema.verboseValidation(of: .number(.integer(42)))
+      ]),
+      outputMode: .verbose)
+    let result = schema.validation(of: JSON.number(.integer(42)))
     #expect(!result.valid)
     // allOf produces errors grouped under /allOf
     #expect(result.verboseErrors.count == 1)
@@ -269,8 +283,10 @@ struct JSONSchemaOutputModeTests {
 
   @Test("buildVerboseErrors — single error produces single verbose error")
   func buildVerboseErrorsSingle() throws {
-    let schema = try JSONSchema(schema: .object(["type": .string("number")]))
-    let result = schema.verboseValidation(of: .string("hello"))
+    let schema = try JSONSchema(
+      schema: JSON.object(["type": .string("number")]),
+      outputMode: .verbose)
+    let result = schema.validation(of: JSON.string("hello"))
     #expect(result.verboseErrors.count == 1)
     #expect(result.verboseErrors[0].children.isEmpty)
   }

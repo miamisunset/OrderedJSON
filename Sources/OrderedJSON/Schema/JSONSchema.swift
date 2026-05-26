@@ -203,32 +203,23 @@ public struct JSONSchema: Hashable, Sendable {
   /// Validates a JSON document against this schema and returns a result
   /// containing **all** validation errors (if any). Does **not** throw.
   ///
-  /// Use this when you need to inspect every error rather than fail-fast.
+  /// When `outputMode` is `.verbose`, the result includes hierarchical
+  /// error trees via `verboseErrors`. Use `VerboseResult.errors` for a
+  /// flat list regardless of mode.
   ///
   /// - Parameter document: The JSON document to validate.
-  /// - Returns: A `JSONSchemaResult` with all errors collected.
-  public func validation(of document: JSON) -> JSONSchemaResult {
+  /// - Returns: A `VerboseResult` with all errors collected.
+  public func validation(of document: JSON) -> VerboseResult {
     var errors: [JSONSchemaError] = []
     validateValue(
       document, against: schemaJSON, instancePath: "", schemaPath: "",
       errors: &errors, ctx: EvaluationContext())
-    return JSONSchemaResult(valid: errors.isEmpty, errors: errors)
-  }
-
-  /// Validates a JSON document against this schema and returns a verbose
-  /// result with hierarchical errors. Does **not** throw.
-  ///
-  /// Use this when you need hierarchical error trees showing which
-  /// composition keyword subschema failed.
-  ///
-  /// - Parameter document: The JSON document to validate.
-  /// - Returns: A `VerboseResult` with flat and hierarchical errors.
-  public func verboseValidation(of document: JSON) -> VerboseResult {
-    var errors: [JSONSchemaError] = []
-    validateValue(
-      document, against: schemaJSON, instancePath: "", schemaPath: "",
-      errors: &errors, ctx: EvaluationContext())
-    let verboseErrors = buildVerboseErrors(from: errors)
+    let verboseErrors: [VerboseError]
+    if outputMode == .verbose {
+      verboseErrors = buildVerboseErrors(from: errors)
+    } else {
+      verboseErrors = []
+    }
     return VerboseResult(
       valid: errors.isEmpty,
       errors: errors,
