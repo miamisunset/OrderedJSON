@@ -214,19 +214,40 @@ The `recursionDepth` parameter had a default of `0`, so every validator call tha
 
 ---
 
-## Phase 4d — `$id` Scoping (✅ PR #36)
+## Phase 4d — `$id` Scoping (✅ Merged, PR #36)
 
 ### What shipped
-- `ResourceScope` struct with per-`$id` annotation tables
-- `collectResourcesRecursive` groups annotations by base URI
-- `resolveRef` splits on `#`, resolves against appropriate resource scope
+- `ResourceScope` struct with per-`$id` annotation tables (`anchors`, `dynamicAnchors`, `defs`, `scopeSchema`)
+- `collectResourcesRecursive` groups annotations by base URI, throws on duplicate `$id`
+- `resolveRef` splits on `#`, resolves against appropriate resource scope via `currentResourceURI`
+- `resolveDynamicRef` consults current resource's `dynamicAnchors`/`anchors` (not just root)
+- `currentResourceURI: String` threaded through `validateValue` and all 34 keyword validators
+- `scopeSchema: JSON` on `ResourceScope` for correct JSON Pointer fallback
 - `CompiledSchema.resources["baseURI"]` replaces flat dicts
-- 214 schema tests — all passing, lint clean
+- `CompiledSchema.rootResource(_:)` helper
+- 218 schema tests — all passing, lint clean
+
+### Review outcomes (10 items addressed)
+- #1 `$ref` from embedded resource resolves to that resource's scope (not root)
+- #2 External pointer fallback resolves against `resource.scopeSchema` (not root `schemaJSON`)
+- #3 `resolveDynamicRef` consults current resource's `dynamicAnchors`/`anchors`
+- #4 Relative `$id` resolution deferred in Known Limitations
+- #5 Duplicate `$id` throws at init (consistent with duplicate-anchor handling)
+- #6 Empty-string sentinel documented as collision risk
+- #7 Dead ternary branch removed
+- #8 Bare URI ref TODO added pointing at Phase 4e
+- #9 Test docstring updated
+- #10 `rootResource` helper added to cut noise
 
 ### Remaining (deferred to Phase 4e)
 - External `$ref` (URIs without local resource match)
 - Schema compilation keyword tree
 - `$dynamicRef` resource-scope awareness
+- `EvaluationContext` struct to bundle `(recursionDepth, currentResourceURI, dynamicScope)`
+- Relative `$id` resolution (RFC 3986 join helper)
+- Cross-resource anchor isolation negative test
+- External-pointer-with-tail test (`/a#/properties/x`)
+- External-resource loading with resolver callback
 
 ---
 
