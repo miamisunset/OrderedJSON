@@ -165,7 +165,27 @@ Test file `JSONSchemaTests.swift` (1476 lines) split into:
 
 ---
 
-## Phase 4b — `$dynamicRef`/`$dynamicAnchor`, External `$ref`, Schema Compilation
+## Phase 4b — `$dynamicRef`/`$dynamicAnchor` (✅ Complete)
+
+**Branch**: `phase-4b-dynamic-ref`
+**PR**: [#34](https://github.com/miamisunset/OrderedJSON/pull/34)
+
+### What shipped
+- `$dynamicAnchor` parsed at init into `CompiledSchema.dynamicAnchors`
+- `$dynamicRef` resolved against dynamic scope stack at validation time
+- Self-reference guard prevents infinite recursion
+- Fallback chain: dynamic scope → schema's `$dynamicAnchors` → static `$anchor`
+- Recursion depth limit reduced to 20
+- 5 tests, 193 total schema tests
+
+### Known limitations (deferred to later)
+- Dynamic scope doesn't propagate through keyword validators
+- Only root-level `$dynamicAnchor` collected
+- Self-reference guard prevents recursive schemas from working
+
+---
+
+## Phase 4c — External `$ref`, Schema Compilation, Nested `$defs`/`$anchor`
 
 ## Phase 5 — Format Validation
 
