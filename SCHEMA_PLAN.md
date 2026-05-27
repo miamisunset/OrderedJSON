@@ -474,14 +474,15 @@ Quick schema generation for debugging or documentation.
   second match; `anyOf` already stopped after first match.
 - **Cached `$ref` resolution**: A runtime cache (`RefCache`) avoids repeated
   resolution of the same `$ref` string within the same resource URI.
+- **Keyword cache**: Pre-computed dictionary of keyword values per subschema,
+  keyed by JSON pointer, stored in `CompiledSchema.keywordCache`. Validators
+  can look up keywords directly without JSON dictionary lookups.
 
 ### Planned Optimizations
 
-- **Compiled keyword tree**: Pre-parse schema into keyword nodes at init time,
-  not during validation
 - **Property whitelist**: Pre-compute which properties are covered by
   `properties`/`patternProperties` for `additionalProperties`/`unevaluatedProperties`
-  checks
+  checks (deferred due to regression in Draft 2020-12 tests)
 
 ---
 
