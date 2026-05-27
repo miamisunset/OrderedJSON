@@ -74,7 +74,7 @@ struct CompiledSchemaTests {
       "type": .string("string"),
     ])
     let compiled = try CompiledSchema(schema: schema)
-    let resolved = compiled.resolveRef("#myAnchor")
+    let resolved = compiled.resolveRef("#myAnchor")?.schema
     #expect(resolved != nil)
     #expect(resolved?.isObject == true)
   }
@@ -87,7 +87,7 @@ struct CompiledSchemaTests {
       ])
     ])
     let compiled = try CompiledSchema(schema: schema)
-    let resolved = compiled.resolveRef("#/$defs/stringType")
+    let resolved = compiled.resolveRef("#/$defs/stringType")?.schema
     #expect(resolved != nil)
     #expect(resolved?.isObject == true)
   }
@@ -96,7 +96,7 @@ struct CompiledSchemaTests {
   func resolveRoot() throws {
     let schema: JSON = .object(["type": .string("object")])
     let compiled = try CompiledSchema(schema: schema)
-    let resolved = compiled.resolveRef("#")
+    let resolved = compiled.resolveRef("#")?.schema
     #expect(resolved != nil)
     #expect(resolved?.isObject == true)
   }
@@ -406,7 +406,7 @@ struct CompiledSchemaNestedAnnotationTests {
       ])
     ])
     let compiled = try CompiledSchema(schema: schema)
-    let resolved = compiled.resolveRef("#/$defs/stringType")
+    let resolved = compiled.resolveRef("#/$defs/stringType")?.schema
     #expect(resolved != nil)
     #expect(resolved?.isObject == true)
   }
@@ -477,7 +477,7 @@ struct CompiledSchemaNestedAnnotationTests {
       ])
     ])
     let compiled = try CompiledSchema(schema: schema)
-    let resolved = compiled.resolveRef("#/$defs/myObj/properties/name")
+    let resolved = compiled.resolveRef("#/$defs/myObj/properties/name")?.schema
     #expect(resolved != nil)
     #expect(resolved?.isObject == true)
     // Verify it's the "name" subschema
@@ -500,7 +500,7 @@ struct CompiledSchemaNestedAnnotationTests {
       ])
     ])
     let compiled = try CompiledSchema(schema: schema)
-    let resolved = compiled.resolveRef("#/$defs/nestedDef/properties/deepKey")
+    let resolved = compiled.resolveRef("#/$defs/nestedDef/properties/deepKey")?.schema
     #expect(resolved != nil)
     #expect(resolved?["type"]?.stringValue == "number")
   }
@@ -631,7 +631,7 @@ struct CompiledSchemaNestedAnnotationTests {
     ])
     let compiled = try CompiledSchema(schema: schema)
     // Pointer: #/$defs/a~1b  (RFC 6901: / → ~1)
-    let resolved = compiled.resolveRef("#/$defs/a~1b")
+    let resolved = compiled.resolveRef("#/$defs/a~1b")?.schema
     #expect(resolved != nil)
     #expect(resolved?["type"]?.stringValue == "string")
   }
@@ -650,7 +650,7 @@ struct CompiledSchemaNestedAnnotationTests {
     ])
     let compiled = try CompiledSchema(schema: schema)
     // Pointer: #/$defs/c~0d/name  (RFC 6901: ~ → ~0)
-    let resolved = compiled.resolveRef("#/$defs/c~0d/properties/name")
+    let resolved = compiled.resolveRef("#/$defs/c~0d/properties/name")?.schema
     #expect(resolved != nil)
     #expect(resolved?["type"]?.stringValue == "string")
   }

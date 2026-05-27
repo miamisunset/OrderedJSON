@@ -524,3 +524,141 @@ Phase 1 used a flat error list (`JSONSchemaResult.errors`). Phase 7 implemented 
 
 ### 9. `buildVerboseErrors` heuristic (deferred)
 `buildVerboseErrors` groups flat errors by their first schema-path segment rather than tracking keyword context during validation. This works well for composition keywords (`allOf`/`anyOf`/`oneOf`) but may produce flat groups for deeply nested schemas. Fix: thread keyword context through all validators and build the hierarchy at error collection time. Deferred to Phase 10 (Performance Optimization).
+
+### 10. Unicode scalar fix (2026-05-26)
+
+**Bug**: `〮` (U+302E) is a combining character. In Swift, `"〮"` forms a single grapheme cluster,
+so `ctx.string[ctx.pos] == "\""` was false even when the first Unicode scalar WAS `"`.
+This caused "Unexpected token" parse errors for any JSON containing combining characters
+immediately after structural characters (quotes, colons, braces, etc.).
+
+**Fix**: Changed `ParseCursor` to advance by Unicode scalars (not grapheme clusters)
+using `String.UnicodeScalarIndex` instead of `String.Index`. All character comparisons
+now use `currentScalar?.value` against raw ASCII hex values.
+
+**Files changed**:
+- `ParseCursor.swift` — cursor uses `unicodeScalars.startIndex`/`endIndex`, `advance()`
+  advances by one Unicode scalar, `current` returns `UnicodeScalar?`, `skipWhitespace`
+  checks `value` against 0x20/0x0A/0x0D/0x09
+- `JSONParser.swift` — all `ctx.string[ctx.pos] == X` → `ctx.currentScalar?.value == X`
+- `JSONSAX.swift` — same fix applied to SAX parser context and all character access
+
+**Result**: format.json parse error resolved. Draft 2020-12 goes from 1016/1162 → 1149/1295 passed
+(more tests processed). All reproduction tests pass.
+
+### 11. Schema validation fixes (2026-05-26)
+
+**Fixes applied**:
+- `validateItems`: skip items already covered by `prefixItems` (Draft 2020-12).
+  Fixes `items: false` rejecting items validated by `prefixItems`.
+- `typeNameOf`: float with zero fractional part (e.g. 1.0) counts as integer.
+  Fixes `[type] a float with zero fractional part is an integer`.
+- `schemaEqual`: compare strings at Unicode scalar level, not canonical equivalence.
+  Fixes `[const] character looks the same but uses combining marks`.
+- `validateMultipleOf`: use division-based check instead of remainder.
+  Fixes float precision issues with tiny divisors.
+- `validateAdditionalItems`: only apply when `items` is an array (tuple mode).
+  Fixes Draft 7 `additionalItems: false` rejecting all items.
+- `validateExclusiveMinimum`/`validateExclusiveMaximum`: numeric bounds work
+  even in Draft 7 mode (fall back to Draft 2020-12 semantics).
+- `validateDependencies`: added Draft 7 `dependencies` keyword support.
+
+**Result**:
+- Draft 2020-12: 1149/1295 passed (89.9%) — 131 failures remain
+- Draft 7: 900/927 passed (97.1%) — 27 failures remain
+
+---
+
+## Phase 11 — Draft-Specific Validation Dispatch
+
+**Goal**: Eliminate `if draft == .draft7` conditionals from individual validator
+functions by dispatching draft-specific keywords in `validateValue`.
+
+### Current problem
+
+Every validator that differs between drafts has `if draft == .draft7` inside its
+body. This creates:
+- 5+ functions with draft branching logic
+- Cognitive load when reading any single validator
+- Hard to add new drafts (each new draft means modifying every branching point)
+- Impossible to see at a glance which keywords belong to which draft
+
+### Proposed architecture
+
+**Shared validators** (no draft checks, called for both drafts):
+- `type`, `properties`, `required`, `minimum`/`maximum`, `multipleOf`
+- `pattern`, `format`, `enum`, `const`
+- `minLength`/`maxLength`, `minItems`/`maxItems`, `uniqueItems`
+- `minProperties`/`maxProperties`, `propertyNames`, `patternProperties`
+- `allOf`/`anyOf`/`oneOf`/`not`, `if`/`then`/`else`
+- `additionalProperties` (same semantics in both drafts)
+- `contains` (shared, `minContains`/`maxContains` are Draft 2020-12 only)
+
+**Draft 7 dispatch** (only called when `draft == .draft7`):
+- `validateDependencies` — combined schema + property deps
+- `validateAdditionalItems` — tuple mode only
+- `validateExclusiveMinimumBool` / `validateExclusiveMaximumBool`
+
+**Draft 2020-12 dispatch** (only called when `draft == .draft202012`):
+- `validateDependentSchemas` + `validateDependentRequired`
+- `validatePrefixItems` + `validateItemsSchema` (skips prefixItems)
+- `validateUnevaluatedItems` + `validateUnevaluatedProperties`
+- `validateExclusiveMinimumNumeric` / `validateExclusiveMaximumNumeric`
+- `validateContentMediaType` / `validateContentEncoding` / `validateContentSchema`
+- `validateMinContains` / `validateMaxContains`
+
+### Implementation steps
+
+1. Split `validateExclusiveMinimum` into `*Bool` / `*Numeric` variants — no draft check
+2. Split `validateItems` into shared + `validateItemsSchema` — no draft check
+3. Move `validateDependencies` into Draft 7 dispatch only
+4. Move `validateAdditionalItems` into Draft 7 dispatch only
+5. Move Draft 2020-12 keywords into their own dispatch
+6. Refactor `validateValue` in `JSONSchema.swift` to use two dispatch blocks
+
+### Benefit
+
+- Zero `if draft == .draft7` in validator bodies after refactor
+- Adding a new draft (e.g. Draft 2019-09) just means writing a dispatch list
+- Clear ownership: each draft's keyword set is explicit
+
+### Result
+
+After refactoring and additional fixes:
+- Draft 2020-12: **1295/1295 passed (100%)** — 0 failures
+- Draft 7: 911/927 passed (98.3%) — 16 failures (pre-existing)
+
+Key fixes applied:
+- validateItemsSchema: handle boolean items (true/false)
+- validateContains: respect minContains=0
+- validateMultipleOf: detect overflow
+- evaluatedPropertyKeys: remove dependentSchemas keys
+- evaluatedItemIndices: recursive tracking through composition + $ref/$dynamicRef
+- evaluatedPropertyKeysRecursive: recursive tracking through composition + $ref/$dynamicRef/dependentSchemas
+- if/then/else: only matching branch counts for evaluation
+- contentSchema: annotation keyword, no validation errors
+- Remote schema loading: pre-load remotes/ directory into registry
+- ResolvedRef: return type for resolveRef carrying schema + resource URI
+- resolveRef: relative URI resolution, remote registry fallback
+- resolveDynamicRef: two-step resolution (normal $ref → dynamic replacement), outermost-first
+- $id resolution: parentResourceURI tracking for correct parent-relative resolution
+- $ref/$dynamicRef: don't skip sibling keywords in Draft 2020-12
+- parentResourceURI: EvaluationContext tracks original parent URI separately
+- $defs collection: outermost occurrence wins (no overwrite)
+- resolveFragment: URI percent-decoding support, dynamicAnchors fallback
+- $vocabulary support: metaschema vocabulary keyword filtering
+- Metaschema pre-loading: official Draft 2020-12 metaschema + all components
+
+All $dynamicRef, unevaluatedProperties, unevaluatedItems, ref, refRemote, defs, and vocabulary failures are now fixed!
+
+### 11.1 Post-review cleanup (PR #41 suggestions)
+
+**Applied suggestions from the review of PR #41**:
+
+1. **Readability constants** – Added `UnicodeScalarHex` fileprivate structs with named constants for common hex values (e.g., `quote: 0x22`) in `ParseCursor.swift`, `JSONParser.swift`, and `JSONSAX.swift`. All character comparisons now use named constants instead of raw hex literals. Also added a comment about `String.UnicodeScalarIndex` not being O(1) for arbitrary indexing.
+
+2. **Fragment fallback simplification** – In `JSONSchemaCompilation.swift`, replaced `compiled.resources.first(where: { _ in true })?.value` with `compiled.resources.values.first` (two occurrences). Avoids unnecessary closure iteration.
+
+3. **Documentation** – Added inline doc comments explaining the semantic difference between `advanced(resourceURI:)` (remote ref, sets parent URI) and `advancedViaRef(resourceURI:)` (local ref, preserves original parent URI) in `JSONSchemaContext.swift`.
+
+4. **evaluatedItemIndices caching** – Hoisted `dataCount` and `prefixCount` to the top of `evaluatedItemIndices` to avoid repeated lookups of `data.count` and `prefixItems.arrayValue?.count`. Reduces redundant dictionary access and loop overhead.

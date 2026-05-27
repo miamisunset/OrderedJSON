@@ -18,15 +18,19 @@ internal struct EvaluationContext: Sendable {
   /// Empty string for the root resource. Used by `resolveRef` to
   /// determine which `ResourceScope` to query.
   var currentResourceURI: String
+  /// The ORIGINAL parent resource URI (before $ref/$dynamicRef overwrote
+  /// currentResourceURI). Used for `$id` resolution: `$id` values are
+  /// resolved against this parent URI, not against currentResourceURI.
+  var parentResourceURI: String
   /// Dynamic scope stack: `$dynamicAnchor` frames encountered during
   /// validation. Innermost frame is last. Each frame is `(name, schema)`.
   var dynamicScope: [DynamicAnchorFrame]
+  /// Set of enabled keywords from the schema's $vocabulary metaschema.
+  /// If nil, all keywords are enabled. If non-nil, only keywords in this
+  /// set should be validated. Propagated to nested subschemas.
+  var enabledKeywords: Set<String>?
 
   /// Creates a context with default values for top-level validation.
-  /// - Parameters:
-  ///   - recursionDepth: Starting recursion depth (usually 0).
-  ///   - currentResourceURI: Starting resource URI (empty for root).
-  ///   - dynamicScope: Starting dynamic scope (empty for root).
   init(
     recursionDepth: Int = 0,
     currentResourceURI: String = "",
@@ -34,34 +38,51 @@ internal struct EvaluationContext: Sendable {
   ) {
     self.recursionDepth = recursionDepth
     self.currentResourceURI = currentResourceURI
+    self.parentResourceURI = currentResourceURI
     self.dynamicScope = dynamicScope
+    self.enabledKeywords = nil
   }
 
-  /// Returns a new context with `recursionDepth` incremented by 1.
-  /// The resource URI and dynamic scope are carried forward unchanged.
   func advanced() -> EvaluationContext {
     var next = self
     next.recursionDepth += 1
     return next
   }
 
-  /// Returns a new context with `recursionDepth` incremented by 1 and
-  /// `currentResourceURI` set to the given URI.
+  /// Advances the context for a *remote* `$ref` resolution.
+  /// Sets both `currentResourceURI` and `parentResourceURI` to the new URI,
+  /// meaning subsequent `$id` resolution will use the new URI as the parent.
   func advanced(resourceURI: String) -> EvaluationContext {
+    var next = self
+    next.recursionDepth += 1
+    next.currentResourceURI = resourceURI
+    next.parentResourceURI = resourceURI
+    return next
+  }
+
+  /// Advances the context for a *local* `$ref` resolution.
+  /// Only `currentResourceURI` is updated; `parentResourceURI` stays unchanged.
+  /// This preserves the original parent URI so that nested `$id` values
+  /// resolve against the correct base (the original resource, not the ref target).
+  func advancedViaRef(resourceURI: String) -> EvaluationContext {
     var next = self
     next.recursionDepth += 1
     next.currentResourceURI = resourceURI
     return next
   }
 
-  /// Returns a new context with a `$dynamicAnchor` frame pushed onto the
-  /// dynamic scope stack, `recursionDepth` incremented by 1, and
-  /// `currentResourceURI` set to the given URI.
   func advanced(withAnchor name: String, schema: JSON, resourceURI: String) -> EvaluationContext {
     var next = self
     next.recursionDepth += 1
     next.currentResourceURI = resourceURI
+    next.parentResourceURI = resourceURI
     next.dynamicScope = dynamicScope + [DynamicAnchorFrame(name: name, schema: schema)]
+    return next
+  }
+
+  func withEnabledKeywords(_ keywords: Set<String>?) -> EvaluationContext {
+    var next = self
+    next.enabledKeywords = keywords
     return next
   }
 }

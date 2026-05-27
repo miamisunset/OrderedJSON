@@ -91,4 +91,15 @@ extension JSON {
     guard case .array(let arr) = storage else { return nil }
     return arr
   }
+
+  // MARK: - Object access
+
+  /// Returns the key-value pairs of an object value, or `nil` for non-objects.
+  ///
+  /// For objects, returns the ordered dictionary preserving insertion order.
+  /// For arrays and primitives, returns `nil`.
+  public var objectValue: OrderedDictionary<String, JSON>? {
+    guard case .object(let dict) = storage else { return nil }
+    return dict
+  }
 }
