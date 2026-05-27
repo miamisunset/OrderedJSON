@@ -462,6 +462,15 @@ Quick schema generation for debugging or documentation.
   dispatch is handled within each case (e.g., `items` calls both tuple and
   schema validators for Draft 7).
 
+### Completed Optimizations
+
+- **Keyword dispatch loop**: Replaced the long sequence of `if keywordEnabled("...")`
+  checks with a single loop over the keys of the subschema object.
+- **Regex pre-compilation**: `pattern` and `patternProperties` regex strings are
+  compiled into `NSRegularExpression` objects at schema init time and stored in
+  `CompiledSchema.precompiledPatterns`. Validators use the cached regex instead
+  of compiling on each validation call.
+
 ### Planned Optimizations
 
 - **Compiled keyword tree**: Pre-parse schema into keyword nodes at init time,
@@ -471,8 +480,6 @@ Quick schema generation for debugging or documentation.
 - **Property whitelist**: Pre-compute which properties are covered by
   `properties`/`patternProperties` for `additionalProperties`/`unevaluatedProperties`
   checks
-- **Regex pre-compilation**: Compile `pattern`/`patternProperties` regexes at
-  init time
 
 ---
 
