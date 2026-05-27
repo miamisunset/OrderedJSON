@@ -625,30 +625,30 @@ body. This creates:
 ### Result
 
 After refactoring and additional fixes:
-- Draft 2020-12: 1274/1295 passed (98.4%) — 21 failures
-- Draft 7: 912/927 passed (98.4%) — 15 failures
+- Draft 2020-12: 1292/1295 passed (99.8%) — 3 failures
+- Draft 7: 911/927 passed (98.3%) — 16 failures
 
 Key fixes applied:
 - validateItemsSchema: handle boolean items (true/false)
 - validateContains: respect minContains=0
 - validateMultipleOf: detect overflow
 - evaluatedPropertyKeys: remove dependentSchemas keys
-- evaluatedItemIndices: recursive tracking through composition keywords + $ref/$dynamicRef resolution
-- evaluatedPropertyKeysRecursive: recursive tracking through composition keywords + $ref/$dynamicRef/dependentSchemas resolution
+- evaluatedItemIndices: recursive tracking through composition + $ref/$dynamicRef
+- evaluatedPropertyKeysRecursive: recursive tracking through composition + $ref/$dynamicRef/dependentSchemas
 - if/then/else: only matching branch counts for evaluation
 - contentSchema: annotation keyword, no validation errors
 - Remote schema loading: pre-load remotes/ directory into registry
 - ResolvedRef: return type for resolveRef carrying schema + resource URI
 - resolveRef: relative URI resolution, remote registry fallback
-- resolveDynamicRef: remote registry support, outermost-first resource anchor search
-- $id resolution: RFC 3986 relative URI resolution during validation
+- resolveDynamicRef: two-step resolution (normal $ref → dynamic replacement), outermost-first
+- $id resolution: parentResourceURI tracking for correct parent-relative resolution
 - $ref/$dynamicRef: don't skip sibling keywords in Draft 2020-12
+- parentResourceURI: EvaluationContext tracks original parent URI separately
+- $defs collection: outermost occurrence wins (no overwrite)
+- resolveFragment: URI percent-decoding support, dynamicAnchors fallback
 
 Remaining failures by category:
-- dynamicRef: 13 (dynamic scope resolution edge cases)
-- ref: 5 (local $ref edge cases: percent-encoding, nested $defs)
-- vocabulary: 1 (remote metaschema)
-- refRemote: 1 (remote schema)
-- defs: 1 (remote $defs)
+- ref/defs: 2 (remote metaschema reference to https://json-schema.org/draft/2020-12/schema)
+- vocabulary: 1 (custom metaschema with no validation vocabulary)
 
-All unevaluatedProperties and unevaluatedItems failures are now fixed!
+All $dynamicRef, unevaluatedProperties, unevaluatedItems, ref local, and refRemote failures are now fixed!
