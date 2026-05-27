@@ -155,11 +155,15 @@ internal struct CompiledSchema: Hashable, Sendable {
       )
     }
 
-    // Collect $defs at this level
+    // Collect $defs at this level — only collect keys that don't already
+    // exist in the resource's defs dictionary. Nested $defs entries with
+    // the same key are NOT overwritten; the outermost occurrence wins.
     if let defsJSON = schema["$defs"], defsJSON.isObject {
       if case .object(let defDict) = defsJSON.storage {
         for (key, value) in defDict {
-          resources[baseURI]?.defs[key] = value
+          if resources[baseURI]?.defs[key] == nil {
+            resources[baseURI]?.defs[key] = value
+          }
           try collectResourcesRecursive(
             value, resources: &resources, currentBaseURI: baseURI)
         }
@@ -379,9 +383,11 @@ internal struct CompiledSchema: Hashable, Sendable {
   /// Handles empty fragment (root), anchor names, `/$defs/…`, and JSON Pointers.
   private func resolveFragment(_ fragment: String, in resource: ResourceScope) -> JSON? {
     if fragment.isEmpty { return resource.scopeSchema }
-    if !fragment.hasPrefix("/") { return resource.anchors[fragment] }
-    if fragment.hasPrefix("/$defs/") {
-      let rest = String(fragment.dropFirst("/$defs/".count))
+    // URI percent-decode the fragment before applying JSON Pointer unescaping.
+    let decoded = fragment.removingPercentEncoding ?? fragment
+    if !decoded.hasPrefix("/") { return resource.anchors[decoded] ?? resource.dynamicAnchors[decoded] }
+    if decoded.hasPrefix("/$defs/") {
+      let rest = String(decoded.dropFirst("/$defs/".count))
       if let slashIndex = rest.firstIndex(of: "/") {
         let headRaw = String(rest[rest.startIndex..<slashIndex])
         let head = unescapeJSONPointerSegment(headRaw)
@@ -395,7 +401,7 @@ internal struct CompiledSchema: Hashable, Sendable {
         return resource.defs[key]
       }
     }
-    guard let ptr = try? JSONPointer(fragment: "#" + fragment) else { return nil }
+    guard let ptr = try? JSONPointer(fragment: "#" + decoded) else { return nil }
     return ptr.resolve(resource.scopeSchema)
   }
 
@@ -437,75 +443,50 @@ internal struct CompiledSchema: Hashable, Sendable {
     currentResourceURI: String = "",
     remoteRegistry: [String: CompiledSchema]? = nil
   ) -> ResolvedRef? {
-    guard pointer.hasPrefix("#") else { return nil }
-
-    // Extract the anchor name (the fragment after #).
-    let anchorName: String
-    if pointer == "#" {
-      anchorName = ""
-    } else {
-      anchorName = String(pointer.dropFirst())
-    }
-
     // Per spec, $dynamicRef resolves in two steps:
     // 1. Resolve as normal $ref to get the initial target
     // 2. If the fragment matches a $dynamicAnchor, replace with the
-    //    outermost schema resource that defines a matching $dynamicAnchor
+    //    outermost schema resource in the dynamic scope that defines
+    //    an identically named $dynamicAnchor
     //
-    // The outermost resource is the one with the shortest/smallest URI.
-    // Check all resources' dynamic anchors, preferring outer (root) over inner.
-    // The root resource (empty URI or the top-level $id) is checked first.
+    // If the fragment does NOT match a $dynamicAnchor, behave exactly
+    // like normal $ref.
     
-    // Collect all resources that have a matching $dynamicAnchor.
-    // Sort by URI length (shorter = more outer).
-    var matchingResources: [(uri: String, schema: JSON)] = []
-    for (uri, resource) in resources {
-      if let target = resource.dynamicAnchors[anchorName] {
-        matchingResources.append((uri: uri, schema: target))
+    // Step 1: resolve as normal $ref
+    guard let initialRef = resolveRef(
+      pointer, currentResourceURI: currentResourceURI, remoteRegistry: remoteRegistry)
+    else { return nil }
+    
+    // Check if the resolved schema has a $dynamicAnchor that matches
+    // the fragment used in the $dynamicRef.
+    let fragment: String
+    if let hashIndex = pointer.firstIndex(of: "#") {
+      fragment = String(pointer[hashIndex...].dropFirst())
+    } else {
+      fragment = ""
+    }
+    
+    let isDynamicAnchor: Bool
+    if let dynAnchor = initialRef.schema["$dynamicAnchor"]?.stringValue {
+      isDynamicAnchor = (dynAnchor == fragment)
+    } else {
+      isDynamicAnchor = false
+    }
+    
+    if isDynamicAnchor {
+      // Step 2: find the outermost $dynamicAnchor with this name in the
+      // dynamic scope. The dynamic scope is populated in push order
+      // (outermost first = earliest pushed).
+      for frame in dynamicScope {
+        if frame.name == fragment {
+          return ResolvedRef(schema: frame.schema, resourceURI: currentResourceURI)
+        }
       }
+      // Fall back to the initial $ref result (no outer anchor found)
+      return initialRef
+    } else {
+      // Fragment doesn't match a $dynamicAnchor — behave like normal $ref
+      return initialRef
     }
-    // Sort by URI length (shorter URIs are outer resources)
-    matchingResources.sort { $0.uri.count < $1.uri.count }
-    if let outermost = matchingResources.first {
-      return ResolvedRef(schema: outermost.schema, resourceURI: currentResourceURI)
-    }
-
-    // Fall back to the dynamic scope stack (innermost first per spec).
-    for frame in dynamicScope.reversed() {
-      if frame.name == anchorName {
-        return ResolvedRef(schema: frame.schema, resourceURI: currentResourceURI)
-      }
-    }
-
-    // Final fallback: treat as normal $ref (static anchor from current
-    // resource, then root resource).
-    let anchorCandidates: [String] = [currentResourceURI, ""]
-    for uri in anchorCandidates {
-      if let resource = resources[uri],
-        let target = resource.anchors[anchorName]
-      {
-        return ResolvedRef(schema: target, resourceURI: currentResourceURI)
-      }
-    }
-
-    // Last resort: check remote registry for the current resource URI
-    if let remoteCompiled = remoteRegistry?[currentResourceURI],
-      let resource = remoteCompiled.resources[currentResourceURI] ?? remoteCompiled.resources[""]
-    {
-      if let target = resource.dynamicAnchors[anchorName] ?? resource.anchors[anchorName] {
-        return ResolvedRef(schema: target, resourceURI: currentResourceURI)
-      }
-    }
-
-    // Also check remote registry for the root resource
-    if let remoteCompiled = remoteRegistry?[""],
-      let resource = remoteCompiled.resources[""]
-    {
-      if let target = resource.dynamicAnchors[anchorName] ?? resource.anchors[anchorName] {
-        return ResolvedRef(schema: target, resourceURI: currentResourceURI)
-      }
-    }
-
-    return nil
   }
 }

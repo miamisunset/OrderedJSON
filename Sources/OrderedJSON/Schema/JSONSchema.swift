@@ -373,15 +373,32 @@ public struct JSONSchema: Hashable, Sendable {
     // Compute the validation context for this subschema — increment recursion
     // depth, push any $dynamicAnchor onto the scope stack, and update the
     // current resource URI from the subschema's $id (if present).
-    let currentCtx: EvaluationContext
+    // Push the subschema's own $dynamicAnchor (if any).
+    var ctxWithAnchor = ctx
     if let dynAnchorStr = subschema["$dynamicAnchor"]?.stringValue,
       compiled != nil
     {
-      currentCtx = ctx.advanced(
+      ctxWithAnchor = ctx.advanced(
         withAnchor: dynAnchorStr, schema: subschema, resourceURI: resourceURI)
     } else {
-      currentCtx = ctx.advanced(resourceURI: resourceURI)
+      ctxWithAnchor = ctx.advanced(resourceURI: resourceURI)
     }
+    
+    // Also push all $dynamicAnchor from the resource's dynamicAnchors table.
+    // This ensures $defs entries with $dynamicAnchor are in scope.
+    if compiled != nil,
+      let resource = compiled?.resources[resourceURI]
+    {
+      for (anchorName, anchorSchema) in resource.dynamicAnchors {
+        // Skip if already pushed by the subschema check above.
+        if subschema["$dynamicAnchor"]?.stringValue != anchorName {
+          ctxWithAnchor = ctxWithAnchor.advanced(
+            withAnchor: anchorName, schema: anchorSchema, resourceURI: resourceURI)
+        }
+      }
+    }
+    
+    let currentCtx = ctxWithAnchor
 
     // Resolve $dynamicRef before $ref — $dynamicRef takes priority per spec.
     if let dynRefStr = subschema["$dynamicRef"]?.stringValue {
