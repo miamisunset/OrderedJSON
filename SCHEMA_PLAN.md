@@ -650,3 +650,15 @@ Key fixes applied:
 - Metaschema pre-loading: official Draft 2020-12 metaschema + all components
 
 All $dynamicRef, unevaluatedProperties, unevaluatedItems, ref, refRemote, defs, and vocabulary failures are now fixed!
+
+### 11.1 Post-review cleanup (PR #41 suggestions)
+
+**Applied suggestions from the review of PR #41**:
+
+1. **Readability constants** – Added `UnicodeScalarHex` fileprivate structs with named constants for common hex values (e.g., `quote: 0x22`) in `ParseCursor.swift`, `JSONParser.swift`, and `JSONSAX.swift`. All character comparisons now use named constants instead of raw hex literals. Also added a comment about `String.UnicodeScalarIndex` not being O(1) for arbitrary indexing.
+
+2. **Fragment fallback simplification** – In `JSONSchemaCompilation.swift`, replaced `compiled.resources.first(where: { _ in true })?.value` with `compiled.resources.values.first` (two occurrences). Avoids unnecessary closure iteration.
+
+3. **Documentation** – Added inline doc comments explaining the semantic difference between `advanced(resourceURI:)` (remote ref, sets parent URI) and `advancedViaRef(resourceURI:)` (local ref, preserves original parent URI) in `JSONSchemaContext.swift`.
+
+4. **evaluatedItemIndices caching** – Hoisted `dataCount` and `prefixCount` to the top of `evaluatedItemIndices` to avoid repeated lookups of `data.count` and `prefixItems.arrayValue?.count`. Reduces redundant dictionary access and loop overhead.
