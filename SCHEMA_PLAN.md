@@ -418,9 +418,14 @@ The official test suite at https://github.com/json-schema-org/JSON-Schema-Test-S
 
 ---
 
-## Phase 9 — Schema Generation (bonus)
+## Phase 9 — Schema Generation (✅ Complete)
 
 **Goal**: Infer a JSON Schema from a JSON instance.
+
+**Implementation**: `JSONSchemaGeneration` enum with `generate(from:)` and a
+`JSON.schema()` extension. Includes a fast-path optimization for homogeneous
+primitive arrays that avoids O(n) schema comparison when all elements share
+the same primitive kind.
 
 ### API
 
@@ -569,7 +574,7 @@ now use `currentScalar?.value` against raw ASCII hex values.
 
 ---
 
-## Phase 11 — Draft-Specific Validation Dispatch
+## Phase 11 — Draft-Specific Validation Dispatch (✅ Complete, extension of Phase 8)
 
 **Goal**: Eliminate `if draft == .draft7` conditionals from individual validator
 functions by dispatching draft-specific keywords in `validateValue`.
