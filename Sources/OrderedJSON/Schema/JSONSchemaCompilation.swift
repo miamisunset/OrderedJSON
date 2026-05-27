@@ -381,13 +381,15 @@ internal struct CompiledSchema: Hashable, Sendable {
           currentURI: currentResourceURI) {
           return matched
         }
-        guard let schema = resolveFragment(fragmentPart, in: resource) else { return nil }
-        return ResolvedRef(schema: schema, resourceURI: currentResourceURI)
+        var fragURI = currentResourceURI
+        guard let schema = resolveFragment(fragmentPart, in: resource, resourceURI: &fragURI) else { return nil }
+        return ResolvedRef(schema: schema, resourceURI: fragURI)
       }
       if let remoteCompiled = remoteRegistry?[currentResourceURI] {
+        var fragURI = currentResourceURI
         guard let schema = resolveFragment(fragmentPart, in: remoteCompiled,
-          resourceURI: currentResourceURI) else { return nil }
-        return ResolvedRef(schema: schema, resourceURI: currentResourceURI)
+          resourceURI: &fragURI) else { return nil }
+        return ResolvedRef(schema: schema, resourceURI: fragURI)
       }
       return nil
     }
@@ -404,14 +406,16 @@ internal struct CompiledSchema: Hashable, Sendable {
           return matched
         }
       }
-      guard let schema = resolveFragment(fragmentPart, in: resource) else { return nil }
-      return ResolvedRef(schema: schema, resourceURI: resolvedURI)
+      var fragURI = resolvedURI
+      guard let schema = resolveFragment(fragmentPart, in: resource, resourceURI: &fragURI) else { return nil }
+      return ResolvedRef(schema: schema, resourceURI: fragURI)
     }
 
     // Check remote registry as fallback
     if let remoteCompiled = remoteRegistry?[resolvedURI] {
-      guard let schema = resolveFragment(fragmentPart, in: remoteCompiled, resourceURI: resolvedURI) else { return nil }
-      return ResolvedRef(schema: schema, resourceURI: resolvedURI)
+      var fragURI = resolvedURI
+      guard let schema = resolveFragment(fragmentPart, in: remoteCompiled, resourceURI: &fragURI) else { return nil }
+      return ResolvedRef(schema: schema, resourceURI: fragURI)
     }
 
     return nil
@@ -421,7 +425,7 @@ internal struct CompiledSchema: Hashable, Sendable {
 
   /// Resolves a `#fragment` within a `ResourceScope`.
   /// Handles empty fragment (root), anchor names, `/$defs/…`, and JSON Pointers.
-  private func resolveFragment(_ fragment: String, in resource: ResourceScope) -> JSON? {
+  private func resolveFragment(_ fragment: String, in resource: ResourceScope, resourceURI: inout String) -> JSON? {
     if fragment.isEmpty { return resource.scopeSchema }
     // URI percent-decode the fragment before applying JSON Pointer unescaping.
     let decoded = fragment.removingPercentEncoding ?? fragment
@@ -434,12 +438,22 @@ internal struct CompiledSchema: Hashable, Sendable {
         let head = unescapeJSONPointerSegment(headRaw)
         let tail = String(rest[slashIndex...])
         if let target = resource.defs[head] {
+          // Check if the target definition has $id and update resourceURI
+          if let childID = target["$id"]?.stringValue {
+            resourceURI = CompiledSchema.resolveRelativeID(childID, parent: resourceURI)
+          }
           guard let ptr = try? JSONPointer(tail) else { return nil }
           return ptr.resolve(target)
         }
       } else {
         let key = unescapeJSONPointerSegment(rest)
-        return resource.defs[key]
+        if let target = resource.defs[key] {
+          // Check if the target definition has $id and update resourceURI
+          if let childID = target["$id"]?.stringValue {
+            resourceURI = CompiledSchema.resolveRelativeID(childID, parent: resourceURI)
+          }
+          return target
+        }
       }
     }
     // decoded is already percent-decoded — use path init (not fragment init)
@@ -452,7 +466,19 @@ internal struct CompiledSchema: Hashable, Sendable {
   /// Uses the resource matching `resourceURI` (or the first available resource).
   /// When fragment is empty, returns that resource's scope schema.
   private func resolveFragment(_ fragment: String, in compiled: CompiledSchema,
-    resourceURI: String = "") -> JSON? {
+    resourceURI: inout String) -> JSON? {
+    // For empty fragment, directly use the resource matching resourceURI
+    // (or first available resource) without checking fragment-based keys.
+    if fragment.isEmpty {
+      guard let resource = compiled.resources[resourceURI]
+        ?? compiled.resources[""]
+        ?? compiled.resources.first(where: { _ in true })?.value
+        else { return nil }
+      if !resource.baseURI.isEmpty {
+        resourceURI = resource.baseURI
+      }
+      return resource.scopeSchema
+    }
     // If the fragment matches a resource key (e.g., $id: "#detached" creates
     // a resource with URI "<parent>#detached"), return that resource's schema.
     if !fragment.hasPrefix("/") {
@@ -463,6 +489,10 @@ internal struct CompiledSchema: Hashable, Sendable {
         : resourceURI + "#" + fragment
       let key2 = "#" + fragment
       if let matched = compiled.resources[key1] ?? compiled.resources[key2] ?? compiled.resources[fragment] {
+        // Keep the original resourceURI if the matched resource has no $id
+        if !matched.baseURI.isEmpty {
+          resourceURI = matched.baseURI
+        }
         return matched.scopeSchema
       }
     }
@@ -471,10 +501,7 @@ internal struct CompiledSchema: Hashable, Sendable {
       ?? compiled.resources[""]
       ?? compiled.resources.first(where: { _ in true })?.value
       else { return nil }
-    if fragment.isEmpty {
-      return resource.scopeSchema
-    }
-    return resolveFragment(fragment, in: resource)
+    return resolveFragment(fragment, in: resource, resourceURI: &resourceURI)
   }
 
   /// Resolves a `$dynamicRef` pointer against the dynamic scope.

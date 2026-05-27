@@ -236,8 +236,8 @@ public struct JSONSchema: Hashable, Sendable {
   /// Resolves a `$vocabulary` declaration from a metaschema and returns
   /// the set of enabled keywords. Keywords from vocabularies marked `false`
   /// are excluded.
-  private static func enabledKeywords(from metaschema: JSON) -> Set<String> {
-    guard let vocabulary = metaschema["$vocabulary"]?.objectValue else { return [] }
+  private static func enabledKeywords(from metaschema: JSON) -> Set<String>? {
+    guard let vocabulary = metaschema["$vocabulary"]?.objectValue else { return nil }
     var enabled = Set<String>()
     for (vocabURL, enabledFlag) in vocabulary {
       guard let flag = enabledFlag.boolValue, flag else { continue }
