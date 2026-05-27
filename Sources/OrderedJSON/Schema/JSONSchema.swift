@@ -30,6 +30,14 @@ import OrderedCollections
 /// print(result.valid)  // true
 /// ```
 ///
+/// Remote schemas can be pre-registered for `$ref` resolution:
+///
+/// ```swift
+/// let schema = try JSONSchema(schema: schemaJSON, remoteSchemas: [
+///   "http://example.com/schema.json": someRemoteSchemaJSON
+/// ])
+/// ```
+///
 /// - Warning: Two semantically-equivalent schemas with differently-ordered keys
 ///   will produce different `Hashable` values, since `JSON` hashing is
 ///   structure-preserving.
@@ -51,6 +59,9 @@ public struct JSONSchema: Hashable, Sendable {
   internal let draft: Draft
   /// The compiled schema with resolved `$ref`, `$defs`, `$id`, `$anchor`.
   internal let compiled: CompiledSchema?
+  /// Remote compiled schemas pre-registered for `$ref` resolution, keyed by
+  /// URL. When a `$ref` cannot be resolved locally, these are consulted.
+  internal let remoteCompiled: [String: CompiledSchema]
   /// Options for format validation (which formats to enable/disable).
   internal let formatOptions: JSONSchemaFormatOptions
 
@@ -79,11 +90,15 @@ public struct JSONSchema: Hashable, Sendable {
   ///   - draft: The draft version to use. Defaults to `.auto`.
   ///   - formatOptions: Options for format validation. Defaults to all enabled.
   ///   - outputMode: The output mode for validation results. Defaults to `.basic`.
+  ///   - remoteSchemas: Remote schemas pre-registered for `$ref` resolution,
+  ///     keyed by URL. These are compiled internally for efficient resolution.
+  ///     Defaults to empty.
   /// - Throws: `JSONSchemaError` if the schema itself is invalid.
   public init(
     schema: JSON, draft: Draft = .auto,
     formatOptions: JSONSchemaFormatOptions = JSONSchemaFormatOptions(),
-    outputMode: OutputMode = .basic
+    outputMode: OutputMode = .basic,
+    remoteSchemas: [String: JSON] = [:]
   ) throws {
     // Detect draft from $schema if auto
     let resolvedDraft: Draft
@@ -117,9 +132,33 @@ public struct JSONSchema: Hashable, Sendable {
       compiled = nil
     }
 
+    // Compile remote schemas for efficient resolution.
+    // Also register all resource URIs from each remote schema so that
+    // $ref to URIs defined via $id within the remote schema resolve.
+    var remoteCompiled: [String: CompiledSchema] = [:]
+    for (url, remoteJSON) in remoteSchemas {
+      if remoteJSON.isObject {
+        do {
+          let compiled = try CompiledSchema(schema: remoteJSON)
+          // Register the file URL itself
+          remoteCompiled[url] = compiled
+          // Also register all resource URIs from this remote schema.
+          // Each resource URI (including empty string for root) is resolved
+          // against the file URL to form the absolute key.
+          for (resourceURI, _) in compiled.resources {
+            let absoluteURI = CompiledSchema.resolveRelativeID(resourceURI, parent: url)
+            remoteCompiled[absoluteURI] = compiled
+          }
+        } catch {
+          // Skip invalid remote schemas silently
+        }
+      }
+    }
+
     self.schemaJSON = schema
     self.draft = resolvedDraft
     self.compiled = compiled
+    self.remoteCompiled = remoteCompiled
     self.formatOptions = formatOptions
     self.outputMode = outputMode
   }
@@ -312,7 +351,13 @@ public struct JSONSchema: Hashable, Sendable {
 
     // Determine the resource scope URI for this subschema.
     // If the subschema declares $id, use that; otherwise inherit from parent.
-    let resourceURI = subschema["$id"]?.stringValue ?? ctx.currentResourceURI
+    // Resolve $id against the parent resource URI per RFC 3986
+    let resourceURI: String
+    if let idVal = subschema["$id"]?.stringValue {
+      resourceURI = CompiledSchema.resolveRelativeID(idVal, parent: ctx.currentResourceURI)
+    } else {
+      resourceURI = ctx.currentResourceURI
+    }
 
     if let boolVal = subschema.boolValue {
       if !boolVal {
@@ -340,13 +385,15 @@ public struct JSONSchema: Hashable, Sendable {
 
     // Resolve $dynamicRef before $ref — $dynamicRef takes priority per spec.
     if let dynRefStr = subschema["$dynamicRef"]?.stringValue {
-      if let target = compiled?.resolveDynamicRef(
-        dynRefStr, dynamicScope: currentCtx.dynamicScope, currentResourceURI: resourceURI)
+      if let resolved = compiled?.resolveDynamicRef(
+        dynRefStr, dynamicScope: currentCtx.dynamicScope, currentResourceURI: resourceURI,
+        remoteRegistry: remoteCompiled)
       {
+        let resolvedCtx = currentCtx.advanced(resourceURI: resolved.resourceURI)
         validateValue(
-          value, against: target, instancePath: instancePath,
+          value, against: resolved.schema, instancePath: instancePath,
           schemaPath: schemaPath + "/$dynamicRef", errors: &errors,
-          ctx: currentCtx)
+          ctx: resolvedCtx)
       } else {
         errors.append(
           JSONSchemaError(
@@ -360,11 +407,15 @@ public struct JSONSchema: Hashable, Sendable {
     // Resolve $ref before processing keywords — $ref replaces the entire
     // subschema per spec (sibling keywords are ignored alongside $ref).
     if let refStr = subschema["$ref"]?.stringValue {
-      if let target = compiled?.resolveRef(refStr, currentResourceURI: resourceURI) {
+      if let resolved = compiled?.resolveRef(refStr, currentResourceURI: resourceURI,
+        remoteRegistry: remoteCompiled) {
+        // Update resource URI for the resolved schema so that subsequent
+        // $ref resolution within it uses the correct resource scope.
+        let resolvedCtx = currentCtx.advanced(resourceURI: resolved.resourceURI)
         validateValue(
-          value, against: target, instancePath: instancePath,
+          value, against: resolved.schema, instancePath: instancePath,
           schemaPath: schemaPath + "/$ref", errors: &errors,
-          ctx: currentCtx)
+          ctx: resolvedCtx)
       } else {
         errors.append(
           JSONSchemaError(

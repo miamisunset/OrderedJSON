@@ -25,6 +25,11 @@ private func runTestSuite(draftDir: String, draft: JSONSchema.Draft) throws {
     .filter { $0.hasSuffix(".json") }
     .sorted()
 
+  // Pre-load remote schemas from the remotes/ directory
+  let remotesDir = suiteRootURL().deletingLastPathComponent()
+    .appendingPathComponent("remotes")
+  let remoteSchemas = loadRemoteSchemas(from: remotesDir)
+
   var total = 0
   var passed = 0
   var failures: [String] = []
@@ -49,7 +54,8 @@ private func runTestSuite(draftDir: String, draft: JSONSchema.Draft) throws {
 
       let schema: JSONSchema
       do {
-        schema = try JSONSchema(schema: schemaJSON, draft: draft)
+        schema = try JSONSchema(schema: schemaJSON, draft: draft,
+          remoteSchemas: remoteSchemas)
       } catch {
         continue
       }
@@ -98,4 +104,36 @@ private func suiteRootURL() -> URL {
     .deletingLastPathComponent()  // OrderedJSONTests/
     .deletingLastPathComponent()  // Tests/
   return testsDir.appendingPathComponent("JSON-Schema-Test-Suite/tests")
+}
+
+/// Loads all JSON files from a directory tree and maps them to remote URLs
+/// using the `http://localhost:1234/` base, matching the test suite convention.
+/// - Parameter remotesDir: The `remotes/` directory path.
+/// - Returns: Dictionary mapping full URLs to parsed JSON schemas.
+private func loadRemoteSchemas(from remotesDir: URL) -> [String: JSON] {
+  let baseURL = "http://localhost:1234/"
+  var result: [String: JSON] = [:]
+
+  guard let enumerator = FileManager.default.enumerator(
+    at: remotesDir, includingPropertiesForKeys: []) else { return result }
+
+  for case let fileURL as URL in enumerator {
+    guard fileURL.pathExtension == "json" else { continue }
+    guard let data = try? Data(contentsOf: fileURL) else { continue }
+    guard let parsed = try? JSON.parse(data) else { continue }
+
+    // Compute relative path from remotesDir to fileURL
+    let filePath = fileURL.path
+    let remotesPath = remotesDir.path
+    let relPath = filePath
+      .replacingOccurrences(of: remotesPath, with: "")
+      .replacingOccurrences(of: "//", with: "/")
+      .trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+
+    // Map to http://localhost:1234/<relative-path>
+    let url = baseURL + relPath
+    result[url] = parsed
+  }
+
+  return result
 }

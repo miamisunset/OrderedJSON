@@ -1,6 +1,19 @@
 import Foundation
 import OrderedCollections
 
+// MARK: - Resolved reference result
+
+/// The result of resolving a `$ref` or `$dynamicRef` pointer.
+/// Carries the resolved schema JSON along with the resource URI to use
+/// for subsequent ref resolution within that schema.
+internal struct ResolvedRef: Hashable, Sendable {
+  /// The resolved schema JSON (the target of the ref).
+  let schema: JSON
+  /// The resource URI to use for further ref resolution within `schema`.
+  /// For remote schemas, this is the remote schema's URI.
+  let resourceURI: String
+}
+
 // MARK: - Resource scope
 
 /// Annotations scoped to a single base URI (established by `$id`).
@@ -307,7 +320,8 @@ internal struct CompiledSchema: Hashable, Sendable {
   ///     `$ref` is being resolved. Local `#…` refs resolve against this
   ///     resource's annotation tables, not the root.
   /// - Returns: The resolved schema JSON, or `nil` if unresolvable.
-  func resolveRef(_ pointer: String, currentResourceURI: String = "") -> JSON? {
+  func resolveRef(_ pointer: String, currentResourceURI: String = "",
+    remoteRegistry: [String: CompiledSchema]? = nil) -> ResolvedRef? {
     // Split on '#' to separate URI from fragment.
     let parts = pointer.split(separator: "#", maxSplits: 1, omittingEmptySubsequences: false)
 
@@ -318,43 +332,56 @@ internal struct CompiledSchema: Hashable, Sendable {
       uriPart = String(parts[0])
       fragmentPart = String(parts[1])
     } else if parts.count == 1 {
-      // Bare URI without # fragment — treat as reference to resource root.
       uriPart = String(parts[0])
       fragmentPart = ""
     } else {
-      // Unreachable: with maxSplits=1 and omittingEmptySubsequences=false,
-      // split always produces 1 or 2 parts. A preconditionFailure here
-      // documents the invariant.
       preconditionFailure("unexpected parts count from split")
     }
 
-    // Determine which resource scope to use
-    let resourceBaseURI: String
+    // Determine which resource scope to use.
     if uriPart.isEmpty {
-      // Local reference — use the current resource scope
-      resourceBaseURI = currentResourceURI
-    } else {
-      // External reference — try to find matching resource
-      guard resources[uriPart] != nil else { return nil }
-      resourceBaseURI = uriPart
+      // Local ref — resolve fragment within the current resource.
+      // First check local resources, then remote registry if currentResourceURI
+      // refers to a remote schema (e.g., after resolving a remote ref).
+      if let resource = resources[currentResourceURI] {
+        guard let schema = resolveFragment(fragmentPart, in: resource) else { return nil }
+        return ResolvedRef(schema: schema, resourceURI: currentResourceURI)
+      }
+      if let remoteCompiled = remoteRegistry?[currentResourceURI] {
+        guard let schema = resolveFragment(fragmentPart, in: remoteCompiled,
+          resourceURI: currentResourceURI) else { return nil }
+        return ResolvedRef(schema: schema, resourceURI: currentResourceURI)
+      }
+      return nil
     }
 
-    guard let resource = resources[resourceBaseURI] else { return nil }
+    // Resolve the URI part relative to currentResourceURI
+    let resolvedURI = CompiledSchema.resolveRelativeID(uriPart, parent: currentResourceURI)
 
-    // Root reference # with no fragment — root of the resource
-    if fragmentPart.isEmpty {
-      return resource.scopeSchema
+    // Check local resources first
+    if let resource = resources[resolvedURI] {
+      guard let schema = resolveFragment(fragmentPart, in: resource) else { return nil }
+      return ResolvedRef(schema: schema, resourceURI: resolvedURI)
     }
 
-    // Check for $anchor references: #anchorName (no slash after #)
-    if !fragmentPart.hasPrefix("/") {
-      let anchorName = fragmentPart
-      return resource.anchors[anchorName]
+    // Check remote registry as fallback
+    if let remoteCompiled = remoteRegistry?[resolvedURI] {
+      guard let schema = resolveFragment(fragmentPart, in: remoteCompiled, resourceURI: resolvedURI) else { return nil }
+      return ResolvedRef(schema: schema, resourceURI: resolvedURI)
     }
 
-    // Check for #/$defs/<key> or #/$defs/<key>/<tail>
-    if fragmentPart.hasPrefix("/$defs/") {
-      let rest = String(fragmentPart.dropFirst("/$defs/".count))
+    return nil
+  }
+
+  // MARK: - Fragment resolution
+
+  /// Resolves a `#fragment` within a `ResourceScope`.
+  /// Handles empty fragment (root), anchor names, `/$defs/…`, and JSON Pointers.
+  private func resolveFragment(_ fragment: String, in resource: ResourceScope) -> JSON? {
+    if fragment.isEmpty { return resource.scopeSchema }
+    if !fragment.hasPrefix("/") { return resource.anchors[fragment] }
+    if fragment.hasPrefix("/$defs/") {
+      let rest = String(fragment.dropFirst("/$defs/".count))
       if let slashIndex = rest.firstIndex(of: "/") {
         let headRaw = String(rest[rest.startIndex..<slashIndex])
         let head = unescapeJSONPointerSegment(headRaw)
@@ -365,18 +392,27 @@ internal struct CompiledSchema: Hashable, Sendable {
         }
       } else {
         let key = unescapeJSONPointerSegment(rest)
-        if let target = resource.defs[key] {
-          return target
-        }
+        return resource.defs[key]
       }
     }
-
-    // Build a JSON Pointer from the fragment (e.g., #/foo/bar → /foo/bar).
-    // The fragment always has a leading / at this point (anchor-name case
-    // returned above), so we prepend # to form a fragment identifier.
-    // Resolve against the resource's scope schema, not the root schemaJSON.
-    guard let ptr = try? JSONPointer(fragment: "#" + fragmentPart) else { return nil }
+    guard let ptr = try? JSONPointer(fragment: "#" + fragment) else { return nil }
     return ptr.resolve(resource.scopeSchema)
+  }
+
+  /// Resolves a `#fragment` within a `CompiledSchema`.
+  /// Uses the resource matching `resourceURI` (or the first available resource).
+  /// When fragment is empty, returns that resource's scope schema.
+  private func resolveFragment(_ fragment: String, in compiled: CompiledSchema,
+    resourceURI: String = "") -> JSON? {
+    // Try exact match, then empty-string root, then fall back to first resource.
+    guard let resource = compiled.resources[resourceURI]
+      ?? compiled.resources[""]
+      ?? compiled.resources.first(where: { _ in true })?.value
+      else { return nil }
+    if fragment.isEmpty {
+      return resource.scopeSchema
+    }
+    return resolveFragment(fragment, in: resource)
   }
 
   /// Resolves a `$dynamicRef` pointer against the dynamic scope.
@@ -392,12 +428,15 @@ internal struct CompiledSchema: Hashable, Sendable {
   ///     innermost first.
   ///   - currentResourceURI: The base URI of the resource from which this
   ///     `$dynamicRef` is being resolved.
+  ///   - remoteRegistry: Optional dictionary of remote compiled schemas
+  ///     keyed by URL, consulted when local resolution fails.
   /// - Returns: The resolved schema JSON, or `nil` if unresolvable.
   func resolveDynamicRef(
     _ pointer: String,
     dynamicScope: [DynamicAnchorFrame],
-    currentResourceURI: String = ""
-  ) -> JSON? {
+    currentResourceURI: String = "",
+    remoteRegistry: [String: CompiledSchema]? = nil
+  ) -> ResolvedRef? {
     guard pointer.hasPrefix("#") else { return nil }
 
     // Extract the anchor name (the fragment after #).
@@ -411,7 +450,7 @@ internal struct CompiledSchema: Hashable, Sendable {
     // Check the dynamic scope stack (innermost first)
     for frame in dynamicScope.reversed() {
       if frame.name == anchorName {
-        return frame.schema
+        return ResolvedRef(schema: frame.schema, resourceURI: currentResourceURI)
       }
     }
 
@@ -419,14 +458,23 @@ internal struct CompiledSchema: Hashable, Sendable {
     if let resource = resources[currentResourceURI],
       let target = resource.dynamicAnchors[anchorName]
     {
-      return target
+      return ResolvedRef(schema: target, resourceURI: currentResourceURI)
     }
 
     // Final fallback: treat as normal $ref (static anchor from current resource)
     if let resource = resources[currentResourceURI],
       let target = resource.anchors[anchorName]
     {
-      return target
+      return ResolvedRef(schema: target, resourceURI: currentResourceURI)
+    }
+
+    // Last resort: check remote registry for the current resource URI
+    if let remoteCompiled = remoteRegistry?[currentResourceURI],
+      let resource = remoteCompiled.resources[currentResourceURI] ?? remoteCompiled.resources[""]
+    {
+      if let target = resource.dynamicAnchors[anchorName] ?? resource.anchors[anchorName] {
+        return ResolvedRef(schema: target, resourceURI: currentResourceURI)
+      }
     }
 
     return nil
