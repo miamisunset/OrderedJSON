@@ -56,6 +56,7 @@ internal struct ResourceScope: Hashable, Sendable {
 ///
 /// The child resource's base URI becomes `https://example.com/child`.
 /// A subsequent `$ref: "https://example.com/child#"` will match.
+
 internal struct CompiledSchema: Hashable, Sendable {
   /// The raw schema JSON (kept for un-compiled keyword access).
   let schemaJSON: JSON
@@ -64,6 +65,8 @@ internal struct CompiledSchema: Hashable, Sendable {
   /// Pre-compiled regex patterns for `pattern` and `patternProperties` keywords.
   /// Key is the pattern string; value is a thread-safe regex wrapper.
   let precompiledPatterns: [String: SendableRegex]
+  /// Cache of keyword values per subschema, keyed by JSON pointer.
+  let keywordCache: [String: [String: JSON]]
 
   /// Creates a compiled schema from raw JSON.
   /// - Parameter schema: The raw schema JSON.
@@ -72,6 +75,7 @@ internal struct CompiledSchema: Hashable, Sendable {
     self.schemaJSON = schema
     self.resources = try CompiledSchema.collectResources(from: schema)
     self.precompiledPatterns = CompiledSchema.compilePatterns(from: schema)
+    self.keywordCache = CompiledSchema.buildKeywordCache(from: schema)
   }
 
   /// Walks the schema tree and pre-compiles all `pattern` and `patternProperties`
@@ -80,6 +84,103 @@ internal struct CompiledSchema: Hashable, Sendable {
     var patterns: [String: SendableRegex] = [:]
     collectPatterns(schema, patterns: &patterns)
     return patterns
+  }
+
+  // MARK: - Keyword cache
+
+  /// Walks the schema tree and builds a dictionary mapping each subschema's
+  /// JSON pointer to its keyword values (excluding `$ref` which is resolved).
+  private static func buildKeywordCache(from schema: JSON) -> [String: [String: JSON]] {
+    var cache: [String: [String: JSON]] = [:]
+    buildKeywordCacheRecursive(schema, pointer: "", cache: &cache)
+    return cache
+  }
+
+  private static func buildKeywordCacheRecursive(
+    _ value: JSON, pointer: String, cache: inout [String: [String: JSON]]
+  ) {
+    guard value.isObject else { return }
+    // Collect all keyword values from this subschema.
+    var keywords: [String: JSON] = [:]
+    if case .object(let dict) = value.storage {
+      for (k, v) in dict {
+        keywords[k] = v
+      }
+    }
+    cache[pointer] = keywords
+    // Recurse into properties (object properties) and items (array items).
+    if let properties = value["properties"], properties.isObject {
+      if case .object(let props) = properties.storage {
+        for (key, sub) in props {
+          let childPointer = pointer.isEmpty ? "/properties/" + key : pointer + "/properties/" + key
+          buildKeywordCacheRecursive(sub, pointer: childPointer, cache: &cache)
+        }
+      }
+    }
+    if let items = value["items"], items.isObject {
+      // Single schema items
+      buildKeywordCacheRecursive(items, pointer: pointer + "/items", cache: &cache)
+    } else if let itemsArr = value["items"], itemsArr.isArray {
+      // Tuple array items
+      for (i, item) in itemsArr.enumerated() {
+        let childPointer = pointer + "/items/" + String(i)
+        buildKeywordCacheRecursive(item, pointer: childPointer, cache: &cache)
+      }
+    }
+    // Recurse into $defs / definitions
+    if let defs = value["$defs"], defs.isObject {
+      if case .object(let defDict) = defs.storage {
+        for (key, def) in defDict {
+          let childPointer = pointer + "/$defs/" + key
+          buildKeywordCacheRecursive(def, pointer: childPointer, cache: &cache)
+        }
+      }
+    }
+    if let defs = value["definitions"], defs.isObject {
+      if case .object(let defDict) = defs.storage {
+        for (key, def) in defDict {
+          let childPointer = pointer + "/definitions/" + key
+          buildKeywordCacheRecursive(def, pointer: childPointer, cache: &cache)
+        }
+      }
+    }
+    // Recurse into patternProperties (each value is a subschema)
+    if let pp = value["patternProperties"], pp.isObject {
+      if case .object(let patternDict) = pp.storage {
+        for (pattern, sub) in patternDict {
+          let childPointer = pointer + "/patternProperties/" + pattern
+          buildKeywordCacheRecursive(sub, pointer: childPointer, cache: &cache)
+        }
+      }
+    }
+    // Recurse into additionalProperties / unevaluatedProperties (if schema)
+    if let ap = value["additionalProperties"], ap.isObject {
+      buildKeywordCacheRecursive(ap, pointer: pointer + "/additionalProperties", cache: &cache)
+    }
+    if let up = value["unevaluatedProperties"], up.isObject {
+      buildKeywordCacheRecursive(up, pointer: pointer + "/unevaluatedProperties", cache: &cache)
+    }
+    // Recurse into composition keywords (allOf, anyOf, oneOf, not, if, then, else)
+    for comp in ["allOf", "anyOf", "oneOf"] {
+      if let arr = value[comp], arr.isArray {
+        for (i, sub) in arr.enumerated() {
+          let childPointer = pointer + "/" + comp + "/" + String(i)
+          buildKeywordCacheRecursive(sub, pointer: childPointer, cache: &cache)
+        }
+      }
+    }
+    if let not = value["not"], not.isObject {
+      buildKeywordCacheRecursive(not, pointer: pointer + "/not", cache: &cache)
+    }
+    if let ifSub = value["if"], ifSub.isObject {
+      buildKeywordCacheRecursive(ifSub, pointer: pointer + "/if", cache: &cache)
+    }
+    if let thenSub = value["then"], thenSub.isObject {
+      buildKeywordCacheRecursive(thenSub, pointer: pointer + "/then", cache: &cache)
+    }
+    if let elseSub = value["else"], elseSub.isObject {
+      buildKeywordCacheRecursive(elseSub, pointer: pointer + "/else", cache: &cache)
+    }
   }
 
   private static func collectPatterns(_ value: JSON, patterns: inout [String: SendableRegex]) {

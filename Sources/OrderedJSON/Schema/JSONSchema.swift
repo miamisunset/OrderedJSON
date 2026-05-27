@@ -400,6 +400,17 @@ public struct JSONSchema: Hashable, Sendable {
   /// Conservative; revisit if OpenAPI/AsyncAPI corpora hit the wall.
   private static let maxRecursionDepth = 20
 
+  /// Returns a keyword value from the compiled cache if available,
+  /// otherwise falls back to looking up from the subschema JSON.
+  @inline(__always) func kw(
+    _ key: String, _ subschema: JSON, _ pointer: String
+  ) -> JSON? {
+    if let cache = self.compiled?.keywordCache[pointer], let v = cache[key] {
+      return v
+    }
+    return subschema[key]
+  }
+
   internal func validateValue(
     _ value: JSON,
     against subschema: JSON,
