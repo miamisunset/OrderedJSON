@@ -43,471 +43,471 @@ import OrderedCollections
 ///   at construction time; mutations after calling `encode`/`decode` do not
 ///   propagate to nested containers.
 public struct JSONWithExtras<T: Decodable>: Decodable {
-    /// The decoded value of known fields.
-    public let value: T
+  /// The decoded value of known fields.
+  public let value: T
 
-    /// Any unknown keys not part of `T`, captured as a JSON object.
-    public let extras: JSON
+  /// Any unknown keys not part of `T`, captured as a JSON object.
+  public let extras: JSON
 
-    public init(value: T, extras: JSON) {
-        self.value = value
-        self.extras = extras
+  public init(value: T, extras: JSON) {
+    self.value = value
+    self.extras = extras
+  }
+
+  /// Decodes known keys into `T` and captures unknown keys into `extras`.
+  ///
+  /// Uses a tracking decoder that records which keys `T` accesses,
+  /// then treats unaccessed keys as extras.
+  public init(from decoder: Decoder) throws {
+    // Extract strategies from the outer decoder if it's our impl
+    var dateDecodingStrategy: DateDecodingStrategy = .deferredToDate
+    var dataDecodingStrategy: DataDecodingStrategy = .base64
+    var decimalDecodingStrategy: DecimalDecodingStrategy = .asString
+    if let impl = decoder as? _JSONDecodeImpl {
+      dateDecodingStrategy = impl.dateDecodingStrategy
+      dataDecodingStrategy = impl.dataDecodingStrategy
+      decimalDecodingStrategy = impl.decimalDecodingStrategy
     }
 
-    /// Decodes known keys into `T` and captures unknown keys into `extras`.
-    ///
-    /// Uses a tracking decoder that records which keys `T` accesses,
-    /// then treats unaccessed keys as extras.
-    public init(from decoder: Decoder) throws {
-        // Extract strategies from the outer decoder if it's our impl
-        var dateDecodingStrategy: DateDecodingStrategy = .deferredToDate
-        var dataDecodingStrategy: DataDecodingStrategy = .base64
-        var decimalDecodingStrategy: DecimalDecodingStrategy = .asString
-        if let impl = decoder as? _JSONDecodeImpl {
-            dateDecodingStrategy = impl.dateDecodingStrategy
-            dataDecodingStrategy = impl.dataDecodingStrategy
-            decimalDecodingStrategy = impl.decimalDecodingStrategy
-        }
-
-        // Step 1: Decode all values as JSON
-        let allValues = try decoder.container(keyedBy: _ExtrasKey.self)
-        let keys = allValues.allKeys
-        var dict = OrderedDictionary<String, JSON>()
-        for key in keys {
-            dict[key.stringValue] = try allValues.decode(JSON.self, forKey: key)
-        }
-        let jsonObject = JSON.object(dict)
-
-        // Step 2: Decode T while tracking which keys it accesses
-        var usedKeys = Set<String>()
-        let trackingDecoder = _TrackingDecoder(
-            json: jsonObject,
-            onAccess: { usedKeys.insert($0) },
-            codingPath: decoder.codingPath,
-            dateDecodingStrategy: dateDecodingStrategy,
-            dataDecodingStrategy: dataDecodingStrategy,
-            decimalDecodingStrategy: decimalDecodingStrategy
-        )
-        value = try T(from: trackingDecoder)
-
-        // Step 3: Remaining keys are extras
-        var extrasDict = OrderedDictionary<String, JSON>()
-        for (key, value) in dict where !usedKeys.contains(key) {
-            extrasDict[key] = value
-        }
-        extras = .object(extrasDict)
+    // Step 1: Decode all values as JSON
+    let allValues = try decoder.container(keyedBy: _ExtrasKey.self)
+    let keys = allValues.allKeys
+    var dict = OrderedDictionary<String, JSON>()
+    for key in keys {
+      dict[key.stringValue] = try allValues.decode(JSON.self, forKey: key)
     }
+    let jsonObject = JSON.object(dict)
+
+    // Step 2: Decode T while tracking which keys it accesses
+    var usedKeys = Set<String>()
+    let trackingDecoder = _TrackingDecoder(
+      json: jsonObject,
+      onAccess: { usedKeys.insert($0) },
+      codingPath: decoder.codingPath,
+      dateDecodingStrategy: dateDecodingStrategy,
+      dataDecodingStrategy: dataDecodingStrategy,
+      decimalDecodingStrategy: decimalDecodingStrategy
+    )
+    value = try T(from: trackingDecoder)
+
+    // Step 3: Remaining keys are extras
+    var extrasDict = OrderedDictionary<String, JSON>()
+    for (key, value) in dict where !usedKeys.contains(key) {
+      extrasDict[key] = value
+    }
+    extras = .object(extrasDict)
+  }
 }
 
 extension JSONWithExtras: Encodable where T: Encodable {
-    /// Encodes both the known fields and extras into a single JSON object.
-    public func encode(to encoder: Encoder) throws {
-        var container = encoder.container(keyedBy: _ExtrasKey.self)
+  /// Encodes both the known fields and extras into a single JSON object.
+  public func encode(to encoder: Encoder) throws {
+    var container = encoder.container(keyedBy: _ExtrasKey.self)
 
-        // Encode known fields
-        try value.encode(to: _ValueEncoder(container: container))
+    // Encode known fields
+    try value.encode(to: _ValueEncoder(container: container))
 
-        // Encode extras — must be a JSON object
-        guard case let .object(extrasDict) = extras.storage else {
-            throw EncodingError.invalidValue(
-                extras,
-                EncodingError.Context(
-                    codingPath: encoder.codingPath,
-                    debugDescription: "Extras must be a JSON object, got \(extras.typeName)"
-                )
-            )
-        }
-        for (key, value) in extrasDict {
-            try container.encode(value, forKey: _ExtrasKey(stringValue: key))
-        }
+    // Encode extras — must be a JSON object
+    guard case .object(let extrasDict) = extras.storage else {
+      throw EncodingError.invalidValue(
+        extras,
+        EncodingError.Context(
+          codingPath: encoder.codingPath,
+          debugDescription: "Extras must be a JSON object, got \(extras.typeName)"
+        )
+      )
     }
+    for (key, value) in extrasDict {
+      try container.encode(value, forKey: _ExtrasKey(stringValue: key))
+    }
+  }
 }
 
 // MARK: - Internal helpers
 
 /// A `CodingKey` that maps any string key.
 private struct _ExtrasKey: CodingKey {
-    let stringValue: String
-    let intValue: Int?
-    init(stringValue: String) {
-        self.stringValue = stringValue
-        intValue = nil
-    }
+  let stringValue: String
+  let intValue: Int?
+  init(stringValue: String) {
+    self.stringValue = stringValue
+    intValue = nil
+  }
 
-    init(intValue: Int) {
-        stringValue = "\(intValue)"
-        self.intValue = intValue
-    }
+  init(intValue: Int) {
+    stringValue = "\(intValue)"
+    self.intValue = intValue
+  }
 }
 
 /// A decoder that tracks which keys were accessed during decoding.
 private struct _TrackingDecoder: Decoder {
-    let json: JSON
-    let onAccess: (String) -> Void
-    let codingPath: [CodingKey]
-    let userInfo: [CodingUserInfoKey: Any] = [:]
-    let dateDecodingStrategy: DateDecodingStrategy
-    let dataDecodingStrategy: DataDecodingStrategy
-    let decimalDecodingStrategy: DecimalDecodingStrategy
+  let json: JSON
+  let onAccess: (String) -> Void
+  let codingPath: [CodingKey]
+  let userInfo: [CodingUserInfoKey: Any] = [:]
+  let dateDecodingStrategy: DateDecodingStrategy
+  let dataDecodingStrategy: DataDecodingStrategy
+  let decimalDecodingStrategy: DecimalDecodingStrategy
 
-    init(
-        json: JSON,
-        onAccess: @escaping (String) -> Void,
-        codingPath: [CodingKey] = [],
-        dateDecodingStrategy: DateDecodingStrategy = .deferredToDate,
-        dataDecodingStrategy: DataDecodingStrategy = .base64,
-        decimalDecodingStrategy: DecimalDecodingStrategy = .asString
-    ) {
-        self.json = json
-        self.onAccess = onAccess
-        self.codingPath = codingPath
-        self.dateDecodingStrategy = dateDecodingStrategy
-        self.dataDecodingStrategy = dataDecodingStrategy
-        self.decimalDecodingStrategy = decimalDecodingStrategy
-    }
+  init(
+    json: JSON,
+    onAccess: @escaping (String) -> Void,
+    codingPath: [CodingKey] = [],
+    dateDecodingStrategy: DateDecodingStrategy = .deferredToDate,
+    dataDecodingStrategy: DataDecodingStrategy = .base64,
+    decimalDecodingStrategy: DecimalDecodingStrategy = .asString
+  ) {
+    self.json = json
+    self.onAccess = onAccess
+    self.codingPath = codingPath
+    self.dateDecodingStrategy = dateDecodingStrategy
+    self.dataDecodingStrategy = dataDecodingStrategy
+    self.decimalDecodingStrategy = decimalDecodingStrategy
+  }
 
-    func container<Key: CodingKey>(keyedBy _: Key.Type) throws -> KeyedDecodingContainer<Key> {
-        return KeyedDecodingContainer(
-            _TrackingKeyedDecodingContainer<Key>(
-                json: json, onAccess: onAccess, pathPrefix: codingPath,
-                dateDecodingStrategy: dateDecodingStrategy,
-                dataDecodingStrategy: dataDecodingStrategy,
-                decimalDecodingStrategy: decimalDecodingStrategy
-            )
-        )
-    }
+  func container<Key: CodingKey>(keyedBy _: Key.Type) throws -> KeyedDecodingContainer<Key> {
+    return KeyedDecodingContainer(
+      _TrackingKeyedDecodingContainer<Key>(
+        json: json, onAccess: onAccess, pathPrefix: codingPath,
+        dateDecodingStrategy: dateDecodingStrategy,
+        dataDecodingStrategy: dataDecodingStrategy,
+        decimalDecodingStrategy: decimalDecodingStrategy
+      )
+    )
+  }
 
-    func unkeyedContainer() throws -> UnkeyedDecodingContainer {
-        throw DecodingError.typeMismatch(
-            JSON.self,
-            DecodingError.Context(
-                codingPath: codingPath,
-                debugDescription:
-                "Expected a JSON object for extras wrapper; unkeyed container is not supported"
-            )
-        )
-    }
+  func unkeyedContainer() throws -> UnkeyedDecodingContainer {
+    throw DecodingError.typeMismatch(
+      JSON.self,
+      DecodingError.Context(
+        codingPath: codingPath,
+        debugDescription:
+          "Expected a JSON object for extras wrapper; unkeyed container is not supported"
+      )
+    )
+  }
 
-    func singleValueContainer() throws -> SingleValueDecodingContainer {
-        throw DecodingError.typeMismatch(
-            JSON.self,
-            DecodingError.Context(
-                codingPath: codingPath,
-                debugDescription:
-                "Expected a JSON object for extras wrapper; single-value container is not supported"
-            )
-        )
-    }
+  func singleValueContainer() throws -> SingleValueDecodingContainer {
+    throw DecodingError.typeMismatch(
+      JSON.self,
+      DecodingError.Context(
+        codingPath: codingPath,
+        debugDescription:
+          "Expected a JSON object for extras wrapper; single-value container is not supported"
+      )
+    )
+  }
 }
 
 /// A keyed decoding container that records which keys were accessed.
 private struct _TrackingKeyedDecodingContainer<Key: CodingKey>: KeyedDecodingContainerProtocol {
-    let json: JSON
-    let onAccess: (String) -> Void
-    let codingPath: [CodingKey]
-    let dateDecodingStrategy: DateDecodingStrategy
-    let dataDecodingStrategy: DataDecodingStrategy
-    let decimalDecodingStrategy: DecimalDecodingStrategy
+  let json: JSON
+  let onAccess: (String) -> Void
+  let codingPath: [CodingKey]
+  let dateDecodingStrategy: DateDecodingStrategy
+  let dataDecodingStrategy: DataDecodingStrategy
+  let decimalDecodingStrategy: DecimalDecodingStrategy
 
-    init(
-        json: JSON,
-        onAccess: @escaping (String) -> Void,
-        pathPrefix: [CodingKey],
-        dateDecodingStrategy: DateDecodingStrategy = .deferredToDate,
-        dataDecodingStrategy: DataDecodingStrategy = .base64,
-        decimalDecodingStrategy: DecimalDecodingStrategy = .asString
-    ) {
-        self.json = json
-        self.onAccess = onAccess
-        codingPath = pathPrefix
-        self.dateDecodingStrategy = dateDecodingStrategy
-        self.dataDecodingStrategy = dataDecodingStrategy
-        self.decimalDecodingStrategy = decimalDecodingStrategy
-    }
+  init(
+    json: JSON,
+    onAccess: @escaping (String) -> Void,
+    pathPrefix: [CodingKey],
+    dateDecodingStrategy: DateDecodingStrategy = .deferredToDate,
+    dataDecodingStrategy: DataDecodingStrategy = .base64,
+    decimalDecodingStrategy: DecimalDecodingStrategy = .asString
+  ) {
+    self.json = json
+    self.onAccess = onAccess
+    codingPath = pathPrefix
+    self.dateDecodingStrategy = dateDecodingStrategy
+    self.dataDecodingStrategy = dataDecodingStrategy
+    self.decimalDecodingStrategy = decimalDecodingStrategy
+  }
 
-    var allKeys: [Key] {
-        guard case let .object(dict) = json.storage else { return [] }
-        return dict.keys.compactMap { Key(stringValue: $0) }
-    }
+  var allKeys: [Key] {
+    guard case .object(let dict) = json.storage else { return [] }
+    return dict.keys.compactMap { Key(stringValue: $0) }
+  }
 
-    func contains(_ key: Key) -> Bool {
-        onAccess(key.stringValue)
-        guard case let .object(dict) = json.storage else { return false }
-        return dict.keys.contains(key.stringValue)
-    }
+  func contains(_ key: Key) -> Bool {
+    onAccess(key.stringValue)
+    guard case .object(let dict) = json.storage else { return false }
+    return dict.keys.contains(key.stringValue)
+  }
 
-    func decodeNil(forKey key: Key) throws -> Bool {
-        onAccess(key.stringValue)
-        guard case let .object(dict) = json.storage else { return true }
-        guard let val = dict[key.stringValue] else { return true }
-        return val == .null
-    }
+  func decodeNil(forKey key: Key) throws -> Bool {
+    onAccess(key.stringValue)
+    guard case .object(let dict) = json.storage else { return true }
+    guard let val = dict[key.stringValue] else { return true }
+    return val == .null
+  }
 
-    func decode(_: Bool.Type, forKey key: Key) throws -> Bool {
-        onAccess(key.stringValue)
-        return try valueForKey(key) { try $0.requireBool() }
-    }
+  func decode(_: Bool.Type, forKey key: Key) throws -> Bool {
+    onAccess(key.stringValue)
+    return try valueForKey(key) { try $0.requireBool() }
+  }
 
-    func decode(_: String.Type, forKey key: Key) throws -> String {
-        onAccess(key.stringValue)
-        return try valueForKey(key) { try $0.requireString() }
-    }
+  func decode(_: String.Type, forKey key: Key) throws -> String {
+    onAccess(key.stringValue)
+    return try valueForKey(key) { try $0.requireString() }
+  }
 
-    func decode(_: Int64.Type, forKey key: Key) throws -> Int64 {
-        onAccess(key.stringValue)
-        return try valueForKey(key) { try $0.requireInt64() }
-    }
+  func decode(_: Int64.Type, forKey key: Key) throws -> Int64 {
+    onAccess(key.stringValue)
+    return try valueForKey(key) { try $0.requireInt64() }
+  }
 
-    func decode(_: Int.Type, forKey key: Key) throws -> Int {
-        onAccess(key.stringValue)
-        return try valueForKey(key) { try $0.requireInt() }
-    }
+  func decode(_: Int.Type, forKey key: Key) throws -> Int {
+    onAccess(key.stringValue)
+    return try valueForKey(key) { try $0.requireInt() }
+  }
 
-    func decode(_: Double.Type, forKey key: Key) throws -> Double {
-        onAccess(key.stringValue)
-        return try valueForKey(key) { try $0.requireDouble() }
-    }
+  func decode(_: Double.Type, forKey key: Key) throws -> Double {
+    onAccess(key.stringValue)
+    return try valueForKey(key) { try $0.requireDouble() }
+  }
 
-    func decode(_: Float.Type, forKey key: Key) throws -> Float {
-        onAccess(key.stringValue)
-        return try valueForKey(key) { try $0.requireFloat() }
-    }
+  func decode(_: Float.Type, forKey key: Key) throws -> Float {
+    onAccess(key.stringValue)
+    return try valueForKey(key) { try $0.requireFloat() }
+  }
 
-    // MARK: - Integer and unsigned widths
+  // MARK: - Integer and unsigned widths
 
-    func decode(_: Int8.Type, forKey key: Key) throws -> Int8 {
-        onAccess(key.stringValue)
-        return try valueForKey(key) { try $0.requireInt8() }
-    }
+  func decode(_: Int8.Type, forKey key: Key) throws -> Int8 {
+    onAccess(key.stringValue)
+    return try valueForKey(key) { try $0.requireInt8() }
+  }
 
-    func decode(_: Int16.Type, forKey key: Key) throws -> Int16 {
-        onAccess(key.stringValue)
-        return try valueForKey(key) { try $0.requireInt16() }
-    }
+  func decode(_: Int16.Type, forKey key: Key) throws -> Int16 {
+    onAccess(key.stringValue)
+    return try valueForKey(key) { try $0.requireInt16() }
+  }
 
-    func decode(_: Int32.Type, forKey key: Key) throws -> Int32 {
-        onAccess(key.stringValue)
-        return try valueForKey(key) { try $0.requireInt32() }
-    }
+  func decode(_: Int32.Type, forKey key: Key) throws -> Int32 {
+    onAccess(key.stringValue)
+    return try valueForKey(key) { try $0.requireInt32() }
+  }
 
-    func decode(_: UInt.Type, forKey key: Key) throws -> UInt {
-        onAccess(key.stringValue)
-        return try valueForKey(key) { try $0.requireUInt() }
-    }
+  func decode(_: UInt.Type, forKey key: Key) throws -> UInt {
+    onAccess(key.stringValue)
+    return try valueForKey(key) { try $0.requireUInt() }
+  }
 
-    func decode(_: UInt8.Type, forKey key: Key) throws -> UInt8 {
-        onAccess(key.stringValue)
-        return try valueForKey(key) { try $0.requireUInt8() }
-    }
+  func decode(_: UInt8.Type, forKey key: Key) throws -> UInt8 {
+    onAccess(key.stringValue)
+    return try valueForKey(key) { try $0.requireUInt8() }
+  }
 
-    func decode(_: UInt16.Type, forKey key: Key) throws -> UInt16 {
-        onAccess(key.stringValue)
-        return try valueForKey(key) { try $0.requireUInt16() }
-    }
+  func decode(_: UInt16.Type, forKey key: Key) throws -> UInt16 {
+    onAccess(key.stringValue)
+    return try valueForKey(key) { try $0.requireUInt16() }
+  }
 
-    func decode(_: UInt32.Type, forKey key: Key) throws -> UInt32 {
-        onAccess(key.stringValue)
-        return try valueForKey(key) { try $0.requireUInt32() }
-    }
+  func decode(_: UInt32.Type, forKey key: Key) throws -> UInt32 {
+    onAccess(key.stringValue)
+    return try valueForKey(key) { try $0.requireUInt32() }
+  }
 
-    func decode(_: UInt64.Type, forKey key: Key) throws -> UInt64 {
-        onAccess(key.stringValue)
-        return try valueForKey(key) { try $0.requireUInt64() }
-    }
+  func decode(_: UInt64.Type, forKey key: Key) throws -> UInt64 {
+    onAccess(key.stringValue)
+    return try valueForKey(key) { try $0.requireUInt64() }
+  }
 
-    func decode<T: Decodable>(_: T.Type, forKey key: Key) throws -> T {
-        onAccess(key.stringValue)
-        guard case let .object(dict) = json.storage, let val = dict[key.stringValue] else {
-            throw DecodingError.keyNotFound(
-                key,
-                DecodingError.Context(
-                    codingPath: codingPath,
-                    debugDescription: "Key '\(key.stringValue)' not found"
-                )
-            )
-        }
-        let decoder = _JSONDecodeImpl(
-            json: val, userInfo: [:], codingPath: codingPath + [key],
-            dateDecodingStrategy: dateDecodingStrategy,
-            dataDecodingStrategy: dataDecodingStrategy,
-            decimalDecodingStrategy: decimalDecodingStrategy
+  func decode<T: Decodable>(_: T.Type, forKey key: Key) throws -> T {
+    onAccess(key.stringValue)
+    guard case .object(let dict) = json.storage, let val = dict[key.stringValue] else {
+      throw DecodingError.keyNotFound(
+        key,
+        DecodingError.Context(
+          codingPath: codingPath,
+          debugDescription: "Key '\(key.stringValue)' not found"
         )
-        return try T(from: decoder)
+      )
     }
+    let decoder = _JSONDecodeImpl(
+      json: val, userInfo: [:], codingPath: codingPath + [key],
+      dateDecodingStrategy: dateDecodingStrategy,
+      dataDecodingStrategy: dataDecodingStrategy,
+      decimalDecodingStrategy: decimalDecodingStrategy
+    )
+    return try T(from: decoder)
+  }
 
-    func nestedContainer<NestedKey: CodingKey>(
-        keyedBy _: NestedKey.Type, forKey key: Key
-    ) throws -> KeyedDecodingContainer<NestedKey> {
-        onAccess(key.stringValue)
-        guard case let .object(dict) = json.storage, let val = dict[key.stringValue] else {
-            throw DecodingError.keyNotFound(
-                key,
-                DecodingError.Context(
-                    codingPath: codingPath,
-                    debugDescription: "Key '\(key.stringValue)' not found"
-                )
-            )
-        }
-        return KeyedDecodingContainer(
-            _TrackingKeyedDecodingContainer<NestedKey>(
-                json: val, onAccess: onAccess, pathPrefix: codingPath + [key],
-                dateDecodingStrategy: dateDecodingStrategy,
-                dataDecodingStrategy: dataDecodingStrategy,
-                decimalDecodingStrategy: decimalDecodingStrategy
-            )
+  func nestedContainer<NestedKey: CodingKey>(
+    keyedBy _: NestedKey.Type, forKey key: Key
+  ) throws -> KeyedDecodingContainer<NestedKey> {
+    onAccess(key.stringValue)
+    guard case .object(let dict) = json.storage, let val = dict[key.stringValue] else {
+      throw DecodingError.keyNotFound(
+        key,
+        DecodingError.Context(
+          codingPath: codingPath,
+          debugDescription: "Key '\(key.stringValue)' not found"
         )
+      )
     }
+    return KeyedDecodingContainer(
+      _TrackingKeyedDecodingContainer<NestedKey>(
+        json: val, onAccess: onAccess, pathPrefix: codingPath + [key],
+        dateDecodingStrategy: dateDecodingStrategy,
+        dataDecodingStrategy: dataDecodingStrategy,
+        decimalDecodingStrategy: decimalDecodingStrategy
+      )
+    )
+  }
 
-    func nestedUnkeyedContainer(forKey key: Key) throws -> UnkeyedDecodingContainer {
-        onAccess(key.stringValue)
-        guard case let .object(dict) = json.storage, let val = dict[key.stringValue] else {
-            throw DecodingError.keyNotFound(
-                key,
-                DecodingError.Context(
-                    codingPath: codingPath,
-                    debugDescription: "Key '\(key.stringValue)' not found"
-                )
-            )
-        }
-        guard case let .array(elements) = val.storage else {
-            throw DecodingError.typeMismatch(
-                JSON.self,
-                DecodingError.Context(
-                    codingPath: codingPath + [key],
-                    debugDescription: "Expected an array"
-                )
-            )
-        }
-        return _JSONUnkeyedDecodingContainer(
-            elements: elements,
-            impl: _JSONDecodeImpl(
-                json: val, userInfo: [:], codingPath: codingPath + [key],
-                dateDecodingStrategy: dateDecodingStrategy,
-                dataDecodingStrategy: dataDecodingStrategy,
-                decimalDecodingStrategy: decimalDecodingStrategy
-            ),
-            pathPrefix: codingPath + [key]
+  func nestedUnkeyedContainer(forKey key: Key) throws -> UnkeyedDecodingContainer {
+    onAccess(key.stringValue)
+    guard case .object(let dict) = json.storage, let val = dict[key.stringValue] else {
+      throw DecodingError.keyNotFound(
+        key,
+        DecodingError.Context(
+          codingPath: codingPath,
+          debugDescription: "Key '\(key.stringValue)' not found"
         )
+      )
     }
-
-    func superDecoder(forKey key: Key) throws -> Decoder {
-        onAccess(key.stringValue)
-        guard case let .object(dict) = json.storage, let val = dict[key.stringValue] else {
-            throw DecodingError.keyNotFound(
-                key,
-                DecodingError.Context(
-                    codingPath: codingPath,
-                    debugDescription: "Key '\(key.stringValue)' not found"
-                )
-            )
-        }
-        return _TrackingDecoder(
-            json: val, onAccess: onAccess, codingPath: codingPath + [key],
-            dateDecodingStrategy: dateDecodingStrategy,
-            dataDecodingStrategy: dataDecodingStrategy,
-            decimalDecodingStrategy: decimalDecodingStrategy
+    guard case .array(let elements) = val.storage else {
+      throw DecodingError.typeMismatch(
+        JSON.self,
+        DecodingError.Context(
+          codingPath: codingPath + [key],
+          debugDescription: "Expected an array"
         )
+      )
     }
+    return _JSONUnkeyedDecodingContainer(
+      elements: elements,
+      impl: _JSONDecodeImpl(
+        json: val, userInfo: [:], codingPath: codingPath + [key],
+        dateDecodingStrategy: dateDecodingStrategy,
+        dataDecodingStrategy: dataDecodingStrategy,
+        decimalDecodingStrategy: decimalDecodingStrategy
+      ),
+      pathPrefix: codingPath + [key]
+    )
+  }
 
-    func superDecoder() throws -> Decoder {
-        _TrackingDecoder(
-            json: json, onAccess: onAccess, codingPath: codingPath,
-            dateDecodingStrategy: dateDecodingStrategy,
-            dataDecodingStrategy: dataDecodingStrategy,
-            decimalDecodingStrategy: decimalDecodingStrategy
+  func superDecoder(forKey key: Key) throws -> Decoder {
+    onAccess(key.stringValue)
+    guard case .object(let dict) = json.storage, let val = dict[key.stringValue] else {
+      throw DecodingError.keyNotFound(
+        key,
+        DecodingError.Context(
+          codingPath: codingPath,
+          debugDescription: "Key '\(key.stringValue)' not found"
         )
+      )
     }
+    return _TrackingDecoder(
+      json: val, onAccess: onAccess, codingPath: codingPath + [key],
+      dateDecodingStrategy: dateDecodingStrategy,
+      dataDecodingStrategy: dataDecodingStrategy,
+      decimalDecodingStrategy: decimalDecodingStrategy
+    )
+  }
 
-    /// Helper: extract a value for a key, with key-not-found handling.
-    private func valueForKey<T>(_ key: Key, _ extract: (JSON) throws -> T) throws -> T {
-        guard case let .object(dict) = json.storage, let val = dict[key.stringValue] else {
-            throw DecodingError.keyNotFound(
-                key,
-                DecodingError.Context(
-                    codingPath: codingPath,
-                    debugDescription: "Key '\(key.stringValue)' not found"
-                )
-            )
-        }
-        return try extract(val)
+  func superDecoder() throws -> Decoder {
+    _TrackingDecoder(
+      json: json, onAccess: onAccess, codingPath: codingPath,
+      dateDecodingStrategy: dateDecodingStrategy,
+      dataDecodingStrategy: dataDecodingStrategy,
+      decimalDecodingStrategy: decimalDecodingStrategy
+    )
+  }
+
+  /// Helper: extract a value for a key, with key-not-found handling.
+  private func valueForKey<T>(_ key: Key, _ extract: (JSON) throws -> T) throws -> T {
+    guard case .object(let dict) = json.storage, let val = dict[key.stringValue] else {
+      throw DecodingError.keyNotFound(
+        key,
+        DecodingError.Context(
+          codingPath: codingPath,
+          debugDescription: "Key '\(key.stringValue)' not found"
+        )
+      )
     }
+    return try extract(val)
+  }
 }
 
 /// An encoder wrapper that only encodes known keys (used for encoding `T`).
 private struct _ValueEncoder: Encoder {
-    let container: KeyedEncodingContainer<_ExtrasKey>
-    let codingPath: [CodingKey] = []
-    let userInfo: [CodingUserInfoKey: Any] = [:]
+  let container: KeyedEncodingContainer<_ExtrasKey>
+  let codingPath: [CodingKey] = []
+  let userInfo: [CodingUserInfoKey: Any] = [:]
 
-    func container<Key: CodingKey>(keyedBy _: Key.Type) -> KeyedEncodingContainer<Key> {
-        return KeyedEncodingContainer(
-            _FilteredKeyedEncodingContainer<Key>(container: container)
-        )
-    }
+  func container<Key: CodingKey>(keyedBy _: Key.Type) -> KeyedEncodingContainer<Key> {
+    return KeyedEncodingContainer(
+      _FilteredKeyedEncodingContainer<Key>(container: container)
+    )
+  }
 
-    func unkeyedContainer() -> UnkeyedEncodingContainer {
-        fatalError("Unkeyed container is not supported for extras wrapper encoding")
-    }
+  func unkeyedContainer() -> UnkeyedEncodingContainer {
+    fatalError("Unkeyed container is not supported for extras wrapper encoding")
+  }
 
-    func singleValueContainer() -> SingleValueEncodingContainer {
-        fatalError("Single-value container is not supported for extras wrapper encoding")
-    }
+  func singleValueContainer() -> SingleValueEncodingContainer {
+    fatalError("Single-value container is not supported for extras wrapper encoding")
+  }
 }
 
 /// A keyed encoding container that writes to the parent container.
 private struct _FilteredKeyedEncodingContainer<Key: CodingKey>: KeyedEncodingContainerProtocol {
-    var container: KeyedEncodingContainer<_ExtrasKey>
-    let codingPath: [CodingKey] = []
+  var container: KeyedEncodingContainer<_ExtrasKey>
+  let codingPath: [CodingKey] = []
 
-    mutating func encodeNil(forKey key: Key) throws {
-        try container.encodeNil(forKey: _ExtrasKey(stringValue: key.stringValue))
-    }
+  mutating func encodeNil(forKey key: Key) throws {
+    try container.encodeNil(forKey: _ExtrasKey(stringValue: key.stringValue))
+  }
 
-    mutating func encode(_ value: Bool, forKey key: Key) throws {
-        try container.encode(value, forKey: _ExtrasKey(stringValue: key.stringValue))
-    }
+  mutating func encode(_ value: Bool, forKey key: Key) throws {
+    try container.encode(value, forKey: _ExtrasKey(stringValue: key.stringValue))
+  }
 
-    mutating func encode(_ value: String, forKey key: Key) throws {
-        try container.encode(value, forKey: _ExtrasKey(stringValue: key.stringValue))
-    }
+  mutating func encode(_ value: String, forKey key: Key) throws {
+    try container.encode(value, forKey: _ExtrasKey(stringValue: key.stringValue))
+  }
 
-    mutating func encode(_ value: Int64, forKey key: Key) throws {
-        try container.encode(value, forKey: _ExtrasKey(stringValue: key.stringValue))
-    }
+  mutating func encode(_ value: Int64, forKey key: Key) throws {
+    try container.encode(value, forKey: _ExtrasKey(stringValue: key.stringValue))
+  }
 
-    mutating func encode(_ value: Int, forKey key: Key) throws {
-        try container.encode(value, forKey: _ExtrasKey(stringValue: key.stringValue))
-    }
+  mutating func encode(_ value: Int, forKey key: Key) throws {
+    try container.encode(value, forKey: _ExtrasKey(stringValue: key.stringValue))
+  }
 
-    mutating func encode(_ value: Double, forKey key: Key) throws {
-        try container.encode(value, forKey: _ExtrasKey(stringValue: key.stringValue))
-    }
+  mutating func encode(_ value: Double, forKey key: Key) throws {
+    try container.encode(value, forKey: _ExtrasKey(stringValue: key.stringValue))
+  }
 
-    mutating func encode(_ value: Float, forKey key: Key) throws {
-        try container.encode(value, forKey: _ExtrasKey(stringValue: key.stringValue))
-    }
+  mutating func encode(_ value: Float, forKey key: Key) throws {
+    try container.encode(value, forKey: _ExtrasKey(stringValue: key.stringValue))
+  }
 
-    mutating func encode<T: Encodable>(_ value: T, forKey key: Key) throws {
-        try container.encode(value, forKey: _ExtrasKey(stringValue: key.stringValue))
-    }
+  mutating func encode<T: Encodable>(_ value: T, forKey key: Key) throws {
+    try container.encode(value, forKey: _ExtrasKey(stringValue: key.stringValue))
+  }
 
-    mutating func nestedContainer<NestedKey: CodingKey>(
-        keyedBy keyType: NestedKey.Type, forKey key: Key
-    ) -> KeyedEncodingContainer<NestedKey> {
-        container.nestedContainer(
-            keyedBy: keyType, forKey: _ExtrasKey(stringValue: key.stringValue)
-        )
-    }
+  mutating func nestedContainer<NestedKey: CodingKey>(
+    keyedBy keyType: NestedKey.Type, forKey key: Key
+  ) -> KeyedEncodingContainer<NestedKey> {
+    container.nestedContainer(
+      keyedBy: keyType, forKey: _ExtrasKey(stringValue: key.stringValue)
+    )
+  }
 
-    mutating func nestedUnkeyedContainer(forKey key: Key) -> UnkeyedEncodingContainer {
-        container.nestedUnkeyedContainer(forKey: _ExtrasKey(stringValue: key.stringValue))
-    }
+  mutating func nestedUnkeyedContainer(forKey key: Key) -> UnkeyedEncodingContainer {
+    container.nestedUnkeyedContainer(forKey: _ExtrasKey(stringValue: key.stringValue))
+  }
 
-    mutating func superEncoder(forKey key: Key) -> Encoder {
-        container.superEncoder(forKey: _ExtrasKey(stringValue: key.stringValue))
-    }
+  mutating func superEncoder(forKey key: Key) -> Encoder {
+    container.superEncoder(forKey: _ExtrasKey(stringValue: key.stringValue))
+  }
 
-    mutating func superEncoder() -> Encoder {
-        container.superEncoder()
-    }
+  mutating func superEncoder() -> Encoder {
+    container.superEncoder()
+  }
 }

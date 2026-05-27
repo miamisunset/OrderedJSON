@@ -14,8 +14,8 @@ import OrderedCollections
 /// let json = JSON.number(num)
 /// ```
 public enum JSONNumber: Hashable, Sendable {
-    /// An integer value stored as `Int64`.
-    case integer(Int64)
-    /// A floating-point value stored as `Double`.
-    case float(Double)
+  /// An integer value stored as `Int64`.
+  case integer(Int64)
+  /// A floating-point value stored as `Double`.
+  case float(Double)
 }
