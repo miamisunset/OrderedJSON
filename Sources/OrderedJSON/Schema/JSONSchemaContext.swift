@@ -49,6 +49,9 @@ internal struct EvaluationContext: Sendable {
     return next
   }
 
+  /// Advances the context for a *remote* `$ref` resolution.
+  /// Sets both `currentResourceURI` and `parentResourceURI` to the new URI,
+  /// meaning subsequent `$id` resolution will use the new URI as the parent.
   func advanced(resourceURI: String) -> EvaluationContext {
     var next = self
     next.recursionDepth += 1
@@ -57,6 +60,10 @@ internal struct EvaluationContext: Sendable {
     return next
   }
 
+  /// Advances the context for a *local* `$ref` resolution.
+  /// Only `currentResourceURI` is updated; `parentResourceURI` stays unchanged.
+  /// This preserves the original parent URI so that nested `$id` values
+  /// resolve against the correct base (the original resource, not the ref target).
   func advancedViaRef(resourceURI: String) -> EvaluationContext {
     var next = self
     next.recursionDepth += 1
