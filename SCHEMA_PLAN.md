@@ -625,8 +625,8 @@ body. This creates:
 ### Result
 
 After refactoring and additional fixes:
-- Draft 2020-12: 1292/1295 passed (99.8%) — 3 failures
-- Draft 7: 911/927 passed (98.3%) — 16 failures
+- Draft 2020-12: **1295/1295 passed (100%)** — 0 failures
+- Draft 7: 911/927 passed (98.3%) — 16 failures (pre-existing)
 
 Key fixes applied:
 - validateItemsSchema: handle boolean items (true/false)
@@ -646,9 +646,7 @@ Key fixes applied:
 - parentResourceURI: EvaluationContext tracks original parent URI separately
 - $defs collection: outermost occurrence wins (no overwrite)
 - resolveFragment: URI percent-decoding support, dynamicAnchors fallback
+- $vocabulary support: metaschema vocabulary keyword filtering
+- Metaschema pre-loading: official Draft 2020-12 metaschema + all components
 
-Remaining failures by category:
-- ref/defs: 2 (remote metaschema reference to https://json-schema.org/draft/2020-12/schema)
-- vocabulary: 1 (custom metaschema with no validation vocabulary)
-
-All $dynamicRef, unevaluatedProperties, unevaluatedItems, ref local, and refRemote failures are now fixed!
+All $dynamicRef, unevaluatedProperties, unevaluatedItems, ref, refRemote, defs, and vocabulary failures are now fixed!

@@ -25,6 +25,10 @@ internal struct EvaluationContext: Sendable {
   /// Dynamic scope stack: `$dynamicAnchor` frames encountered during
   /// validation. Innermost frame is last. Each frame is `(name, schema)`.
   var dynamicScope: [DynamicAnchorFrame]
+  /// Set of enabled keywords from the schema's $vocabulary metaschema.
+  /// If nil, all keywords are enabled. If non-nil, only keywords in this
+  /// set should be validated. Propagated to nested subschemas.
+  var enabledKeywords: Set<String>?
 
   /// Creates a context with default values for top-level validation.
   init(
@@ -36,6 +40,7 @@ internal struct EvaluationContext: Sendable {
     self.currentResourceURI = currentResourceURI
     self.parentResourceURI = currentResourceURI
     self.dynamicScope = dynamicScope
+    self.enabledKeywords = nil
   }
 
   func advanced() -> EvaluationContext {
@@ -44,9 +49,6 @@ internal struct EvaluationContext: Sendable {
     return next
   }
 
-  /// Normal advancement: both currentResourceURI and parentResourceURI
-  /// are updated to the new resource URI. Nested subschemas inherit
-  /// this as their parent.
   func advanced(resourceURI: String) -> EvaluationContext {
     var next = self
     next.recursionDepth += 1
@@ -55,10 +57,6 @@ internal struct EvaluationContext: Sendable {
     return next
   }
 
-  /// Advancement via $ref/$dynamicRef: currentResourceURI is updated
-  /// to the resolved schema's URI, but parentResourceURI stays as the
-  /// ORIGINAL parent's URI. This ensures $id in the resolved schema
-  /// resolves against the correct parent.
   func advancedViaRef(resourceURI: String) -> EvaluationContext {
     var next = self
     next.recursionDepth += 1
@@ -72,6 +70,12 @@ internal struct EvaluationContext: Sendable {
     next.currentResourceURI = resourceURI
     next.parentResourceURI = resourceURI
     next.dynamicScope = dynamicScope + [DynamicAnchorFrame(name: name, schema: schema)]
+    return next
+  }
+
+  func withEnabledKeywords(_ keywords: Set<String>?) -> EvaluationContext {
+    var next = self
+    next.enabledKeywords = keywords
     return next
   }
 }

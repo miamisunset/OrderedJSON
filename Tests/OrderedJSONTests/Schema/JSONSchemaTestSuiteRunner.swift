@@ -28,7 +28,13 @@ private func runTestSuite(draftDir: String, draft: JSONSchema.Draft) throws {
   // Pre-load remote schemas from the remotes/ directory
   let remotesDir = suiteRootURL().deletingLastPathComponent()
     .appendingPathComponent("remotes")
-  let remoteSchemas = loadRemoteSchemas(from: remotesDir)
+  var remoteSchemas = loadRemoteSchemas(from: remotesDir)
+
+  // Also load well-known metaschemas (e.g., https://json-schema.org/draft/2020-12/schema)
+  let metaschemaURLs = loadMetaschemas(from: suiteRootURL())
+  for (url, schema) in metaschemaURLs {
+    remoteSchemas[url] = schema
+  }
 
   var total = 0
   var passed = 0
@@ -135,5 +141,28 @@ private func loadRemoteSchemas(from remotesDir: URL) -> [String: JSON] {
     result[url] = parsed
   }
 
+  return result
+}
+
+/// Loads well-known metaschemas from a local JSON file that maps
+/// metaschema URLs to their content. These are downloaded from the
+/// official JSON Schema repository and cached locally.
+/// - Parameter suiteRoot: The URL to the test suite root (e.g., .../JSON-Schema-Test-Suite/tests).
+/// - Returns: Dictionary mapping metaschema URLs to parsed JSON schemas.
+private func loadMetaschemas(from suiteRoot: URL) -> [String: JSON] {
+  // suiteRoot = .../OrderedJSON/JSON-Schema-Test-Suite/tests/
+  // Go up to project root: .../OrderedJSON/
+  let projectRoot = suiteRoot
+    .deletingLastPathComponent()  // JSON-Schema-Test-Suite/
+    .deletingLastPathComponent()  // OrderedJSON/ (project root)
+  let metaschemaFile = projectRoot
+    .appendingPathComponent("OrderedJSONTests/Schema/JSONSchemaTestSuite/metaschemas.json")
+  guard let data = try? Data(contentsOf: metaschemaFile) else { return [:] }
+  guard let parsed = try? JSON.parse(data) else { return [:] }
+  guard let obj = parsed.objectValue else { return [:] }
+  var result: [String: JSON] = [:]
+  for (url, schema) in obj {
+    result[url] = schema
+  }
   return result
 }
