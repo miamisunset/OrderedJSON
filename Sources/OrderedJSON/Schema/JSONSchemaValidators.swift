@@ -394,6 +394,8 @@ extension JSONSchema {
             instancePath: first.instancePath.isEmpty ? instancePath : first.instancePath,
             schemaPath: schemaPath + "/allOf/" + String(index), keyword: "allOf",
             message: "subschema #\(index) failed: \(first.message)"))
+        // Short-circuit: allOf must pass all, so stop after first failure.
+        break
       }
     }
   }
