@@ -1,5 +1,6 @@
-import Testing
 import OrderedCollections
+import Testing
+
 @testable import OrderedJSON
 
 /// Tests for JSON Schema generation from JSON instances (Phase 9).
@@ -102,7 +103,10 @@ import OrderedCollections
     // A shorter array that matches the first prefix items should be valid
     #expect(schema.validation(of: .array([.number(.integer(1)), .string("two")])).valid)
     // An array with extra items beyond prefixItems should fail (items: false)
-    #expect(schema.validation(of: .array([.number(.integer(1)), .string("two"), .boolean(true), .number(.integer(99))])).valid == false)
+    #expect(
+      schema.validation(
+        of: .array([.number(.integer(1)), .string("two"), .boolean(true), .number(.integer(99))])
+      ).valid == false)
 
     let schemaJSON = JSONSchemaGeneration.generate(from: j)
     #expect(schemaJSON["type"] == .string("array"))
@@ -116,7 +120,7 @@ import OrderedCollections
   func testObject() throws {
     let dict: OrderedDictionary<String, JSON> = [
       "name": .string("Alice"),
-      "age": .number(.integer(30))
+      "age": .number(.integer(30)),
     ]
     let j: JSON = .object(dict)
     let schema = try j.schema()
@@ -130,7 +134,7 @@ import OrderedCollections
     let extra: JSON = .object([
       "name": .string("Alice"),
       "age": .number(.integer(30)),
-      "extra": .string("bad")
+      "extra": .string("bad"),
     ])
     #expect(schema.validation(of: extra).valid == false)
 
@@ -180,7 +184,7 @@ import OrderedCollections
       "id": .number(.integer(1)),
       "title": .string("Hello"),
       "tags": .array([.string("swift"), .string("json")]),
-      "metadata": .object(["version": .number(.float(1.0))])
+      "metadata": .object(["version": .number(.float(1.0))]),
     ])
 
     let schema = try doc.schema()

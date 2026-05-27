@@ -63,7 +63,7 @@ public enum JSONSchemaGeneration {
       // Empty array: allow any items (boolean true schema)
       return .object([
         "type": .string("array"),
-        "items": .boolean(true)
+        "items": .boolean(true),
       ])
     }
 
@@ -72,7 +72,7 @@ public enum JSONSchemaGeneration {
     var allSame = true
     for i in 1..<elements.count {
       let s = infer(elements[i])
-      if !schemaEqual(s, firstSchema) {
+      if !JSONSchema.schemaEqual(s, firstSchema) {
         allSame = false
         break
       }
@@ -81,7 +81,7 @@ public enum JSONSchemaGeneration {
     if allSame {
       return .object([
         "type": .string("array"),
-        "items": firstSchema
+        "items": firstSchema,
       ])
     }
 
@@ -90,7 +90,7 @@ public enum JSONSchemaGeneration {
     return .object([
       "type": .string("array"),
       "prefixItems": .array(prefixItems),
-      "items": .boolean(false)
+      "items": .boolean(false),
     ])
     // items: false ensures no items beyond the tuple length are allowed.
   }
@@ -109,15 +109,16 @@ public enum JSONSchemaGeneration {
       "type": .string("object"),
       "properties": .object(properties),
       "required": .array(required),
-      "additionalProperties": .boolean(false)
+      "additionalProperties": .boolean(false),
     ])
     // additionalProperties: false ensures no extra keys are allowed.
   }
 
   /// Two inferred schemas are equal if their JSON representation is equal.
-  /// This uses structural JSON equality (Hashable).
+  /// Delegates to `JSONSchema.schemaEqual` which handles cross-type number
+  /// comparison and Unicode scalar-level string comparison.
   private static func schemaEqual(_ lhs: JSON, _ rhs: JSON) -> Bool {
-    lhs == rhs
+    JSONSchema.schemaEqual(lhs, rhs)
   }
 }
 
