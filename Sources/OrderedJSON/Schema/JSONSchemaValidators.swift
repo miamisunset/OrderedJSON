@@ -272,7 +272,17 @@ extension JSONSchema {
     guard let patternStr = subschema["pattern"]?.stringValue, let strVal = value.stringValue else {
       return
     }
-    guard let regex = try? NSRegularExpression(pattern: patternStr, options: []) else { return }
+    // Use pre-compiled regex if available, otherwise compile on the fly.
+    let regex: NSRegularExpression
+    if let compiled = self.compiled,
+      let cached = compiled.precompiledPatterns[patternStr]
+    {
+      regex = cached.regex
+    } else if let r = try? NSRegularExpression(pattern: patternStr, options: []) {
+      regex = r
+    } else {
+      return
+    }
     let range = NSRange(strVal.startIndex..<strVal.endIndex, in: strVal)
     if regex.firstMatch(in: strVal, options: [], range: range) == nil {
       errors.append(
@@ -657,7 +667,15 @@ extension JSONSchema {
       return
     }
     for (pattern, schema) in patternDict {
-      let regex = try! NSRegularExpression(pattern: pattern, options: [])
+      // Use pre-compiled regex if available, otherwise compile on the fly.
+      let regex: NSRegularExpression
+      if let compiled = self.compiled,
+        let cached = compiled.precompiledPatterns[pattern]
+      {
+        regex = cached.regex
+      } else {
+        regex = try! NSRegularExpression(pattern: pattern, options: [])
+      }
       for (key, val) in dict {
         let range = NSRange(key.startIndex..<key.endIndex, in: key)
         if regex.firstMatch(in: key, options: [], range: range) != nil {

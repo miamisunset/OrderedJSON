@@ -61,6 +61,9 @@ internal struct CompiledSchema: Hashable, Sendable {
   let schemaJSON: JSON
   /// Per-resource annotation tables, keyed by base URI (empty string for root).
   let resources: OrderedDictionary<String, ResourceScope>
+  /// Pre-compiled regex patterns for `pattern` and `patternProperties` keywords.
+  /// Key is the pattern string; value is a thread-safe regex wrapper.
+  let precompiledPatterns: [String: SendableRegex]
 
   /// Creates a compiled schema from raw JSON.
   /// - Parameter schema: The raw schema JSON.
@@ -68,6 +71,72 @@ internal struct CompiledSchema: Hashable, Sendable {
   init(schema: JSON) throws {
     self.schemaJSON = schema
     self.resources = try CompiledSchema.collectResources(from: schema)
+    self.precompiledPatterns = CompiledSchema.compilePatterns(from: schema)
+  }
+
+  /// Walks the schema tree and pre-compiles all `pattern` and `patternProperties`
+  /// regex strings into `NSRegularExpression` objects.
+  private static func compilePatterns(from schema: JSON) -> [String: SendableRegex] {
+    var patterns: [String: SendableRegex] = [:]
+    collectPatterns(schema, patterns: &patterns)
+    return patterns
+  }
+
+  private static func collectPatterns(_ value: JSON, patterns: inout [String: SendableRegex]) {
+    guard value.isObject else { return }
+    // Check for `pattern` keyword
+    if let patternStr = value["pattern"]?.stringValue,
+      patterns[patternStr] == nil,
+      let regex = try? SendableRegex(pattern: patternStr)
+    {
+      patterns[patternStr] = regex
+    }
+    // Check for `patternProperties` keyword — it's an object whose keys are patterns
+    if let pp = value["patternProperties"], pp.isObject {
+      if case .object(let dict) = pp.storage {
+        for (patternStr, _) in dict {
+          if patterns[patternStr] == nil,
+            let regex = try? SendableRegex(pattern: patternStr)
+          {
+            patterns[patternStr] = regex
+          }
+        }
+      }
+    }
+    // Recurse into subschemas
+    if let properties = value["properties"], properties.isObject {
+      if case .object(let dict) = properties.storage {
+        for (_, subschema) in dict {
+          collectPatterns(subschema, patterns: &patterns)
+        }
+      }
+    }
+    for keyword in ["items", "allOf", "anyOf", "oneOf", "not", "if", "then", "else",
+                     "contains", "additionalProperties", "unevaluatedProperties",
+                     "additionalItems", "unevaluatedItems", "contentSchema"] {
+      if let subschema = value[keyword], subschema.isObject {
+        collectPatterns(subschema, patterns: &patterns)
+      }
+      if let arr = value[keyword], arr.isArray {
+        for item in arr where item.isObject {
+          collectPatterns(item, patterns: &patterns)
+        }
+      }
+    }
+    if let defs = value["$defs"], defs.isObject {
+      if case .object(let dict) = defs.storage {
+        for (_, subschema) in dict {
+          collectPatterns(subschema, patterns: &patterns)
+        }
+      }
+    }
+    if let defs = value["definitions"], defs.isObject {
+      if case .object(let dict) = defs.storage {
+        for (_, subschema) in dict {
+          collectPatterns(subschema, patterns: &patterns)
+        }
+      }
+    }
   }
 
   /// Returns the root resource scope (empty-string key).
