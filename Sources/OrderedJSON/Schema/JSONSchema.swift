@@ -569,21 +569,21 @@ public struct JSONSchema: Hashable, Sendable {
             message: "unresolvable reference: '\(refStr)'"))
         return
       }
-        // For local refs: keep parentResourceURI as the original parent
-        // so $id resolves correctly (use advancedViaRef).
-        // For remote refs: update parentResourceURI to the remote schema's
-        // URI since $id should resolve against the remote parent (use advanced).
-        let isRemote = compiled?.resources[resolved.resourceURI] == nil
-        let resolvedCtx: EvaluationContext
-        if isRemote {
-          resolvedCtx = currentCtx.advanced(resourceURI: resolved.resourceURI)
-        } else {
-          resolvedCtx = currentCtx.advancedViaRef(resourceURI: resolved.resourceURI)
-        }
-        validateValue(
-          value, against: resolved.schema, instancePath: instancePath,
-          schemaPath: schemaPath + "/$ref", errors: &errors,
-          ctx: resolvedCtx)
+      // For local refs: keep parentResourceURI as the original parent
+      // so $id resolves correctly (use advancedViaRef).
+      // For remote refs: update parentResourceURI to the remote schema's
+      // URI since $id should resolve against the remote parent (use advanced).
+      let isRemote = compiled?.resources[resolved.resourceURI] == nil
+      let resolvedCtx: EvaluationContext
+      if isRemote {
+        resolvedCtx = currentCtx.advanced(resourceURI: resolved.resourceURI)
+      } else {
+        resolvedCtx = currentCtx.advancedViaRef(resourceURI: resolved.resourceURI)
+      }
+      validateValue(
+        value, against: resolved.schema, instancePath: instancePath,
+        schemaPath: schemaPath + "/$ref", errors: &errors,
+        ctx: resolvedCtx)
       // In Draft 7, return here — sibling keywords are ignored alongside $ref.
       // In Draft 2020-12, continue processing sibling keywords below.
       if draft == .draft7 { return }
@@ -621,79 +621,104 @@ public struct JSONSchema: Hashable, Sendable {
         switch key {
         // --- Shared keywords (both drafts) ---
         case "type":
-          validateType(value, subschema: subschema, instancePath: instancePath,
+          validateType(
+            value, subschema: subschema, instancePath: instancePath,
             schemaPath: schemaPath, errors: &errors, ctx: currentCtx)
         case "properties":
-          validateProperties(value, subschema: subschema, instancePath: instancePath,
+          validateProperties(
+            value, subschema: subschema, instancePath: instancePath,
             schemaPath: schemaPath, errors: &errors, ctx: currentCtx)
         case "required":
-          validateRequired(value, subschema: subschema, instancePath: instancePath,
+          validateRequired(
+            value, subschema: subschema, instancePath: instancePath,
             schemaPath: schemaPath, errors: &errors, ctx: currentCtx)
         case "minimum":
-          validateMinimum(value, subschema: subschema, instancePath: instancePath,
+          validateMinimum(
+            value, subschema: subschema, instancePath: instancePath,
             schemaPath: schemaPath, errors: &errors, ctx: currentCtx)
         case "maximum":
-          validateMaximum(value, subschema: subschema, instancePath: instancePath,
+          validateMaximum(
+            value, subschema: subschema, instancePath: instancePath,
             schemaPath: schemaPath, errors: &errors, ctx: currentCtx)
         case "multipleOf":
-          validateMultipleOf(value, subschema: subschema, instancePath: instancePath,
+          validateMultipleOf(
+            value, subschema: subschema, instancePath: instancePath,
             schemaPath: schemaPath, errors: &errors, ctx: currentCtx)
         case "pattern":
-          validatePattern(value, subschema: subschema, instancePath: instancePath,
+          validatePattern(
+            value, subschema: subschema, instancePath: instancePath,
             schemaPath: schemaPath, errors: &errors, ctx: currentCtx)
         case "enum":
-          validateEnum(value, subschema: subschema, instancePath: instancePath,
+          validateEnum(
+            value, subschema: subschema, instancePath: instancePath,
             schemaPath: schemaPath, errors: &errors, ctx: currentCtx)
         case "const":
-          validateConst(value, subschema: subschema, instancePath: instancePath,
+          validateConst(
+            value, subschema: subschema, instancePath: instancePath,
             schemaPath: schemaPath, errors: &errors, ctx: currentCtx)
         case "minLength":
-          validateMinLength(value, subschema: subschema, instancePath: instancePath,
+          validateMinLength(
+            value, subschema: subschema, instancePath: instancePath,
             schemaPath: schemaPath, errors: &errors, ctx: currentCtx)
         case "maxLength":
-          validateMaxLength(value, subschema: subschema, instancePath: instancePath,
+          validateMaxLength(
+            value, subschema: subschema, instancePath: instancePath,
             schemaPath: schemaPath, errors: &errors, ctx: currentCtx)
         case "allOf":
-          validateAllOf(value, subschema: subschema, instancePath: instancePath,
+          validateAllOf(
+            value, subschema: subschema, instancePath: instancePath,
             schemaPath: schemaPath, errors: &errors, ctx: currentCtx)
         case "anyOf":
-          validateAnyOf(value, subschema: subschema, instancePath: instancePath,
+          validateAnyOf(
+            value, subschema: subschema, instancePath: instancePath,
             schemaPath: schemaPath, errors: &errors, ctx: currentCtx)
         case "oneOf":
-          validateOneOf(value, subschema: subschema, instancePath: instancePath,
+          validateOneOf(
+            value, subschema: subschema, instancePath: instancePath,
             schemaPath: schemaPath, errors: &errors, ctx: currentCtx)
         case "not":
-          validateNot(value, subschema: subschema, instancePath: instancePath,
+          validateNot(
+            value, subschema: subschema, instancePath: instancePath,
             schemaPath: schemaPath, errors: &errors, ctx: currentCtx)
         case "if":
-          validateIfThenElse(value, subschema: subschema, instancePath: instancePath,
+          validateIfThenElse(
+            value, subschema: subschema, instancePath: instancePath,
             schemaPath: schemaPath, errors: &errors, ctx: currentCtx)
         case "minItems":
-          validateMinItems(value, subschema: subschema, instancePath: instancePath,
+          validateMinItems(
+            value, subschema: subschema, instancePath: instancePath,
             schemaPath: schemaPath, errors: &errors, ctx: currentCtx)
         case "maxItems":
-          validateMaxItems(value, subschema: subschema, instancePath: instancePath,
+          validateMaxItems(
+            value, subschema: subschema, instancePath: instancePath,
             schemaPath: schemaPath, errors: &errors, ctx: currentCtx)
         case "uniqueItems":
-          validateUniqueItems(value, subschema: subschema, instancePath: instancePath,
+          validateUniqueItems(
+            value, subschema: subschema, instancePath: instancePath,
             schemaPath: schemaPath, errors: &errors, ctx: currentCtx)
         case "contains":
-          validateContains(value, subschema: subschema, instancePath: instancePath,
+          validateContains(
+            value, subschema: subschema, instancePath: instancePath,
             schemaPath: schemaPath, errors: &errors, ctx: currentCtx)
         case "minProperties":
-          validateMinProperties(value, subschema: subschema, instancePath: instancePath,
+          validateMinProperties(
+            value, subschema: subschema, instancePath: instancePath,
             schemaPath: schemaPath, errors: &errors, ctx: currentCtx)
         case "maxProperties":
-          validateMaxProperties(value, subschema: subschema, instancePath: instancePath,
+          validateMaxProperties(
+            value, subschema: subschema, instancePath: instancePath,
             schemaPath: schemaPath, errors: &errors, ctx: currentCtx)
         case "propertyNames":
-          validatePropertyNames(value, subschema: subschema, instancePath: instancePath,
+          validatePropertyNames(
+            value, subschema: subschema, instancePath: instancePath,
             schemaPath: schemaPath, errors: &errors, ctx: currentCtx)
         case "patternProperties":
-          validatePatternProperties(value, subschema: subschema, instancePath: instancePath,
+          validatePatternProperties(
+            value, subschema: subschema, instancePath: instancePath,
             schemaPath: schemaPath, errors: &errors, ctx: currentCtx)
         case "additionalProperties":
-          validateAdditionalProperties(value, subschema: subschema, instancePath: instancePath,
+          validateAdditionalProperties(
+            value, subschema: subschema, instancePath: instancePath,
             schemaPath: schemaPath, errors: &errors, ctx: currentCtx)
 
         // --- Keywords with draft-specific dispatch ---
@@ -701,10 +726,12 @@ public struct JSONSchema: Hashable, Sendable {
           // In Draft 7, `items` can be either an object (schema) or an array
           // (tuple).  Both validators are needed; each returns early if the
           // value type doesn't match.
-          validateItemsSchema(value, subschema: subschema, instancePath: instancePath,
+          validateItemsSchema(
+            value, subschema: subschema, instancePath: instancePath,
             schemaPath: schemaPath, errors: &errors, ctx: currentCtx)
           if draft == .draft7 {
-            validateItemsTuple(value, subschema: subschema, instancePath: instancePath,
+            validateItemsTuple(
+              value, subschema: subschema, instancePath: instancePath,
               schemaPath: schemaPath, errors: &errors, ctx: currentCtx)
           }
 
@@ -714,92 +741,111 @@ public struct JSONSchema: Hashable, Sendable {
           // Call both validators; the numeric one returns early if the value
           // is not a number, the bool one returns early if `minimum` is absent.
           if draft == .draft7 {
-            validateExclusiveMinimum(value, subschema: subschema, instancePath: instancePath,
+            validateExclusiveMinimum(
+              value, subschema: subschema, instancePath: instancePath,
               schemaPath: schemaPath, errors: &errors, ctx: currentCtx)
-            validateExclusiveMinimumBool(value, subschema: subschema, instancePath: instancePath,
+            validateExclusiveMinimumBool(
+              value, subschema: subschema, instancePath: instancePath,
               schemaPath: schemaPath, errors: &errors, ctx: currentCtx)
           } else {
-            validateExclusiveMinimum(value, subschema: subschema, instancePath: instancePath,
+            validateExclusiveMinimum(
+              value, subschema: subschema, instancePath: instancePath,
               schemaPath: schemaPath, errors: &errors, ctx: currentCtx)
           }
 
         case "exclusiveMaximum":
           if draft == .draft7 {
-            validateExclusiveMaximum(value, subschema: subschema, instancePath: instancePath,
+            validateExclusiveMaximum(
+              value, subschema: subschema, instancePath: instancePath,
               schemaPath: schemaPath, errors: &errors, ctx: currentCtx)
-            validateExclusiveMaximumBool(value, subschema: subschema, instancePath: instancePath,
+            validateExclusiveMaximumBool(
+              value, subschema: subschema, instancePath: instancePath,
               schemaPath: schemaPath, errors: &errors, ctx: currentCtx)
           } else {
-            validateExclusiveMaximum(value, subschema: subschema, instancePath: instancePath,
+            validateExclusiveMaximum(
+              value, subschema: subschema, instancePath: instancePath,
               schemaPath: schemaPath, errors: &errors, ctx: currentCtx)
           }
 
         // --- Draft 7 keywords ---
         case "format":
           if draft == .draft7 {
-            validateFormat(value, subschema: subschema, instancePath: instancePath,
+            validateFormat(
+              value, subschema: subschema, instancePath: instancePath,
               schemaPath: schemaPath, errors: &errors, ctx: currentCtx)
           }
         case "dependencies":
           if draft == .draft7 {
-            validateDependencies(value, subschema: subschema, instancePath: instancePath,
+            validateDependencies(
+              value, subschema: subschema, instancePath: instancePath,
               schemaPath: schemaPath, errors: &errors, ctx: currentCtx)
           }
         case "additionalItems":
           if draft == .draft7 {
-            validateAdditionalItems(value, subschema: subschema, instancePath: instancePath,
+            validateAdditionalItems(
+              value, subschema: subschema, instancePath: instancePath,
               schemaPath: schemaPath, errors: &errors, ctx: currentCtx)
           }
 
         // --- Draft 2020-12 keywords ---
         case "dependentSchemas":
           if draft == .draft202012 {
-            validateDependentSchemas(value, subschema: subschema, instancePath: instancePath,
+            validateDependentSchemas(
+              value, subschema: subschema, instancePath: instancePath,
               schemaPath: schemaPath, errors: &errors, ctx: currentCtx)
           }
         case "dependentRequired":
           if draft == .draft202012 {
-            validateDependentRequired(value, subschema: subschema, instancePath: instancePath,
+            validateDependentRequired(
+              value, subschema: subschema, instancePath: instancePath,
               schemaPath: schemaPath, errors: &errors, ctx: currentCtx)
           }
         case "prefixItems":
           if draft == .draft202012 {
-            validatePrefixItems(value, subschema: subschema, instancePath: instancePath,
+            validatePrefixItems(
+              value, subschema: subschema, instancePath: instancePath,
               schemaPath: schemaPath, errors: &errors, ctx: currentCtx)
           }
         case "unevaluatedItems":
           if draft == .draft202012 {
-            validateUnevaluatedItems(value, subschema: subschema, instancePath: instancePath,
+            validateUnevaluatedItems(
+              value, subschema: subschema, instancePath: instancePath,
               schemaPath: schemaPath, errors: &errors, ctx: currentCtx)
           }
         case "unevaluatedProperties":
           if draft == .draft202012 {
-            validateUnevaluatedProperties(value, subschema: subschema, instancePath: instancePath,
+            validateUnevaluatedProperties(
+              value, subschema: subschema, instancePath: instancePath,
               schemaPath: schemaPath, errors: &errors, ctx: currentCtx)
           }
         case "contentMediaType":
           if draft == .draft202012 {
-            validateContentMediaType(value, subschema: subschema, instancePath: instancePath,
+            validateContentMediaType(
+              value, subschema: subschema, instancePath: instancePath,
               schemaPath: schemaPath, errors: &errors, ctx: currentCtx)
           }
         case "contentEncoding":
           if draft == .draft202012 {
-            validateContentEncoding(value, subschema: subschema, instancePath: instancePath,
+            validateContentEncoding(
+              value, subschema: subschema, instancePath: instancePath,
               schemaPath: schemaPath, errors: &errors, ctx: currentCtx)
           }
         case "contentSchema":
           if draft == .draft202012 {
-            validateContentSchema(value, subschema: subschema, instancePath: instancePath,
+            validateContentSchema(
+              value, subschema: subschema, instancePath: instancePath,
               schemaPath: schemaPath, errors: &errors, ctx: currentCtx)
           }
         case "minContains":
           if draft == .draft202012 {
-            validateMinContains(value, subschema: subschema, instancePath: instancePath,
+            validateMinContains(
+              value, subschema: subschema, instancePath: instancePath,
               schemaPath: schemaPath, errors: &errors, ctx: currentCtx)
           }
         case "maxContains":
           if draft == .draft202012 {
-            validateMaxContains(value, subschema: subschema, instancePath: instancePath,
+            validateMaxContains(
+              value, subschema: subschema, instancePath: instancePath,
               schemaPath: schemaPath, errors: &errors, ctx: currentCtx)
           }
 
@@ -858,10 +904,8 @@ public struct JSONSchema: Hashable, Sendable {
   }
 
   public static func == (lhs: JSONSchema, rhs: JSONSchema) -> Bool {
-    lhs.draft == rhs.draft &&
-    lhs.compiled == rhs.compiled &&
-    lhs.formatOptions == rhs.formatOptions &&
-    lhs.outputMode == rhs.outputMode
+    lhs.draft == rhs.draft && lhs.compiled == rhs.compiled && lhs.formatOptions == rhs.formatOptions
+      && lhs.outputMode == rhs.outputMode
     // refCache is excluded.
   }
 }

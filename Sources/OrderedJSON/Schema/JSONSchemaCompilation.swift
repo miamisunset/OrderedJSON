@@ -212,9 +212,11 @@ internal struct CompiledSchema: Hashable, Sendable {
         }
       }
     }
-    for keyword in ["items", "allOf", "anyOf", "oneOf", "not", "if", "then", "else",
-                     "contains", "additionalProperties", "unevaluatedProperties",
-                     "additionalItems", "unevaluatedItems", "contentSchema"] {
+    for keyword in [
+      "items", "allOf", "anyOf", "oneOf", "not", "if", "then", "else",
+      "contains", "additionalProperties", "unevaluatedProperties",
+      "additionalItems", "unevaluatedItems", "contentSchema",
+    ] {
       if let subschema = value[keyword], subschema.isObject {
         collectPatterns(subschema, patterns: &patterns)
       }
