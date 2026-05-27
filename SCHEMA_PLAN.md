@@ -625,8 +625,8 @@ body. This creates:
 ### Result
 
 After refactoring and additional fixes:
-- Draft 2020-12: 1228/1295 passed (94.8%) — 67 failures
-- Draft 7: 901/927 passed (97.2%) — 26 failures
+- Draft 2020-12: 1250/1295 passed (96.5%) — 45 failures
+- Draft 7: 912/927 passed (98.4%) — 15 failures
 
 Key fixes applied:
 - validateItemsSchema: handle boolean items (true/false)
@@ -637,16 +637,20 @@ Key fixes applied:
 - evaluatedPropertyKeysRecursive: recursive tracking through composition keywords
 - if/then/else: only matching branch counts for evaluation
 - contentSchema: annotation keyword, no validation errors
+- Remote schema loading: pre-load remotes/ directory into registry
+- ResolvedRef: return type for resolveRef carrying schema + resource URI
+- resolveRef: relative URI resolution, remote registry fallback
+- resolveDynamicRef: remote registry support
+- $id resolution: RFC 3986 relative URI resolution during validation
 
 Remaining failures by category:
-- dynamicRef: 20 (dynamic scope resolution)
 - unevaluatedProperties: 16 (composition + $ref tracking)
-- refRemote: 16 (remote schema fetching)
-- ref: 9 (local $ref resolution)
+- dynamicRef: 15 (dynamic scope resolution)
+- ref: 8 (local $ref resolution)
 - unevaluatedItems: 3 (composition + $ref tracking)
 - vocabulary: 1 (remote metaschema)
 - defs: 1 (remote $defs)
-- anchor: 1 (remote anchor)
+- refRemote: 1 (remote schema)
 
-Most remaining failures involve reference resolution (remote or $ref)
-or unevaluated tracking through $ref targets.
+Most remaining failures involve unevaluated tracking through $ref targets,
+dynamic ref resolution, and a few local/remote ref edge cases.
