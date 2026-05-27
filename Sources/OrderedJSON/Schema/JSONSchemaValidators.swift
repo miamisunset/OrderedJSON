@@ -911,6 +911,12 @@ extension JSONSchema {
             keyword: "dependencies",
             message: "key '\(key)' requires key '\(reqKeyStr)'")) }
         }
+      } else if let boolVal = depValue.boolValue, !boolVal {
+        // Boolean false dependency — the key exists but value is false
+        errors.append(JSONSchemaError(
+          instancePath: instancePath, schemaPath: schemaPath + "/dependencies/" + key,
+          keyword: "dependencies",
+          message: "dependency '\(key)' is false, but key exists"))
       }
     }
   }

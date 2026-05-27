@@ -409,9 +409,14 @@ public struct JSONSchema: Hashable, Sendable {
 
     // Determine the resource scope URI for this subschema.
     // If the subschema declares $id, use that; otherwise inherit from parent.
-    // Resolve $id against the parent resource URI per RFC 3986
+    // Resolve $id against the parent resource URI per RFC 3986.
+    // In Draft 7, $ref replaces the entire subschema, so $id is ignored
+    // when $ref is present — use the parent's URI for ref resolution.
     let resourceURI: String
-    if let idVal = subschema["$id"]?.stringValue {
+    if subschema["$ref"]?.stringValue != nil && draft == .draft7 {
+      // Draft 7: $ref replaces the subschema, ignore $id
+      resourceURI = ctx.parentResourceURI
+    } else if let idVal = subschema["$id"]?.stringValue {
       resourceURI = CompiledSchema.resolveRelativeID(idVal, parent: ctx.parentResourceURI)
     } else {
       resourceURI = ctx.currentResourceURI

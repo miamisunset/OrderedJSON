@@ -158,7 +158,20 @@ internal struct CompiledSchema: Hashable, Sendable {
     // Collect $defs at this level — only collect keys that don't already
     // exist in the resource's defs dictionary. Nested $defs entries with
     // the same key are NOT overwritten; the outermost occurrence wins.
+    // Collect $defs (Draft 2020-12) or definitions (Draft 7) at this level.
+    // Both keywords serve the same purpose; $defs is the modern form.
     if let defsJSON = schema["$defs"], defsJSON.isObject {
+      if case .object(let defDict) = defsJSON.storage {
+        for (key, value) in defDict {
+          if resources[baseURI]?.defs[key] == nil {
+            resources[baseURI]?.defs[key] = value
+          }
+          try collectResourcesRecursive(
+            value, resources: &resources, currentBaseURI: baseURI)
+        }
+      }
+    }
+    if let defsJSON = schema["definitions"], defsJSON.isObject {
       if case .object(let defDict) = defsJSON.storage {
         for (key, value) in defDict {
           if resources[baseURI]?.defs[key] == nil {
@@ -342,12 +355,32 @@ internal struct CompiledSchema: Hashable, Sendable {
       preconditionFailure("unexpected parts count from split")
     }
 
+    // Helper: check if fragment matches a resource key (e.g., $id: "#foo")
+    func resolveFragmentByResource(_ fragment: String, in resources: OrderedDictionary<String, ResourceScope>,
+      currentURI: String) -> ResolvedRef? {
+      guard !fragment.hasPrefix("/") else { return nil }
+      let key1 = currentURI.isEmpty || currentURI.hasSuffix("#")
+        ? fragment
+        : currentURI + "#" + fragment
+      let key2 = "#" + fragment
+      if let matched = resources[key1] ?? resources[key2] ?? resources[fragment] {
+        return ResolvedRef(schema: matched.scopeSchema, resourceURI: matched.baseURI)
+      }
+      return nil
+    }
+
     // Determine which resource scope to use.
     if uriPart.isEmpty {
       // Local ref — resolve fragment within the current resource.
       // First check local resources, then remote registry if currentResourceURI
       // refers to a remote schema (e.g., after resolving a remote ref).
       if let resource = resources[currentResourceURI] {
+        // For non-pointer fragments, also check if fragment matches a
+        // resource key (e.g., $id: "#detached" creates resource "<uri>#detached")
+        if let matched = resolveFragmentByResource(fragmentPart, in: resources,
+          currentURI: currentResourceURI) {
+          return matched
+        }
         guard let schema = resolveFragment(fragmentPart, in: resource) else { return nil }
         return ResolvedRef(schema: schema, resourceURI: currentResourceURI)
       }
@@ -364,6 +397,13 @@ internal struct CompiledSchema: Hashable, Sendable {
 
     // Check local resources first
     if let resource = resources[resolvedURI] {
+      // For non-pointer fragments, check if fragment matches a resource key
+      if !fragmentPart.isEmpty && !fragmentPart.hasPrefix("/") {
+        if let matched = resolveFragmentByResource(fragmentPart, in: resources,
+          currentURI: resolvedURI) {
+          return matched
+        }
+      }
       guard let schema = resolveFragment(fragmentPart, in: resource) else { return nil }
       return ResolvedRef(schema: schema, resourceURI: resolvedURI)
     }
@@ -386,8 +426,9 @@ internal struct CompiledSchema: Hashable, Sendable {
     // URI percent-decode the fragment before applying JSON Pointer unescaping.
     let decoded = fragment.removingPercentEncoding ?? fragment
     if !decoded.hasPrefix("/") { return resource.anchors[decoded] ?? resource.dynamicAnchors[decoded] }
-    if decoded.hasPrefix("/$defs/") {
-      let rest = String(decoded.dropFirst("/$defs/".count))
+    if decoded.hasPrefix("/$defs/") || decoded.hasPrefix("/definitions/") {
+      let prefix = decoded.hasPrefix("/$defs/") ? "/$defs/" : "/definitions/"
+      let rest = String(decoded.dropFirst(prefix.count))
       if let slashIndex = rest.firstIndex(of: "/") {
         let headRaw = String(rest[rest.startIndex..<slashIndex])
         let head = unescapeJSONPointerSegment(headRaw)
@@ -401,7 +442,9 @@ internal struct CompiledSchema: Hashable, Sendable {
         return resource.defs[key]
       }
     }
-    guard let ptr = try? JSONPointer(fragment: "#" + decoded) else { return nil }
+    // decoded is already percent-decoded — use path init (not fragment init)
+    // to avoid double percent-decoding which would corrupt literal % chars.
+    guard let ptr = try? JSONPointer(decoded) else { return nil }
     return ptr.resolve(resource.scopeSchema)
   }
 
@@ -410,6 +453,19 @@ internal struct CompiledSchema: Hashable, Sendable {
   /// When fragment is empty, returns that resource's scope schema.
   private func resolveFragment(_ fragment: String, in compiled: CompiledSchema,
     resourceURI: String = "") -> JSON? {
+    // If the fragment matches a resource key (e.g., $id: "#detached" creates
+    // a resource with URI "<parent>#detached"), return that resource's schema.
+    if !fragment.hasPrefix("/") {
+      // Fragment is an anchor name or $id fragment — check resources first
+      // Try multiple resource key forms (see resolveRef for details)
+      let key1 = resourceURI.hasSuffix("#") || resourceURI.isEmpty
+        ? fragment
+        : resourceURI + "#" + fragment
+      let key2 = "#" + fragment
+      if let matched = compiled.resources[key1] ?? compiled.resources[key2] ?? compiled.resources[fragment] {
+        return matched.scopeSchema
+      }
+    }
     // Try exact match, then empty-string root, then fall back to first resource.
     guard let resource = compiled.resources[resourceURI]
       ?? compiled.resources[""]
