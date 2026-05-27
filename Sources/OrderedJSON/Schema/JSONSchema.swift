@@ -59,6 +59,8 @@ public struct JSONSchema: Hashable, Sendable {
   internal let draft: Draft
   /// The compiled schema with resolved `$ref`, `$defs`, `$id`, `$anchor`.
   internal let compiled: CompiledSchema?
+  /// Cache for resolved `$ref` targets to avoid repeated resolution.
+  internal let refCache: RefCache?
   /// Remote compiled schemas pre-registered for `$ref` resolution, keyed by
   /// URL. When a `$ref` cannot be resolved locally, these are consulted.
   internal let remoteCompiled: [String: CompiledSchema]
@@ -132,6 +134,14 @@ public struct JSONSchema: Hashable, Sendable {
       compiled = nil
     }
 
+    // Create a ref cache for faster $ref resolution at runtime.
+    let refCache: RefCache?
+    if compiled != nil {
+      refCache = RefCache()
+    } else {
+      refCache = nil
+    }
+
     // Compile remote schemas for efficient resolution.
     // Also register all resource URIs from each remote schema so that
     // $ref to URIs defined via $id within the remote schema resolve.
@@ -159,6 +169,7 @@ public struct JSONSchema: Hashable, Sendable {
     self.schemaJSON = schema
     self.draft = resolvedDraft
     self.compiled = compiled
+    self.refCache = refCache
     self.formatOptions = formatOptions
     self.outputMode = outputMode
   }
@@ -525,10 +536,28 @@ public struct JSONSchema: Hashable, Sendable {
     // In Draft 2020-12, $ref is resolved AND sibling keywords are also processed
     // (unevaluatedItems, unevaluatedProperties, etc. still apply).
     if let refStr = subschema["$ref"]?.stringValue {
-      if let resolved = compiled?.resolveRef(
-        refStr, currentResourceURI: resourceURI,
-        remoteRegistry: remoteCompiled)
-      {
+      // Use cached resolution if available.
+      let cacheKey = resourceURI + "::" + refStr
+      let resolved: ResolvedRef?
+      if let cache = refCache, let cached = cache.get(cacheKey) {
+        resolved = cached
+      } else {
+        resolved = compiled?.resolveRef(
+          refStr, currentResourceURI: resourceURI,
+          remoteRegistry: remoteCompiled)
+        // Store in cache for future use.
+        if let r = resolved, let cache = refCache {
+          cache.set(cacheKey, r)
+        }
+      }
+      guard let resolved = resolved else {
+        errors.append(
+          JSONSchemaError(
+            instancePath: instancePath, schemaPath: schemaPath + "/$ref",
+            keyword: "$ref",
+            message: "unresolvable reference: '\(refStr)'"))
+        return
+      }
         // For local refs: keep parentResourceURI as the original parent
         // so $id resolves correctly (use advancedViaRef).
         // For remote refs: update parentResourceURI to the remote schema's
@@ -544,13 +573,6 @@ public struct JSONSchema: Hashable, Sendable {
           value, against: resolved.schema, instancePath: instancePath,
           schemaPath: schemaPath + "/$ref", errors: &errors,
           ctx: resolvedCtx)
-      } else {
-        errors.append(
-          JSONSchemaError(
-            instancePath: instancePath, schemaPath: schemaPath + "/$ref",
-            keyword: "$ref",
-            message: "unresolvable reference: '\(refStr)'"))
-      }
       // In Draft 7, return here — sibling keywords are ignored alongside $ref.
       // In Draft 2020-12, continue processing sibling keywords below.
       if draft == .draft7 { return }
@@ -812,5 +834,23 @@ public struct JSONSchema: Hashable, Sendable {
       return true
     default: return false
     }
+  }
+
+  // MARK: - Hashable conformance (ignoring runtime caches)
+
+  public func hash(into hasher: inout Hasher) {
+    hasher.combine(draft)
+    hasher.combine(compiled)
+    hasher.combine(formatOptions)
+    hasher.combine(outputMode)
+    // refCache is excluded — it's a runtime cache, not part of schema identity.
+  }
+
+  public static func == (lhs: JSONSchema, rhs: JSONSchema) -> Bool {
+    lhs.draft == rhs.draft &&
+    lhs.compiled == rhs.compiled &&
+    lhs.formatOptions == rhs.formatOptions &&
+    lhs.outputMode == rhs.outputMode
+    // refCache is excluded.
   }
 }
