@@ -418,7 +418,7 @@ The official test suite at https://github.com/json-schema-org/JSON-Schema-Test-S
 
 ---
 
-## Phase 9 — Schema Generation (bonus)
+## Phase 9 — Schema Generation (✅ Complete)
 
 **Goal**: Infer a JSON Schema from a JSON instance.
 
@@ -569,7 +569,7 @@ now use `currentScalar?.value` against raw ASCII hex values.
 
 ---
 
-## Phase 11 — Draft-Specific Validation Dispatch
+## Phase 11 — Draft-Specific Validation Dispatch (✅ Complete, extension of Phase 8)
 
 **Goal**: Eliminate `if draft == .draft7` conditionals from individual validator
 functions by dispatching draft-specific keywords in `validateValue`.
