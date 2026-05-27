@@ -18,6 +18,11 @@ import OrderedCollections
 ///   exact shape of the input.  It does **not** infer `minimum`/`maximum`
 ///   from numeric values, `minLength`/`maxLength` from strings, or any
 ///   semantic constraints.  Use it as a starting point for refinement.
+///
+/// - Important: This inference is purely structural.  It will not infer
+///   format constraints, enum values, or numeric bounds.  For a schema
+///   that captures the exact shape of a single instance, this is sufficient;
+///   for production schemas you should review and add semantic keywords.
 public enum JSONSchemaGeneration {
 
   /// Generates a JSON Schema (as a `JSON` value) that describes the given
@@ -67,7 +72,27 @@ public enum JSONSchemaGeneration {
       ])
     }
 
-    // Check if all elements share the same schema (homogeneous)
+    // Fast path: if all elements share the same primitive kind, we can
+    // avoid the O(n) schema comparison entirely.
+    let firstKind = primitiveKind(elements[0])
+    var allSameKind = true
+    for i in 1..<elements.count {
+      if primitiveKind(elements[i]) != firstKind {
+        allSameKind = false
+        break
+      }
+    }
+
+    if allSameKind {
+      // All elements are the same primitive type → homogeneous
+      let schema = infer(elements[0])
+      return .object([
+        "type": .string("array"),
+        "items": schema,
+      ])
+    }
+
+    // Fall back to full schema comparison for complex types
     let firstSchema = infer(elements[0])
     var allSame = true
     for i in 1..<elements.count {
@@ -93,6 +118,24 @@ public enum JSONSchemaGeneration {
       "items": .boolean(false),
     ])
     // items: false ensures no items beyond the tuple length are allowed.
+  }
+
+  /// Returns a simple classification of a JSON value for fast homogeneity
+  /// checks.  Values that are not primitive (arrays, objects) all map to
+  /// "complex" so that they always fall through to the full comparison.
+  private static func primitiveKind(_ value: JSON) -> UInt8 {
+    switch value.storage {
+    case .null:      return 0
+    case .boolean:   return 1
+    case .number(let n):
+      switch n {
+      case .integer: return 2
+      case .float:   return 3
+      }
+    case .string:    return 4
+    case .array:     return 5
+    case .object:    return 6
+    }
   }
 
   private static func inferObject(_ dict: OrderedDictionary<String, JSON>) -> JSON {
@@ -140,7 +183,9 @@ extension JSON {
   ///     Defaults to `.basic`.
   /// - Returns: A compiled JSON Schema.
   /// - Throws: `JSONSchemaError` if the generated schema is invalid (should
-  ///   not happen for valid instances).
+  ///   not happen for valid instances).  Note that very deeply nested
+  ///   instances may cause schema compilation to hit recursion limits;
+  ///   if this occurs, split the instance or increase the schema depth.
   public func schema(
     draft: JSONSchema.Draft = .draft202012,
     formatOptions: JSONSchemaFormatOptions = JSONSchemaFormatOptions(),
