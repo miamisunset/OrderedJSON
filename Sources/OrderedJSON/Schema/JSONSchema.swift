@@ -401,16 +401,19 @@ public struct JSONSchema: Hashable, Sendable {
             keyword: "$dynamicRef",
             message: "unresolvable dynamic reference: '\(dynRefStr)'"))
       }
-      return
+      // In Draft 2020-12, $dynamicRef does not skip sibling keywords
+      // (unevaluatedItems, unevaluatedProperties still apply).
+      // In Draft 7, $dynamicRef is not defined, so this code is unreachable.
+      // Fall through to process sibling keywords.
     }
 
-    // Resolve $ref before processing keywords — $ref replaces the entire
-    // subschema per spec (sibling keywords are ignored alongside $ref).
+    // Resolve $ref before processing keywords.
+    // In Draft 7, $ref replaces the entire subschema (sibling keywords ignored).
+    // In Draft 2020-12, $ref is resolved AND sibling keywords are also processed
+    // (unevaluatedItems, unevaluatedProperties, etc. still apply).
     if let refStr = subschema["$ref"]?.stringValue {
       if let resolved = compiled?.resolveRef(refStr, currentResourceURI: resourceURI,
         remoteRegistry: remoteCompiled) {
-        // Update resource URI for the resolved schema so that subsequent
-        // $ref resolution within it uses the correct resource scope.
         let resolvedCtx = currentCtx.advanced(resourceURI: resolved.resourceURI)
         validateValue(
           value, against: resolved.schema, instancePath: instancePath,
@@ -423,7 +426,9 @@ public struct JSONSchema: Hashable, Sendable {
             keyword: "$ref",
             message: "unresolvable reference: '\(refStr)'"))
       }
-      return
+      // In Draft 7, return here — sibling keywords are ignored alongside $ref.
+      // In Draft 2020-12, continue processing sibling keywords below.
+      if draft == .draft7 { return }
     }
 
     // MARK: - Shared keyword dispatch (called for both drafts)

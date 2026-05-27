@@ -447,30 +447,59 @@ internal struct CompiledSchema: Hashable, Sendable {
       anchorName = String(pointer.dropFirst())
     }
 
-    // Check the dynamic scope stack (innermost first)
+    // Per spec, $dynamicRef resolves in two steps:
+    // 1. Resolve as normal $ref to get the initial target
+    // 2. If the fragment matches a $dynamicAnchor, replace with the
+    //    outermost schema resource that defines a matching $dynamicAnchor
+    //
+    // The outermost resource is the one with the shortest/smallest URI.
+    // Check all resources' dynamic anchors, preferring outer (root) over inner.
+    // The root resource (empty URI or the top-level $id) is checked first.
+    
+    // Collect all resources that have a matching $dynamicAnchor.
+    // Sort by URI length (shorter = more outer).
+    var matchingResources: [(uri: String, schema: JSON)] = []
+    for (uri, resource) in resources {
+      if let target = resource.dynamicAnchors[anchorName] {
+        matchingResources.append((uri: uri, schema: target))
+      }
+    }
+    // Sort by URI length (shorter URIs are outer resources)
+    matchingResources.sort { $0.uri.count < $1.uri.count }
+    if let outermost = matchingResources.first {
+      return ResolvedRef(schema: outermost.schema, resourceURI: currentResourceURI)
+    }
+
+    // Fall back to the dynamic scope stack (innermost first per spec).
     for frame in dynamicScope.reversed() {
       if frame.name == anchorName {
         return ResolvedRef(schema: frame.schema, resourceURI: currentResourceURI)
       }
     }
 
-    // Fall back to the current resource's dynamic anchors
-    if let resource = resources[currentResourceURI],
-      let target = resource.dynamicAnchors[anchorName]
-    {
-      return ResolvedRef(schema: target, resourceURI: currentResourceURI)
-    }
-
-    // Final fallback: treat as normal $ref (static anchor from current resource)
-    if let resource = resources[currentResourceURI],
-      let target = resource.anchors[anchorName]
-    {
-      return ResolvedRef(schema: target, resourceURI: currentResourceURI)
+    // Final fallback: treat as normal $ref (static anchor from current
+    // resource, then root resource).
+    let anchorCandidates: [String] = [currentResourceURI, ""]
+    for uri in anchorCandidates {
+      if let resource = resources[uri],
+        let target = resource.anchors[anchorName]
+      {
+        return ResolvedRef(schema: target, resourceURI: currentResourceURI)
+      }
     }
 
     // Last resort: check remote registry for the current resource URI
     if let remoteCompiled = remoteRegistry?[currentResourceURI],
       let resource = remoteCompiled.resources[currentResourceURI] ?? remoteCompiled.resources[""]
+    {
+      if let target = resource.dynamicAnchors[anchorName] ?? resource.anchors[anchorName] {
+        return ResolvedRef(schema: target, resourceURI: currentResourceURI)
+      }
+    }
+
+    // Also check remote registry for the root resource
+    if let remoteCompiled = remoteRegistry?[""],
+      let resource = remoteCompiled.resources[""]
     {
       if let target = resource.dynamicAnchors[anchorName] ?? resource.anchors[anchorName] {
         return ResolvedRef(schema: target, resourceURI: currentResourceURI)

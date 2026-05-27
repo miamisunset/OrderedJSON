@@ -628,25 +628,81 @@ extension JSONSchema {
   ) -> Set<String> {
     var keys = evaluatedPropertyKeys(for: subschema, from: dict, includeAdditionalProperties: true)
 
-    // allOf: union of all subschemas' evaluated keys
+    // Resolve $ref target first — merge evaluated keys from the
+    // referenced schema before processing local keywords.
+    if let refStr = subschema["$ref"]?.stringValue {
+      if let resolved = compiled?.resolveRef(refStr, currentResourceURI: ctx.currentResourceURI,
+        remoteRegistry: remoteCompiled) {
+        let targetKeys = evaluatedPropertyKeysRecursive(for: resolved.schema, dict: dict,
+          instancePath: instancePath, schemaPath: schemaPath, ctx: ctx,
+          includeUnevaluatedProperties: true)
+        keys.formUnion(targetKeys)
+      }
+    }
+
+    // Resolve $dynamicRef target — merge evaluated keys from the
+    // dynamically referenced schema.
+    if let dynRefStr = subschema["$dynamicRef"]?.stringValue {
+      if let resolved = compiled?.resolveDynamicRef(dynRefStr,
+        dynamicScope: ctx.dynamicScope, currentResourceURI: ctx.currentResourceURI,
+        remoteRegistry: remoteCompiled) {
+        let targetKeys = evaluatedPropertyKeysRecursive(for: resolved.schema, dict: dict,
+          instancePath: instancePath, schemaPath: schemaPath, ctx: ctx,
+          includeUnevaluatedProperties: true)
+        keys.formUnion(targetKeys)
+      }
+    }
+
+    // dependentSchemas: when a triggering key is present, the dependent
+    // schema's evaluated properties are added.
+    if let depSchemas = subschema["dependentSchemas"], depSchemas.isObject {
+      guard case .object(let depDict) = depSchemas.storage else { return keys }
+      for (depKey, depSchema) in depDict {
+        guard dict[depKey] != nil else { continue }
+        let depKeys = evaluatedPropertyKeysRecursive(for: depSchema, dict: dict,
+          instancePath: instancePath, schemaPath: schemaPath, ctx: ctx,
+          includeUnevaluatedProperties: true)
+        keys.formUnion(depKeys)
+      }
+    }
+
+    // allOf: union of all subschemas' evaluated keys.
+    // Resolve $ref in each subschema before collecting keys.
     if let allOf = subschema["allOf"], allOf.isArray {
       for sub in allOf {
-        let subKeys = evaluatedPropertyKeysRecursive(for: sub, dict: dict,
+        let subSchema: JSON
+        if let innerRef = sub["$ref"]?.stringValue,
+           let resolved = compiled?.resolveRef(innerRef, currentResourceURI: ctx.currentResourceURI,
+             remoteRegistry: remoteCompiled) {
+          subSchema = resolved.schema
+        } else {
+          subSchema = sub
+        }
+        let subKeys = evaluatedPropertyKeysRecursive(for: subSchema, dict: dict,
           instancePath: instancePath, schemaPath: schemaPath, ctx: ctx,
           includeUnevaluatedProperties: true)
         keys.formUnion(subKeys)
       }
     }
 
-    // anyOf: union of matching subschemas' evaluated keys
+    // anyOf: union of matching subschemas' evaluated keys.
+    // Resolve $ref in each subschema before collecting keys.
     if let anyOf = subschema["anyOf"], anyOf.isArray {
       let objectValue = JSON(dict)
       for sub in anyOf {
+        let subSchema: JSON
+        if let innerRef = sub["$ref"]?.stringValue,
+           let resolved = compiled?.resolveRef(innerRef, currentResourceURI: ctx.currentResourceURI,
+             remoteRegistry: remoteCompiled) {
+          subSchema = resolved.schema
+        } else {
+          subSchema = sub
+        }
         var subErrors: [JSONSchemaError] = []
-        validateValue(objectValue, against: sub, instancePath: instancePath,
+        validateValue(objectValue, against: subSchema, instancePath: instancePath,
           schemaPath: schemaPath + "/anyOf", errors: &subErrors, ctx: ctx)
         if subErrors.isEmpty {
-          let subKeys = evaluatedPropertyKeysRecursive(for: sub, dict: dict,
+          let subKeys = evaluatedPropertyKeysRecursive(for: subSchema, dict: dict,
             instancePath: instancePath, schemaPath: schemaPath, ctx: ctx,
             includeUnevaluatedProperties: true)
           keys.formUnion(subKeys)
@@ -654,15 +710,24 @@ extension JSONSchema {
       }
     }
 
-    // oneOf: union of matching subschemas' evaluated keys
+    // oneOf: union of matching subschemas' evaluated keys.
+    // Resolve $ref in each subschema before collecting keys.
     if let oneOf = subschema["oneOf"], oneOf.isArray {
       let objectValue = JSON(dict)
       for sub in oneOf {
+        let subSchema: JSON
+        if let innerRef = sub["$ref"]?.stringValue,
+           let resolved = compiled?.resolveRef(innerRef, currentResourceURI: ctx.currentResourceURI,
+             remoteRegistry: remoteCompiled) {
+          subSchema = resolved.schema
+        } else {
+          subSchema = sub
+        }
         var subErrors: [JSONSchemaError] = []
-        validateValue(objectValue, against: sub, instancePath: instancePath,
+        validateValue(objectValue, against: subSchema, instancePath: instancePath,
           schemaPath: schemaPath + "/oneOf", errors: &subErrors, ctx: ctx)
         if subErrors.isEmpty {
-          let subKeys = evaluatedPropertyKeysRecursive(for: sub, dict: dict,
+          let subKeys = evaluatedPropertyKeysRecursive(for: subSchema, dict: dict,
             instancePath: instancePath, schemaPath: schemaPath, ctx: ctx,
             includeUnevaluatedProperties: true)
           keys.formUnion(subKeys)
@@ -671,25 +736,50 @@ extension JSONSchema {
     }
 
     // if/then/else: only the matching branch's evaluated keys count.
+    // Resolve $ref in if/then/else subschemas before collecting keys.
     if let ifSchema = subschema["if"] {
+      let ifSchemaResolved: JSON
+      if let innerRef = ifSchema["$ref"]?.stringValue,
+         let resolved = compiled?.resolveRef(innerRef, currentResourceURI: ctx.currentResourceURI,
+           remoteRegistry: remoteCompiled) {
+        ifSchemaResolved = resolved.schema
+      } else {
+        ifSchemaResolved = ifSchema
+      }
       var ifErrors: [JSONSchemaError] = []
       let objectValue = JSON(dict)
-      validateValue(objectValue, against: ifSchema, instancePath: instancePath,
+      validateValue(objectValue, against: ifSchemaResolved, instancePath: instancePath,
         schemaPath: schemaPath + "/if", errors: &ifErrors, ctx: ctx)
       if ifErrors.isEmpty {
-        let ifKeys = evaluatedPropertyKeysRecursive(for: ifSchema, dict: dict,
+        let ifKeys = evaluatedPropertyKeysRecursive(for: ifSchemaResolved, dict: dict,
           instancePath: instancePath, schemaPath: schemaPath, ctx: ctx,
           includeUnevaluatedProperties: true)
         keys.formUnion(ifKeys)
         if let thenSchema = subschema["then"] {
-          let thenKeys = evaluatedPropertyKeysRecursive(for: thenSchema, dict: dict,
+          let thenSchemaResolved: JSON
+          if let innerRef = thenSchema["$ref"]?.stringValue,
+             let resolved = compiled?.resolveRef(innerRef, currentResourceURI: ctx.currentResourceURI,
+               remoteRegistry: remoteCompiled) {
+            thenSchemaResolved = resolved.schema
+          } else {
+            thenSchemaResolved = thenSchema
+          }
+          let thenKeys = evaluatedPropertyKeysRecursive(for: thenSchemaResolved, dict: dict,
             instancePath: instancePath, schemaPath: schemaPath, ctx: ctx,
             includeUnevaluatedProperties: true)
           keys.formUnion(thenKeys)
         }
       } else {
         if let elseSchema = subschema["else"] {
-          let elseKeys = evaluatedPropertyKeysRecursive(for: elseSchema, dict: dict,
+          let elseSchemaResolved: JSON
+          if let innerRef = elseSchema["$ref"]?.stringValue,
+             let resolved = compiled?.resolveRef(innerRef, currentResourceURI: ctx.currentResourceURI,
+               remoteRegistry: remoteCompiled) {
+            elseSchemaResolved = resolved.schema
+          } else {
+            elseSchemaResolved = elseSchema
+          }
+          let elseKeys = evaluatedPropertyKeysRecursive(for: elseSchemaResolved, dict: dict,
             instancePath: instancePath, schemaPath: schemaPath, ctx: ctx,
             includeUnevaluatedProperties: true)
           keys.formUnion(elseKeys)
@@ -984,6 +1074,30 @@ extension JSONSchema {
   ) -> Set<Int> {
     var indices: Set<Int> = []
 
+    // Resolve $ref target first — merge evaluated indices from the
+    // referenced schema before processing local keywords.
+    if let refStr = subschema["$ref"]?.stringValue,
+       let resolved = compiled?.resolveRef(refStr, currentResourceURI: ctx.currentResourceURI,
+         remoteRegistry: remoteCompiled) {
+      let targetKeys = evaluatedItemIndices(for: resolved.schema, data: data,
+        instancePath: instancePath, schemaPath: schemaPath, ctx: ctx,
+        includeUnevaluatedItems: true)
+      indices.formUnion(targetKeys)
+    }
+
+    // Resolve $dynamicRef target — merge evaluated indices from the
+    // dynamically referenced schema.
+    if let dynRefStr = subschema["$dynamicRef"]?.stringValue {
+      if let resolved = compiled?.resolveDynamicRef(dynRefStr,
+        dynamicScope: ctx.dynamicScope, currentResourceURI: ctx.currentResourceURI,
+        remoteRegistry: remoteCompiled) {
+        let targetKeys = evaluatedItemIndices(for: resolved.schema, data: data,
+          instancePath: instancePath, schemaPath: schemaPath, ctx: ctx,
+          includeUnevaluatedItems: true)
+        indices.formUnion(targetKeys)
+      }
+    }
+
     // prefixItems: indices 0..<count are evaluated
     if let prefixItems = subschema["prefixItems"], prefixItems.isArray {
       let count = prefixItems.arrayValue?.count ?? 0
@@ -1024,25 +1138,43 @@ extension JSONSchema {
       }
     }
 
-    // allOf: union of all subschemas' evaluated indices
+    // allOf: union of all subschemas' evaluated indices.
+    // Resolve $ref in each subschema before collecting indices.
     if let allOf = subschema["allOf"], allOf.isArray {
       for sub in allOf {
-        let subIndices = evaluatedItemIndices(for: sub, data: data,
+        let subSchema: JSON
+        if let innerRef = sub["$ref"]?.stringValue,
+           let resolved = compiled?.resolveRef(innerRef, currentResourceURI: ctx.currentResourceURI,
+             remoteRegistry: remoteCompiled) {
+          subSchema = resolved.schema
+        } else {
+          subSchema = sub
+        }
+        let subIndices = evaluatedItemIndices(for: subSchema, data: data,
           instancePath: instancePath, schemaPath: schemaPath, ctx: ctx,
           includeUnevaluatedItems: true)
         indices.formUnion(subIndices)
       }
     }
 
-    // anyOf: union of matching subschemas' evaluated indices
+    // anyOf: union of matching subschemas' evaluated indices.
+    // Resolve $ref in each subschema before collecting indices.
     if let anyOf = subschema["anyOf"], anyOf.isArray {
       let arrayValue = JSON(data)
       for sub in anyOf {
+        let subSchema: JSON
+        if let innerRef = sub["$ref"]?.stringValue,
+           let resolved = compiled?.resolveRef(innerRef, currentResourceURI: ctx.currentResourceURI,
+             remoteRegistry: remoteCompiled) {
+          subSchema = resolved.schema
+        } else {
+          subSchema = sub
+        }
         var subErrors: [JSONSchemaError] = []
-        validateValue(arrayValue, against: sub, instancePath: instancePath,
+        validateValue(arrayValue, against: subSchema, instancePath: instancePath,
           schemaPath: schemaPath + "/anyOf", errors: &subErrors, ctx: ctx)
         if subErrors.isEmpty {
-          let subIndices = evaluatedItemIndices(for: sub, data: data,
+          let subIndices = evaluatedItemIndices(for: subSchema, data: data,
             instancePath: instancePath, schemaPath: schemaPath, ctx: ctx,
             includeUnevaluatedItems: true)
           indices.formUnion(subIndices)
@@ -1050,15 +1182,24 @@ extension JSONSchema {
       }
     }
 
-    // oneOf: union of matching subschemas' evaluated indices
+    // oneOf: union of matching subschemas' evaluated indices.
+    // Resolve $ref in each subschema before collecting indices.
     if let oneOf = subschema["oneOf"], oneOf.isArray {
       let arrayValue = JSON(data)
       for sub in oneOf {
+        let subSchema: JSON
+        if let innerRef = sub["$ref"]?.stringValue,
+           let resolved = compiled?.resolveRef(innerRef, currentResourceURI: ctx.currentResourceURI,
+             remoteRegistry: remoteCompiled) {
+          subSchema = resolved.schema
+        } else {
+          subSchema = sub
+        }
         var subErrors: [JSONSchemaError] = []
-        validateValue(arrayValue, against: sub, instancePath: instancePath,
+        validateValue(arrayValue, against: subSchema, instancePath: instancePath,
           schemaPath: schemaPath + "/oneOf", errors: &subErrors, ctx: ctx)
         if subErrors.isEmpty {
-          let subIndices = evaluatedItemIndices(for: sub, data: data,
+          let subIndices = evaluatedItemIndices(for: subSchema, data: data,
             instancePath: instancePath, schemaPath: schemaPath, ctx: ctx,
             includeUnevaluatedItems: true)
           indices.formUnion(subIndices)
@@ -1067,22 +1208,36 @@ extension JSONSchema {
     }
 
     // if/then/else: only the matching branch's evaluated indices count.
-    // When if matches, take then's indices + if's own indices.
-    // When if fails, take else's indices (if present).
-    // If if fails and there's no else, NO indices from if are evaluated.
+    // Resolve $ref in if/then/else subschemas before collecting indices.
     if let ifSchema = subschema["if"] {
+      let ifSchemaResolved: JSON
+      if let innerRef = ifSchema["$ref"]?.stringValue,
+         let resolved = compiled?.resolveRef(innerRef, currentResourceURI: ctx.currentResourceURI,
+           remoteRegistry: remoteCompiled) {
+        ifSchemaResolved = resolved.schema
+      } else {
+        ifSchemaResolved = ifSchema
+      }
       var ifErrors: [JSONSchemaError] = []
       let arrayValue = JSON(data)
-      validateValue(arrayValue, against: ifSchema, instancePath: instancePath,
+      validateValue(arrayValue, against: ifSchemaResolved, instancePath: instancePath,
         schemaPath: schemaPath + "/if", errors: &ifErrors, ctx: ctx)
       if ifErrors.isEmpty {
         // if matches — take if's indices plus then's indices
-        let ifIndices = evaluatedItemIndices(for: ifSchema, data: data,
+        let ifIndices = evaluatedItemIndices(for: ifSchemaResolved, data: data,
           instancePath: instancePath, schemaPath: schemaPath, ctx: ctx,
           includeUnevaluatedItems: true)
         indices.formUnion(ifIndices)
         if let thenSchema = subschema["then"] {
-          let thenIndices = evaluatedItemIndices(for: thenSchema, data: data,
+          let thenSchemaResolved: JSON
+          if let innerRef = thenSchema["$ref"]?.stringValue,
+             let resolved = compiled?.resolveRef(innerRef, currentResourceURI: ctx.currentResourceURI,
+               remoteRegistry: remoteCompiled) {
+            thenSchemaResolved = resolved.schema
+          } else {
+            thenSchemaResolved = thenSchema
+          }
+          let thenIndices = evaluatedItemIndices(for: thenSchemaResolved, data: data,
             instancePath: instancePath, schemaPath: schemaPath, ctx: ctx,
             includeUnevaluatedItems: true)
           indices.formUnion(thenIndices)
@@ -1090,7 +1245,15 @@ extension JSONSchema {
       } else {
         // if fails — only else's indices count (if present)
         if let elseSchema = subschema["else"] {
-          let elseIndices = evaluatedItemIndices(for: elseSchema, data: data,
+          let elseSchemaResolved: JSON
+          if let innerRef = elseSchema["$ref"]?.stringValue,
+             let resolved = compiled?.resolveRef(innerRef, currentResourceURI: ctx.currentResourceURI,
+               remoteRegistry: remoteCompiled) {
+            elseSchemaResolved = resolved.schema
+          } else {
+            elseSchemaResolved = elseSchema
+          }
+          let elseIndices = evaluatedItemIndices(for: elseSchemaResolved, data: data,
             instancePath: instancePath, schemaPath: schemaPath, ctx: ctx,
             includeUnevaluatedItems: true)
           indices.formUnion(elseIndices)
