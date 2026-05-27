@@ -470,13 +470,15 @@ Quick schema generation for debugging or documentation.
   compiled into `NSRegularExpression` objects at schema init time and stored in
   `CompiledSchema.precompiledPatterns`. Validators use the cached regex instead
   of compiling on each validation call.
+- **Short-circuit**: `allOf` stops after first failure; `oneOf` stops after
+  second match; `anyOf` already stopped after first match.
+- **Cached `$ref` resolution**: A runtime cache (`RefCache`) avoids repeated
+  resolution of the same `$ref` string within the same resource URI.
 
 ### Planned Optimizations
 
 - **Compiled keyword tree**: Pre-parse schema into keyword nodes at init time,
   not during validation
-- **Cached `$ref` resolution**: Resolve once, reuse
-- **Short-circuit**: `allOf`/`anyOf`/`if` short-circuit when possible
 - **Property whitelist**: Pre-compute which properties are covered by
   `properties`/`patternProperties` for `additionalProperties`/`unevaluatedProperties`
   checks
