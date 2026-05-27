@@ -354,7 +354,7 @@ public struct JSONSchema: Hashable, Sendable {
     // Resolve $id against the parent resource URI per RFC 3986
     let resourceURI: String
     if let idVal = subschema["$id"]?.stringValue {
-      resourceURI = CompiledSchema.resolveRelativeID(idVal, parent: ctx.currentResourceURI)
+      resourceURI = CompiledSchema.resolveRelativeID(idVal, parent: ctx.parentResourceURI)
     } else {
       resourceURI = ctx.currentResourceURI
     }
@@ -406,7 +406,16 @@ public struct JSONSchema: Hashable, Sendable {
         dynRefStr, dynamicScope: currentCtx.dynamicScope, currentResourceURI: resourceURI,
         remoteRegistry: remoteCompiled)
       {
-        let resolvedCtx = currentCtx.advanced(resourceURI: resolved.resourceURI)
+        // For local refs: keep parentResourceURI as the original parent
+        // (use advancedViaRef). For remote refs: update parentResourceURI
+        // to the remote schema's URI (use advanced).
+        let isRemote = compiled?.resources[resolved.resourceURI] == nil
+        let resolvedCtx: EvaluationContext
+        if isRemote {
+          resolvedCtx = currentCtx.advanced(resourceURI: resolved.resourceURI)
+        } else {
+          resolvedCtx = currentCtx.advancedViaRef(resourceURI: resolved.resourceURI)
+        }
         validateValue(
           value, against: resolved.schema, instancePath: instancePath,
           schemaPath: schemaPath + "/$dynamicRef", errors: &errors,
@@ -431,7 +440,17 @@ public struct JSONSchema: Hashable, Sendable {
     if let refStr = subschema["$ref"]?.stringValue {
       if let resolved = compiled?.resolveRef(refStr, currentResourceURI: resourceURI,
         remoteRegistry: remoteCompiled) {
-        let resolvedCtx = currentCtx.advanced(resourceURI: resolved.resourceURI)
+        // For local refs: keep parentResourceURI as the original parent
+        // so $id resolves correctly (use advancedViaRef).
+        // For remote refs: update parentResourceURI to the remote schema's
+        // URI since $id should resolve against the remote parent (use advanced).
+        let isRemote = compiled?.resources[resolved.resourceURI] == nil
+        let resolvedCtx: EvaluationContext
+        if isRemote {
+          resolvedCtx = currentCtx.advanced(resourceURI: resolved.resourceURI)
+        } else {
+          resolvedCtx = currentCtx.advancedViaRef(resourceURI: resolved.resourceURI)
+        }
         validateValue(
           value, against: resolved.schema, instancePath: instancePath,
           schemaPath: schemaPath + "/$ref", errors: &errors,
