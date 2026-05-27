@@ -1274,6 +1274,9 @@ extension JSONSchema {
     includeUnevaluatedItems: Bool = false
   ) -> Set<Int> {
     var indices: Set<Int> = []
+    let dataCount = data.count
+    // Cache prefixCount to avoid repeated lookups of prefixItems.arrayValue?.count.
+    let prefixCount = subschema["prefixItems"]?.arrayValue?.count ?? 0
 
     // Resolve $ref target first — merge evaluated indices from the
     // referenced schema before processing local keywords.
@@ -1308,7 +1311,7 @@ extension JSONSchema {
     // prefixItems: indices 0..<count are evaluated
     if let prefixItems = subschema["prefixItems"], prefixItems.isArray {
       let count = prefixItems.arrayValue?.count ?? 0
-      for i in 0..<min(count, data.count) {
+      for i in 0..<min(count, dataCount) {
         indices.insert(i)
       }
     }
@@ -1316,13 +1319,11 @@ extension JSONSchema {
     // items: if a schema, all remaining indices are evaluated
     if let items = subschema["items"] {
       if items.isObject {
-        let prefixCount = subschema["prefixItems"]?.arrayValue?.count ?? 0
-        for i in prefixCount..<data.count {
+        for i in prefixCount..<dataCount {
           indices.insert(i)
         }
       } else if let boolVal = items.boolValue, boolVal {
-        let prefixCount = subschema["prefixItems"]?.arrayValue?.count ?? 0
-        for i in prefixCount..<data.count {
+        for i in prefixCount..<dataCount {
           indices.insert(i)
         }
       }
@@ -1330,11 +1331,10 @@ extension JSONSchema {
 
     // contains: matching items are evaluated
     if let containsSchema = subschema["contains"] {
-      let prefixCount = subschema["prefixItems"]?.arrayValue?.count ?? 0
       for i in 0..<prefixCount {
         indices.insert(i)
       }
-      for i in prefixCount..<data.count {
+      for i in prefixCount..<dataCount {
         var itemErrors: [JSONSchemaError] = []
         validateValue(
           data[i], against: containsSchema,
@@ -1494,7 +1494,7 @@ extension JSONSchema {
     // unevaluatedItems: when called from composition keyword context,
     // items validated by unevaluatedItems are also considered evaluated.
     if includeUnevaluatedItems, subschema["unevaluatedItems"] != nil {
-      for i in 0..<data.count {
+      for i in 0..<dataCount {
         if !indices.contains(i) {
           indices.insert(i)
         }

@@ -496,7 +496,7 @@ internal struct CompiledSchema: Hashable, Sendable {
       guard
         let resource = compiled.resources[resourceURI]
           ?? compiled.resources[""]
-          ?? compiled.resources.first?.value
+          ?? compiled.resources.values.first
       else { return nil }
       if !resource.baseURI.isEmpty {
         resourceURI = resource.baseURI
@@ -527,7 +527,7 @@ internal struct CompiledSchema: Hashable, Sendable {
     guard
       let resource = compiled.resources[resourceURI]
         ?? compiled.resources[""]
-        ?? compiled.resources.first?.value
+        ?? compiled.resources.values.first
     else { return nil }
     return resolveFragment(fragment, in: resource, resourceURI: &resourceURI)
   }
