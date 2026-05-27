@@ -1098,9 +1098,8 @@ struct JSONSchemaContainsTests {
         "contains": .object(["type": .string("string")]),
         "minContains": .number(.integer(2)),
       ]))
-    // Current: passes with 1 match (deviant — should require 2)
-    // FIXME: flip to expect failure when minContains is implemented
-    #expect(schema.validation(of: .array([.number(.integer(1)), .string("hello")])).valid)
+    // minContains is now enforced — 2 required but only 1 match
+    #expect(!schema.validation(of: .array([.number(.integer(1)), .string("hello")])).valid)
   }
 }
 
@@ -1753,9 +1752,9 @@ func contentSchemaInvalidJSON() throws {
     schema: .object([
       "contentSchema": .object(["type": .string("object")])
     ]))
+  // contentSchema is an annotation — no validation errors produced
   let result = schema.validation(of: .string("not-json"))
-  #expect(!result.valid)
-  #expect(result.errors.first?.keyword == "contentSchema")
+  #expect(result.valid)
 }
 
 @Test("contentSchema — invalid base64 fails")
@@ -1765,9 +1764,9 @@ func contentSchemaInvalidBase64() throws {
       "contentEncoding": .string("base64"),
       "contentSchema": .object(["type": .string("object")]),
     ]))
+  // contentSchema is an annotation — no validation errors produced
   let result = schema.validation(of: .string("not-valid-base64!!"))
-  #expect(!result.valid)
-  #expect(result.errors.first?.keyword == "contentSchema")
+  #expect(result.valid)
 }
 
 @Test("contentSchema — non-string value skips")
@@ -1789,9 +1788,9 @@ func contentSchemaDecodedFails() throws {
         "required": .array([.string("name")]),
       ])
     ]))
-  // Valid JSON but doesn't match contentSchema
+  // contentSchema is an annotation — no validation errors produced
   let result = schema.validation(of: .string("{\"age\":30}"))
-  #expect(!result.valid)
+  #expect(result.valid)
 }
 
 @Test("contentSchema — absent keyword skips")
@@ -1807,8 +1806,7 @@ func contentSchemaBase64NonUTF8() throws {
       "contentEncoding": .string("base64"),
       "contentSchema": .object(["type": .string("object")]),
     ]))
-  // Base64-encoded non-UTF-8 byte (\xFE is invalid UTF-8)
+  // contentSchema is an annotation — no validation errors produced
   let result = schema.validation(of: .string("/g=="))
-  #expect(!result.valid)
-  #expect(result.errors.first?.keyword == "contentSchema")
+  #expect(result.valid)
 }

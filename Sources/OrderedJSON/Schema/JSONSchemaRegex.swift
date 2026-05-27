@@ -2,6 +2,11 @@ import Foundation
 
 /// A thread-safe wrapper around `NSRegularExpression` that conforms to `Sendable`,
 /// `Hashable`, and `Equatable`.  Equality is based on the pattern string only.
+///
+/// `@unchecked Sendable` is safe because `NSRegularExpression` is only read
+/// after initialization — it is never mutated.  The regex is compiled once in
+/// `init(pattern:)` and thereafter only accessed via `firstMatch(in:range:)`,
+/// which is thread-safe for read-only use.  No data races are introduced.
 internal final class SendableRegex: @unchecked Sendable, Hashable {
   let pattern: String
   let regex: NSRegularExpression

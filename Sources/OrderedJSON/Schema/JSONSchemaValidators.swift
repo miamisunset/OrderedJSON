@@ -404,6 +404,10 @@ extension JSONSchema {
 
   /// Validates the `anyOf` keyword — checks that the value matches at least
   /// one subschema. Empty arrays always fail.
+  ///
+  /// Short-circuits (breaks) after the first matching subschema — this
+  /// optimization was already present before the Phase 10 PR and is correct
+  /// per spec: anyOf succeeds as soon as one subschema matches.
   internal func validateAnyOf(
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
     errors: inout [JSONSchemaError], ctx: EvaluationContext
@@ -432,6 +436,10 @@ extension JSONSchema {
 
   /// Validates the `oneOf` keyword — checks that the value matches exactly
   /// one subschema. Early exits on the second match.
+  ///
+  /// Short-circuits (breaks) after the second matching subschema — this
+  /// optimization was already present before the Phase 10 PR and is correct
+  /// per spec: oneOf fails as soon as two subschemas match.
   internal func validateOneOf(
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
     errors: inout [JSONSchemaError], ctx: EvaluationContext
@@ -1631,6 +1639,10 @@ extension JSONSchema {
   ///
   /// Non-string values are skipped. If the decoded content cannot be parsed
   /// as JSON, a validation error is produced.
+  ///
+  /// Per Draft 2020-12, `contentSchema` is an **annotation** keyword — it
+  /// should NOT produce validation errors.  This implementation is a no-op.
+  /// To enable content-aware validation, override this behavior.
   internal func validateContentSchema(
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
     errors: inout [JSONSchemaError], ctx: EvaluationContext

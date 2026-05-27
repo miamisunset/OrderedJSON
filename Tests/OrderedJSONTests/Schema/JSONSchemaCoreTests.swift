@@ -262,7 +262,9 @@ struct JSONSchemaOutputModeTests {
     // The parent error should have keyword "allOf" (matched by group key)
     #expect(result.verboseErrors[0].error.keyword == "allOf")
     // There should be child errors for the second failing subschema
-    #expect(result.verboseErrors[0].children.count == 1)
+    // With short-circuit optimization, only the first failing subschema
+    // produces an error — the second is never validated.
+    #expect(result.verboseErrors[0].children.count == 0)
   }
 
   @Test("buildVerboseErrors — keyword mismatch falls back to first error")

@@ -66,6 +66,15 @@ internal struct CompiledSchema: Hashable, Sendable {
   /// Key is the pattern string; value is a thread-safe regex wrapper.
   let precompiledPatterns: [String: SendableRegex]
   /// Cache of keyword values per subschema, keyed by JSON pointer.
+  ///
+  /// - Warning: This cache is built **before** `$ref` resolution.  For
+  ///   subschemas that are resolved via `$ref`, the cache will contain the
+  ///   raw keyword values from the `$ref` node itself (which is just a
+  ///   `$ref` string), not the resolved target's keywords.  The `kw`
+  ///   function falls back to `subschema[key]` for those nodes, so the
+  ///   cache provides no benefit for `$ref`-targeted subschemas.
+  ///   Consider building the keyword cache **after** `$ref` resolution,
+  ///   or at least caching resolved keyword values.
   let keywordCache: [String: [String: JSON]]
 
   /// Creates a compiled schema from raw JSON.
@@ -77,6 +86,14 @@ internal struct CompiledSchema: Hashable, Sendable {
     self.precompiledPatterns = CompiledSchema.compilePatterns(from: schema)
     self.keywordCache = CompiledSchema.buildKeywordCache(from: schema)
   }
+
+  /// Keyword names whose values may be subschemas to recurse into for
+  /// pattern collection and keyword cache building.
+  private static let subschemaKeywords: [String] = [
+    "items", "allOf", "anyOf", "oneOf", "not", "if", "then", "else",
+    "contains", "additionalProperties", "unevaluatedProperties",
+    "additionalItems", "unevaluatedItems", "contentSchema",
+  ]
 
   /// Walks the schema tree and pre-compiles all `pattern` and `patternProperties`
   /// regex strings into `NSRegularExpression` objects.
@@ -96,9 +113,16 @@ internal struct CompiledSchema: Hashable, Sendable {
     return cache
   }
 
+  /// Maximum recursion depth for `buildKeywordCacheRecursive`.
+  /// Prevents stack overflow from deeply nested schemas.
+  private static let maxKeywordCacheDepth = 100
+
   private static func buildKeywordCacheRecursive(
-    _ value: JSON, pointer: String, cache: inout [String: [String: JSON]]
+    _ value: JSON, pointer: String, cache: inout [String: [String: JSON]],
+    depth: Int = 0
   ) {
+    // Depth guard — prevent stack overflow from extremely nested schemas
+    guard depth < Self.maxKeywordCacheDepth else { return }
     guard value.isObject else { return }
     // Collect all keyword values from this subschema.
     var keywords: [String: JSON] = [:]
@@ -113,18 +137,18 @@ internal struct CompiledSchema: Hashable, Sendable {
       if case .object(let props) = properties.storage {
         for (key, sub) in props {
           let childPointer = pointer.isEmpty ? "/properties/" + key : pointer + "/properties/" + key
-          buildKeywordCacheRecursive(sub, pointer: childPointer, cache: &cache)
+          buildKeywordCacheRecursive(sub, pointer: childPointer, cache: &cache, depth: depth + 1)
         }
       }
     }
     if let items = value["items"], items.isObject {
       // Single schema items
-      buildKeywordCacheRecursive(items, pointer: pointer + "/items", cache: &cache)
+      buildKeywordCacheRecursive(items, pointer: pointer + "/items", cache: &cache, depth: depth + 1)
     } else if let itemsArr = value["items"], itemsArr.isArray {
       // Tuple array items
       for (i, item) in itemsArr.enumerated() {
         let childPointer = pointer + "/items/" + String(i)
-        buildKeywordCacheRecursive(item, pointer: childPointer, cache: &cache)
+        buildKeywordCacheRecursive(item, pointer: childPointer, cache: &cache, depth: depth + 1)
       }
     }
     // Recurse into $defs / definitions
@@ -132,7 +156,7 @@ internal struct CompiledSchema: Hashable, Sendable {
       if case .object(let defDict) = defs.storage {
         for (key, def) in defDict {
           let childPointer = pointer + "/$defs/" + key
-          buildKeywordCacheRecursive(def, pointer: childPointer, cache: &cache)
+          buildKeywordCacheRecursive(def, pointer: childPointer, cache: &cache, depth: depth + 1)
         }
       }
     }
@@ -140,7 +164,7 @@ internal struct CompiledSchema: Hashable, Sendable {
       if case .object(let defDict) = defs.storage {
         for (key, def) in defDict {
           let childPointer = pointer + "/definitions/" + key
-          buildKeywordCacheRecursive(def, pointer: childPointer, cache: &cache)
+          buildKeywordCacheRecursive(def, pointer: childPointer, cache: &cache, depth: depth + 1)
         }
       }
     }
@@ -149,37 +173,37 @@ internal struct CompiledSchema: Hashable, Sendable {
       if case .object(let patternDict) = pp.storage {
         for (pattern, sub) in patternDict {
           let childPointer = pointer + "/patternProperties/" + pattern
-          buildKeywordCacheRecursive(sub, pointer: childPointer, cache: &cache)
+          buildKeywordCacheRecursive(sub, pointer: childPointer, cache: &cache, depth: depth + 1)
         }
       }
     }
     // Recurse into additionalProperties / unevaluatedProperties (if schema)
     if let ap = value["additionalProperties"], ap.isObject {
-      buildKeywordCacheRecursive(ap, pointer: pointer + "/additionalProperties", cache: &cache)
+      buildKeywordCacheRecursive(ap, pointer: pointer + "/additionalProperties", cache: &cache, depth: depth + 1)
     }
     if let up = value["unevaluatedProperties"], up.isObject {
-      buildKeywordCacheRecursive(up, pointer: pointer + "/unevaluatedProperties", cache: &cache)
+      buildKeywordCacheRecursive(up, pointer: pointer + "/unevaluatedProperties", cache: &cache, depth: depth + 1)
     }
     // Recurse into composition keywords (allOf, anyOf, oneOf, not, if, then, else)
     for comp in ["allOf", "anyOf", "oneOf"] {
       if let arr = value[comp], arr.isArray {
         for (i, sub) in arr.enumerated() {
           let childPointer = pointer + "/" + comp + "/" + String(i)
-          buildKeywordCacheRecursive(sub, pointer: childPointer, cache: &cache)
+          buildKeywordCacheRecursive(sub, pointer: childPointer, cache: &cache, depth: depth + 1)
         }
       }
     }
     if let not = value["not"], not.isObject {
-      buildKeywordCacheRecursive(not, pointer: pointer + "/not", cache: &cache)
+      buildKeywordCacheRecursive(not, pointer: pointer + "/not", cache: &cache, depth: depth + 1)
     }
     if let ifSub = value["if"], ifSub.isObject {
-      buildKeywordCacheRecursive(ifSub, pointer: pointer + "/if", cache: &cache)
+      buildKeywordCacheRecursive(ifSub, pointer: pointer + "/if", cache: &cache, depth: depth + 1)
     }
     if let thenSub = value["then"], thenSub.isObject {
-      buildKeywordCacheRecursive(thenSub, pointer: pointer + "/then", cache: &cache)
+      buildKeywordCacheRecursive(thenSub, pointer: pointer + "/then", cache: &cache, depth: depth + 1)
     }
     if let elseSub = value["else"], elseSub.isObject {
-      buildKeywordCacheRecursive(elseSub, pointer: pointer + "/else", cache: &cache)
+      buildKeywordCacheRecursive(elseSub, pointer: pointer + "/else", cache: &cache, depth: depth + 1)
     }
   }
 
@@ -212,11 +236,7 @@ internal struct CompiledSchema: Hashable, Sendable {
         }
       }
     }
-    for keyword in [
-      "items", "allOf", "anyOf", "oneOf", "not", "if", "then", "else",
-      "contains", "additionalProperties", "unevaluatedProperties",
-      "additionalItems", "unevaluatedItems", "contentSchema",
-    ] {
+    for keyword in Self.subschemaKeywords {
       if let subschema = value[keyword], subschema.isObject {
         collectPatterns(subschema, patterns: &patterns)
       }

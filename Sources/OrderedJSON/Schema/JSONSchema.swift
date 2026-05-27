@@ -400,8 +400,27 @@ public struct JSONSchema: Hashable, Sendable {
   /// Conservative; revisit if OpenAPI/AsyncAPI corpora hit the wall.
   private static let maxRecursionDepth = 20
 
+  /// Set of keyword names that are validation-related (not meta-keywords
+  /// like `$id`, `$ref`, `$defs`, `$anchor`, `$schema`, `$vocabulary`).
+  private static let validationKeywords: Set<String> = [
+    "type", "properties", "required", "minimum", "maximum",
+    "multipleOf", "pattern", "enum", "const", "minLength", "maxLength",
+    "allOf", "anyOf", "oneOf", "not", "if", "minItems", "maxItems",
+    "uniqueItems", "contains", "minProperties", "maxProperties",
+    "propertyNames", "patternProperties", "additionalProperties",
+    "items", "exclusiveMinimum", "exclusiveMaximum",
+    "format", "dependencies", "additionalItems",
+    "dependentSchemas", "dependentRequired", "prefixItems",
+    "unevaluatedItems", "unevaluatedProperties",
+    "contentMediaType", "contentEncoding", "contentSchema",
+    "minContains", "maxContains",
+  ]
+
   /// Returns a keyword value from the compiled cache if available,
   /// otherwise falls back to looking up from the subschema JSON.
+  ///
+  /// - Note: Currently unused in this PR. Intended for future use
+  ///   where compiled keyword cache can accelerate validation.
   @inline(__always) func kw(
     _ key: String, _ subschema: JSON, _ pointer: String
   ) -> JSON? {
@@ -600,19 +619,7 @@ public struct JSONSchema: Hashable, Sendable {
       // Collect the keyword names from the subschema keys.
       // We skip meta-keywords ($id, $ref, $defs, $anchor, etc.) and
       // only process validation keywords.
-      let validationKeywords: Set<String> = [
-        "type", "properties", "required", "minimum", "maximum",
-        "multipleOf", "pattern", "enum", "const", "minLength", "maxLength",
-        "allOf", "anyOf", "oneOf", "not", "if", "minItems", "maxItems",
-        "uniqueItems", "contains", "minProperties", "maxProperties",
-        "propertyNames", "patternProperties", "additionalProperties",
-        "items", "exclusiveMinimum", "exclusiveMaximum",
-        "format", "dependencies", "additionalItems",
-        "dependentSchemas", "dependentRequired", "prefixItems",
-        "unevaluatedItems", "unevaluatedProperties",
-        "contentMediaType", "contentEncoding", "contentSchema",
-        "minContains", "maxContains",
-      ]
+      let validationKeywords = Self.validationKeywords
 
       for (key, _) in dict {
         guard validationKeywords.contains(key) else { continue }
