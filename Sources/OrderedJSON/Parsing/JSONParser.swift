@@ -5,7 +5,7 @@ import OrderedCollections
 
 /// Named constants for common Unicode scalar values used in JSON parsing.
 /// Improves readability over raw hex literals throughout the parser.
-fileprivate struct UnicodeScalarHex {
+private struct UnicodeScalarHex {
   static let space: UInt32 = 0x20
   static let newline: UInt32 = 0x0A
   static let carriageReturn: UInt32 = 0x0D
@@ -542,7 +542,9 @@ extension JSON {
       ctx.advance()
     }
     // Integer part
-    while let s = ctx.currentScalar, s.value >= UnicodeScalarHex.zero, s.value <= UnicodeScalarHex.nine {  // 0-9
+    while let s = ctx.currentScalar, s.value >= UnicodeScalarHex.zero,
+      s.value <= UnicodeScalarHex.nine
+    {  // 0-9
       ctx.advance()
     }
     var isFloat = false
@@ -550,24 +552,36 @@ extension JSON {
     if let s = ctx.currentScalar, s.value == UnicodeScalarHex.dot {  // .
       isFloat = true
       ctx.advance()
-      guard let s = ctx.currentScalar, s.value >= UnicodeScalarHex.zero, s.value <= UnicodeScalarHex.nine else {  // 0-9
+      guard let s = ctx.currentScalar, s.value >= UnicodeScalarHex.zero,
+        s.value <= UnicodeScalarHex.nine
+      else {  // 0-9
         throw JSONParseError.unexpectedEnd()
       }
-      while let s = ctx.currentScalar, s.value >= UnicodeScalarHex.zero, s.value <= UnicodeScalarHex.nine {
+      while let s = ctx.currentScalar, s.value >= UnicodeScalarHex.zero,
+        s.value <= UnicodeScalarHex.nine
+      {
         ctx.advance()
       }
     }
     // Exponent part
-    if let s = ctx.currentScalar, s.value == UnicodeScalarHex.e_lower || s.value == UnicodeScalarHex.E_upper {  // e, E
+    if let s = ctx.currentScalar,
+      s.value == UnicodeScalarHex.e_lower || s.value == UnicodeScalarHex.E_upper
+    {  // e, E
       isFloat = true
       ctx.advance()
-      if let s = ctx.currentScalar, s.value == UnicodeScalarHex.plus || s.value == UnicodeScalarHex.minus {  // +, -
+      if let s = ctx.currentScalar,
+        s.value == UnicodeScalarHex.plus || s.value == UnicodeScalarHex.minus
+      {  // +, -
         ctx.advance()
       }
-      guard let s = ctx.currentScalar, s.value >= UnicodeScalarHex.zero, s.value <= UnicodeScalarHex.nine else {  // 0-9
+      guard let s = ctx.currentScalar, s.value >= UnicodeScalarHex.zero,
+        s.value <= UnicodeScalarHex.nine
+      else {  // 0-9
         throw JSONParseError.unexpectedEnd()
       }
-      while let s = ctx.currentScalar, s.value >= UnicodeScalarHex.zero, s.value <= UnicodeScalarHex.nine {
+      while let s = ctx.currentScalar, s.value >= UnicodeScalarHex.zero,
+        s.value <= UnicodeScalarHex.nine
+      {
         ctx.advance()
       }
     }

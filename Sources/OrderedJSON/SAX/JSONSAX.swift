@@ -4,7 +4,7 @@ import Foundation
 
 /// Named constants for common Unicode scalar values used in JSON parsing.
 /// Improves readability over raw hex literals throughout the parser.
-fileprivate struct UnicodeScalarHex {
+private struct UnicodeScalarHex {
   static let space: UInt32 = 0x20
   static let newline: UInt32 = 0x0A
   static let carriageReturn: UInt32 = 0x0D
@@ -359,30 +359,44 @@ extension JSON {
     if let s = ctx.currentScalar, s.value == UnicodeScalarHex.minus {  // -
       ctx.advance()
     }
-    while let s = ctx.currentScalar, s.value >= UnicodeScalarHex.zero, s.value <= UnicodeScalarHex.nine {  // 0-9
+    while let s = ctx.currentScalar, s.value >= UnicodeScalarHex.zero,
+      s.value <= UnicodeScalarHex.nine
+    {  // 0-9
       ctx.advance()
     }
     var isFloat = false
     if let s = ctx.currentScalar, s.value == UnicodeScalarHex.dot {  // .
       isFloat = true
       ctx.advance()
-      guard let s = ctx.currentScalar, s.value >= UnicodeScalarHex.zero, s.value <= UnicodeScalarHex.nine else {  // 0-9
+      guard let s = ctx.currentScalar, s.value >= UnicodeScalarHex.zero,
+        s.value <= UnicodeScalarHex.nine
+      else {  // 0-9
         return ctx.emitError(.invalidNumber(line: ctx.line, column: ctx.column))
       }
-      while let s = ctx.currentScalar, s.value >= UnicodeScalarHex.zero, s.value <= UnicodeScalarHex.nine {
+      while let s = ctx.currentScalar, s.value >= UnicodeScalarHex.zero,
+        s.value <= UnicodeScalarHex.nine
+      {
         ctx.advance()
       }
     }
-    if let s = ctx.currentScalar, s.value == UnicodeScalarHex.e_lower || s.value == UnicodeScalarHex.E_upper {  // e, E
+    if let s = ctx.currentScalar,
+      s.value == UnicodeScalarHex.e_lower || s.value == UnicodeScalarHex.E_upper
+    {  // e, E
       isFloat = true
       ctx.advance()
-      if let s = ctx.currentScalar, s.value == UnicodeScalarHex.plus || s.value == UnicodeScalarHex.minus {  // +, -
+      if let s = ctx.currentScalar,
+        s.value == UnicodeScalarHex.plus || s.value == UnicodeScalarHex.minus
+      {  // +, -
         ctx.advance()
       }
-      guard let s = ctx.currentScalar, s.value >= UnicodeScalarHex.zero, s.value <= UnicodeScalarHex.nine else {  // 0-9
+      guard let s = ctx.currentScalar, s.value >= UnicodeScalarHex.zero,
+        s.value <= UnicodeScalarHex.nine
+      else {  // 0-9
         return ctx.emitError(.invalidNumber(line: ctx.line, column: ctx.column))
       }
-      while let s = ctx.currentScalar, s.value >= UnicodeScalarHex.zero, s.value <= UnicodeScalarHex.nine {
+      while let s = ctx.currentScalar, s.value >= UnicodeScalarHex.zero,
+        s.value <= UnicodeScalarHex.nine
+      {
         ctx.advance()
       }
     }
@@ -474,7 +488,9 @@ extension JSON {
 
     // Check for high surrogate (U+D800..U+DBFF)
     if scalar >= 0xD800 && scalar <= 0xDBFF {
-      guard ctx.cursor.hasMore, ctx.cursor.current?.value == UnicodeScalarHex.backslash else { return "" }  // \\
+      guard ctx.cursor.hasMore, ctx.cursor.current?.value == UnicodeScalarHex.backslash else {
+        return ""
+      }  // \\
       ctx.cursor.advance()
       guard ctx.cursor.hasMore, ctx.cursor.current?.value == UnicodeScalarHex.u else { return "" }  // u
       ctx.cursor.advance()
@@ -511,11 +527,17 @@ extension JSON {
         let end = ctx.string.unicodeScalars.endIndex
         var idx = ctx.pos
         idx = ctx.string.unicodeScalars.index(after: idx)
-        guard idx < end && ctx.string.unicodeScalars[idx].value == UnicodeScalarHex.r else { return false }  // r
+        guard idx < end && ctx.string.unicodeScalars[idx].value == UnicodeScalarHex.r else {
+          return false
+        }  // r
         idx = ctx.string.unicodeScalars.index(after: idx)
-        guard idx < end && ctx.string.unicodeScalars[idx].value == UnicodeScalarHex.u else { return false }  // u
+        guard idx < end && ctx.string.unicodeScalars[idx].value == UnicodeScalarHex.u else {
+          return false
+        }  // u
         idx = ctx.string.unicodeScalars.index(after: idx)
-        guard idx < end && ctx.string.unicodeScalars[idx].value == UnicodeScalarHex.e_lower else { return false }  // e
+        guard idx < end && ctx.string.unicodeScalars[idx].value == UnicodeScalarHex.e_lower else {
+          return false
+        }  // e
         ctx.advance()
         ctx.advance()
         ctx.advance()
@@ -527,13 +549,21 @@ extension JSON {
         let end = ctx.string.unicodeScalars.endIndex
         var idx = ctx.pos
         idx = ctx.string.unicodeScalars.index(after: idx)
-        guard idx < end && ctx.string.unicodeScalars[idx].value == UnicodeScalarHex.a else { return false }  // a
+        guard idx < end && ctx.string.unicodeScalars[idx].value == UnicodeScalarHex.a else {
+          return false
+        }  // a
         idx = ctx.string.unicodeScalars.index(after: idx)
-        guard idx < end && ctx.string.unicodeScalars[idx].value == UnicodeScalarHex.l else { return false }  // l
+        guard idx < end && ctx.string.unicodeScalars[idx].value == UnicodeScalarHex.l else {
+          return false
+        }  // l
         idx = ctx.string.unicodeScalars.index(after: idx)
-        guard idx < end && ctx.string.unicodeScalars[idx].value == UnicodeScalarHex.s else { return false }  // s
+        guard idx < end && ctx.string.unicodeScalars[idx].value == UnicodeScalarHex.s else {
+          return false
+        }  // s
         idx = ctx.string.unicodeScalars.index(after: idx)
-        guard idx < end && ctx.string.unicodeScalars[idx].value == UnicodeScalarHex.e_lower else { return false }  // e
+        guard idx < end && ctx.string.unicodeScalars[idx].value == UnicodeScalarHex.e_lower else {
+          return false
+        }  // e
         ctx.advance()
         ctx.advance()
         ctx.advance()
@@ -546,11 +576,17 @@ extension JSON {
         let end = ctx.string.unicodeScalars.endIndex
         var idx = ctx.pos
         idx = ctx.string.unicodeScalars.index(after: idx)
-        guard idx < end && ctx.string.unicodeScalars[idx].value == UnicodeScalarHex.u else { return false }  // u
+        guard idx < end && ctx.string.unicodeScalars[idx].value == UnicodeScalarHex.u else {
+          return false
+        }  // u
         idx = ctx.string.unicodeScalars.index(after: idx)
-        guard idx < end && ctx.string.unicodeScalars[idx].value == UnicodeScalarHex.l else { return false }  // l
+        guard idx < end && ctx.string.unicodeScalars[idx].value == UnicodeScalarHex.l else {
+          return false
+        }  // l
         idx = ctx.string.unicodeScalars.index(after: idx)
-        guard idx < end && ctx.string.unicodeScalars[idx].value == UnicodeScalarHex.l else { return false }  // l
+        guard idx < end && ctx.string.unicodeScalars[idx].value == UnicodeScalarHex.l else {
+          return false
+        }  // l
         ctx.advance()
         ctx.advance()
         ctx.advance()
@@ -559,21 +595,31 @@ extension JSON {
       }
     case UnicodeScalarHex.minus, UnicodeScalarHex.zero...UnicodeScalarHex.nine:  // -, 0-9
       if ctx.currentScalar?.value == UnicodeScalarHex.minus { ctx.advance() }
-      while let s = ctx.currentScalar, s.value >= UnicodeScalarHex.zero, s.value <= UnicodeScalarHex.nine {
+      while let s = ctx.currentScalar, s.value >= UnicodeScalarHex.zero,
+        s.value <= UnicodeScalarHex.nine
+      {
         ctx.advance()
       }
       if let s = ctx.currentScalar, s.value == UnicodeScalarHex.dot {  // .
         ctx.advance()
-        while let s = ctx.currentScalar, s.value >= UnicodeScalarHex.zero, s.value <= UnicodeScalarHex.nine {
+        while let s = ctx.currentScalar, s.value >= UnicodeScalarHex.zero,
+          s.value <= UnicodeScalarHex.nine
+        {
           ctx.advance()
         }
       }
-      if let s = ctx.currentScalar, s.value == UnicodeScalarHex.e_lower || s.value == UnicodeScalarHex.E_upper {  // e, E
+      if let s = ctx.currentScalar,
+        s.value == UnicodeScalarHex.e_lower || s.value == UnicodeScalarHex.E_upper
+      {  // e, E
         ctx.advance()
-        if let s = ctx.currentScalar, s.value == UnicodeScalarHex.plus || s.value == UnicodeScalarHex.minus {  // +, -
+        if let s = ctx.currentScalar,
+          s.value == UnicodeScalarHex.plus || s.value == UnicodeScalarHex.minus
+        {  // +, -
           ctx.advance()
         }
-        while let s = ctx.currentScalar, s.value >= UnicodeScalarHex.zero, s.value <= UnicodeScalarHex.nine {
+        while let s = ctx.currentScalar, s.value >= UnicodeScalarHex.zero,
+          s.value <= UnicodeScalarHex.nine
+        {
           ctx.advance()
         }
       }
