@@ -1,6 +1,6 @@
-import Testing
 import Foundation
 import OrderedCollections
+import Testing
 
 @testable import OrderedJSON
 
@@ -60,7 +60,8 @@ private func runTestSuite(draftDir: String, draft: JSONSchema.Draft) throws {
 
       let schema: JSONSchema
       do {
-        schema = try JSONSchema(schema: schemaJSON, draft: draft,
+        schema = try JSONSchema(
+          schema: schemaJSON, draft: draft,
           remoteSchemas: remoteSchemas)
       } catch {
         continue
@@ -81,7 +82,8 @@ private func runTestSuite(draftDir: String, draft: JSONSchema.Draft) throws {
         } else {
           let firstError = result.errors.first?.message ?? "no error"
           failures.append(
-            "[\(keyword)] \(description): expected \(expectedValid), got \(actualValid) — \(firstError)")
+            "[\(keyword)] \(description): expected \(expectedValid), got \(actualValid) — \(firstError)"
+          )
         }
       }
     }
@@ -120,8 +122,10 @@ private func loadRemoteSchemas(from remotesDir: URL) -> [String: JSON] {
   let baseURL = "http://localhost:1234/"
   var result: [String: JSON] = [:]
 
-  guard let enumerator = FileManager.default.enumerator(
-    at: remotesDir, includingPropertiesForKeys: []) else { return result }
+  guard
+    let enumerator = FileManager.default.enumerator(
+      at: remotesDir, includingPropertiesForKeys: [])
+  else { return result }
 
   for case let fileURL as URL in enumerator {
     guard fileURL.pathExtension == "json" else { continue }
@@ -131,7 +135,8 @@ private func loadRemoteSchemas(from remotesDir: URL) -> [String: JSON] {
     // Compute relative path from remotesDir to fileURL
     let filePath = fileURL.path
     let remotesPath = remotesDir.path
-    let relPath = filePath
+    let relPath =
+      filePath
       .replacingOccurrences(of: remotesPath, with: "")
       .replacingOccurrences(of: "//", with: "/")
       .trimmingCharacters(in: CharacterSet(charactersIn: "/"))
@@ -152,10 +157,12 @@ private func loadRemoteSchemas(from remotesDir: URL) -> [String: JSON] {
 private func loadMetaschemas(from suiteRoot: URL) -> [String: JSON] {
   // suiteRoot = .../OrderedJSON/JSON-Schema-Test-Suite/tests/
   // Go up to project root: .../OrderedJSON/
-  let projectRoot = suiteRoot
+  let projectRoot =
+    suiteRoot
     .deletingLastPathComponent()  // JSON-Schema-Test-Suite/
     .deletingLastPathComponent()  // OrderedJSON/ (project root)
-  let metaschemaFile = projectRoot
+  let metaschemaFile =
+    projectRoot
     .appendingPathComponent("OrderedJSONTests/Schema/JSONSchemaTestSuite/metaschemas.json")
   guard let data = try? Data(contentsOf: metaschemaFile) else { return [:] }
   guard let parsed = try? JSON.parse(data) else { return [:] }

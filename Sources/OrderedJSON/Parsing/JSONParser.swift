@@ -208,15 +208,15 @@ extension JSON {
       throw JSONParseError.unexpectedEnd()
     }
     switch s.value {
-    case 0x7B:   // {
+    case 0x7B:  // {
       return try parseObject(&ctx)
-    case 0x5B:   // [
+    case 0x5B:  // [
       return try parseArray(&ctx)
-    case 0x22:   // "
+    case 0x22:  // "
       return try parseStringValue(&ctx)
     case 0x74, 0x66:  // t, f
       return try parseBoolean(&ctx)
-    case 0x6E:   // n
+    case 0x6E:  // n
       return try parseNull(&ctx)
     case 0x2D, 0x30...0x39:  // -, 0-9
       return try parseNumber(&ctx)

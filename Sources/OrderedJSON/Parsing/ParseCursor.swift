@@ -82,8 +82,7 @@ extension ParseCursor {
 
   /// Returns true if the given Unicode scalar value is a hex digit (0-9, A-F, a-f).
   private func isHexScalar(_ value: UInt32) -> Bool {
-    return (value >= 0x30 && value <= 0x39) ||
-           (value >= 0x41 && value <= 0x46) ||
-           (value >= 0x61 && value <= 0x66)
+    return (value >= 0x30 && value <= 0x39) || (value >= 0x41 && value <= 0x46)
+      || (value >= 0x61 && value <= 0x66)
   }
 }

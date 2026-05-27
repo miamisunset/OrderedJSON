@@ -462,7 +462,7 @@ extension JSON {
     guard let s = ctx.currentScalar else { return false }
     switch s.value {
     case 0x7B: return saxAcceptObject(&ctx)  // {
-    case 0x5B: return saxAcceptArray(&ctx)   // [
+    case 0x5B: return saxAcceptArray(&ctx)  // [
     case 0x22:  // "
       let _ = saxParseStringValue(&ctx)
       return true
