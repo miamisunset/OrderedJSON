@@ -422,6 +422,11 @@ The official test suite at https://github.com/json-schema-org/JSON-Schema-Test-S
 
 **Goal**: Infer a JSON Schema from a JSON instance.
 
+**Implementation**: `JSONSchemaGeneration` enum with `generate(from:)` and a
+`JSON.schema()` extension. Includes a fast-path optimization for homogeneous
+primitive arrays that avoids O(n) schema comparison when all elements share
+the same primitive kind.
+
 ### API
 
 ```swift

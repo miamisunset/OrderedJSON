@@ -125,16 +125,23 @@ public enum JSONSchemaGeneration {
   /// "complex" so that they always fall through to the full comparison.
   private static func primitiveKind(_ value: JSON) -> UInt8 {
     switch value.storage {
-    case .null:      return 0
-    case .boolean:   return 1
+    case .null:
+      return 0
+    case .boolean:
+      return 1
     case .number(let n):
       switch n {
-      case .integer: return 2
-      case .float:   return 3
+      case .integer:
+        return 2
+      case .float:
+        return 3
       }
-    case .string:    return 4
-    case .array:     return 5
-    case .object:    return 6
+    case .string:
+      return 4
+    case .array:
+      return 5
+    case .object:
+      return 6
     }
   }
 
