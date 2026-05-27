@@ -740,7 +740,15 @@ extension JSONSchema {
         preconditionFailure("patternProperties.isObject was true but storage pattern match failed")
       }
       for (pattern, _) in patternDict {
-        let regex = try! NSRegularExpression(pattern: pattern, options: [])
+        // Use pre-compiled regex if available, otherwise compile on the fly.
+        let regex: NSRegularExpression
+        if let compiled = self.compiled,
+          let cached = compiled.precompiledPatterns[pattern]
+        {
+          regex = cached.regex
+        } else {
+          regex = try! NSRegularExpression(pattern: pattern, options: [])
+        }
         for (key, _) in dict {
           let range = NSRange(key.startIndex..<key.endIndex, in: key)
           if regex.firstMatch(in: key, options: [], range: range) != nil { keys.insert(key) }
