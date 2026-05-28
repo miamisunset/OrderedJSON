@@ -20,14 +20,14 @@ struct CompiledSchemaTests {
     let compiled = try CompiledSchema(schema: schema)
     #expect(compiled.resources[""]?.defs["foo"]?.isObject == true)
     #expect(compiled.resources[""]?.defs["bar"]?.isObject == true)
-    if let r = compiled.resources[""] { #expect(r.defs.count == 2) } else { #expect(false) }
+    #expect(compiled.resources[""]?.defs.count == 2)
   }
 
   @Test("compiled — no $defs yields empty dict")
   func compiledNoDefs() throws {
     let schema: JSON = .object(["type": .string("object")])
     let compiled = try CompiledSchema(schema: schema)
-    if let r = compiled.resources[""] { #expect(r.defs.isEmpty) } else { #expect(false) }
+    #expect(compiled.resources[""]?.defs.isEmpty == true)
   }
 
   @Test("compiled — parses $id")
@@ -64,7 +64,7 @@ struct CompiledSchemaTests {
   func compiledNoAnchor() throws {
     let schema: JSON = .object(["type": .string("object")])
     let compiled = try CompiledSchema(schema: schema)
-    if let r = compiled.resources[""] { #expect(r.anchors.isEmpty) } else { #expect(false) }
+    #expect(compiled.resources[""]?.anchors.isEmpty == true)
   }
 
   @Test("compiled — resolveRef with $anchor")
@@ -369,11 +369,7 @@ struct CompiledSchemaNestedAnnotationTests {
     ])
     let compiled = try CompiledSchema(schema: schema)
     #expect(compiled.resources[""]?.defs["nestedType"]?.isObject == true)
-    if let resource = compiled.resources[""] {
-      #expect(resource.defs.count >= 1)
-    } else {
-      #expect(false, "expected root resource")
-    }
+    #expect((compiled.resources[""]?.defs.count ?? 0) >= 1)
   }
 
   @Test("compiled — collects $anchor from allOf subschema")
@@ -526,11 +522,8 @@ struct CompiledSchemaNestedAnnotationTests {
         "child": .object(["$anchor": .string("dup")])
       ]),
     ])
-    do {
-      _ = try CompiledSchema(schema: schema)
-      #expect(false, "Expected throw but succeeded")
-    } catch {
-      #expect(true)
+    #expect(throws: (any Error).self) {
+      try CompiledSchema(schema: schema)
     }
   }
 
@@ -542,11 +535,8 @@ struct CompiledSchemaNestedAnnotationTests {
         "child": .object(["$dynamicAnchor": .string("dup")])
       ]),
     ])
-    do {
-      _ = try CompiledSchema(schema: schema)
-      #expect(false, "Expected throw but succeeded")
-    } catch {
-      #expect(true)
+    #expect(throws: (any Error).self) {
+      try CompiledSchema(schema: schema)
     }
   }
 
@@ -672,8 +662,8 @@ struct CompiledSchemaNestedAnnotationTests {
 
   @Test("JSONSchema — init throws on duplicate $anchor")
   func jsonSchemaInitThrowsOnDuplicateAnchor() throws {
-    do {
-      _ = try JSONSchema(
+    #expect(throws: (any Error).self) {
+      try JSONSchema(
         schema: .object([
           "$anchor": .string("dup"),
           "properties": .object([
@@ -681,9 +671,6 @@ struct CompiledSchemaNestedAnnotationTests {
           ]),
         ])
       )
-      #expect(false, "Expected throw but succeeded")
-    } catch {
-      #expect(true)
     }
   }
 
@@ -787,8 +774,8 @@ struct CompiledSchemaNestedAnnotationTests {
 
   @Test("duplicate $id throws at init")
   func duplicateIdThrows() throws {
-    do {
-      _ = try JSONSchema(
+    #expect(throws: (any Error).self) {
+      try JSONSchema(
         schema: .object([
           "$id": .string("/dup"),
           "properties": .object([
@@ -796,9 +783,6 @@ struct CompiledSchemaNestedAnnotationTests {
           ]),
         ])
       )
-      #expect(false, "Expected throw but succeeded")
-    } catch {
-      #expect(true)
     }
   }
 
