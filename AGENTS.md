@@ -45,8 +45,9 @@ Swift library that preserves JSON key order with a rich method-based API mirrori
 - Prefer `package` access for testability over `public` on internal helpers
 
 ## Plan Reference
-- Track active phases in `SCHEMA_PLAN.md`.
-- For completed phases: summarize key outcomes + decisions in `SCHEMA_PLAN.md`, then archive details if needed.
+- Track active phases in `API_PLAN.md`.
+- For completed phases: summarize key outcomes + decisions in `API_PLAN.md`, then archive details if needed.
+- Use the `swift-api-design-guidelines-skill` when designing or reviewing public, private and internal APIs.
 - Keep `AGENTS.md` length under ~800–1500 tokens when possible.
 
 ## Coverage
