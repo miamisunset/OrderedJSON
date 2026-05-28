@@ -8,7 +8,8 @@ extension JSON {
   ///
   /// When getting, returns `nil` if the key doesn't exist or if the value
   /// is not an object. When setting, if `newValue` is non-nil the key is
-  /// updated/inserted; if `nil` the key is removed.
+  /// updated/inserted; if `nil` the key is removed. Setting on a non-object
+  /// is a silent no-op (matching nlohmann/json's defensive behavior).
   ///
   /// - Parameter key: The object key.
   /// - Returns: The value for the key, or `nil`.
@@ -38,7 +39,8 @@ extension JSON {
   ///
   /// When getting, returns `nil` if the index is out of bounds or if the
   /// value is not an array. When setting, if `newValue` is non-nil the
-  /// element is replaced; if `nil` the element is removed.
+  /// element is replaced; if `nil` the element is removed. Setting on a
+  /// non-array or an out-of-bounds index is a silent no-op.
   ///
   /// - Parameter index: The array index.
   /// - Returns: The element at the index, or `nil`.
@@ -69,7 +71,7 @@ extension JSON {
   /// - Returns: The value for the key.
   /// - Throws: `JSONError.typeError` if not an object,
   ///   `JSONError.keyNotFound` if the key is missing.
-  public func at(_ key: String) throws -> JSON {
+  public func at(key: String) throws -> JSON {
     guard case .object(let dict) = storage else {
       throw JSONError.typeError(expected: "object", actual: typeName)
     }
@@ -86,7 +88,7 @@ extension JSON {
   /// - Returns: The element at the index.
   /// - Throws: `JSONError.typeError` if not an array,
   ///   `JSONError.indexOutOfBounds` if the index is invalid.
-  public func at(_ index: Int) throws -> JSON {
+  public func at(index: Int) throws -> JSON {
     guard case .array(let arr) = storage else {
       throw JSONError.typeError(expected: "array", actual: typeName)
     }
@@ -105,7 +107,7 @@ extension JSON {
   ///   - key: The object key.
   ///   - defaultValue: The value to return if the key is missing.
   /// - Returns: The value for the key, or `defaultValue`.
-  public func value(_ key: String, default defaultValue: JSON) -> JSON {
+  public func value(forKey key: String, default defaultValue: JSON) -> JSON {
     guard case .object(let dict) = storage else { return defaultValue }
     return dict[key] ?? defaultValue
   }
@@ -121,7 +123,7 @@ extension JSON {
   ///   - index: The array index. Must be non-negative.
   ///   - defaultValue: The value to return if the index is out of bounds.
   /// - Returns: The element at the index, or `defaultValue`.
-  public func value(_ index: Int, default defaultValue: JSON) -> JSON {
+  public func value(at index: Int, default defaultValue: JSON) -> JSON {
     guard case .array(let arr) = storage else { return defaultValue }
     guard index >= 0, index < arr.count else { return defaultValue }
     return arr[index]

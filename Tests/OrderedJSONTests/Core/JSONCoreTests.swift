@@ -34,7 +34,7 @@ import Testing
 
 @Test func factoryNull() {
   #expect(JSON.null.isNull)
-  #expect(JSON.nullValue().isNull)
+  #expect(JSON.null.isNull)
 }
 
 @Test func convenienceInitString() {
@@ -334,19 +334,19 @@ import Testing
   #expect(json.intValue == nil)
 }
 
-@Test func floatValueOnFloat() {
+@Test func doubleValueOnFloat() {
   let json = JSON.number(.float(3.14))
-  #expect(json.floatValue == 3.14)
+  #expect(json.doubleValue == 3.14)
 }
 
-@Test func floatValueOnIntegerWidens() {
+@Test func doubleValueOnIntegerWidens() {
   let json = JSON.number(.integer(42))
-  #expect(json.floatValue == 42.0)
+  #expect(json.doubleValue == 42.0)
 }
 
-@Test func floatValueOnNonNumberReturnsNil() {
+@Test func doubleValueOnNonNumberReturnsNil() {
   let json = JSON.boolean(true)
-  #expect(json.floatValue == nil)
+  #expect(json.doubleValue == nil)
 }
 
 @Test func boolValueOnBoolean() {

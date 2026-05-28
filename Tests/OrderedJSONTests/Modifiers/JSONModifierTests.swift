@@ -19,6 +19,36 @@ import Testing
   #expect(arr.isEmpty)
 }
 
+@Test func clearedObject() {
+  let obj = JSON.object(["a": JSON.string("x"), "b": JSON.number(.integer(1))])
+  let cleared = obj.cleared()
+  #expect(cleared.isObject)
+  #expect(cleared.isEmpty)
+  #expect(!obj.isEmpty)  // original unchanged
+}
+
+@Test func clearedArray() {
+  let arr = JSON.array([JSON.string("a"), JSON.number(.integer(1))])
+  let cleared = arr.cleared()
+  #expect(cleared.isArray)
+  #expect(cleared.isEmpty)
+  #expect(!arr.isEmpty)  // original unchanged
+}
+
+@Test func clearedScalarReturnsSelf() {
+  let str = JSON.string("hello")
+  #expect(str.cleared() == str)
+
+  let num = JSON.number(.integer(42))
+  #expect(num.cleared() == num)
+
+  let bool = JSON.boolean(true)
+  #expect(bool.cleared() == bool)
+
+  let nullVal = JSON.null
+  #expect(nullVal.cleared().isNull)
+}
+
 @Test func clearScalarNoop() {
   var str = JSON.string("hello")
   str.clear()
@@ -39,7 +69,7 @@ import Testing
 
 @Test func eraseKey() {
   var obj = JSON.object(["a": JSON.string("x"), "b": JSON.number(.integer(1))])
-  obj.erase("a")
+  obj.erase(key: "a")
   #expect(obj.count == 1)
   #expect(obj["a"] == nil)
   #expect(obj["b"] == JSON.number(.integer(1)))
@@ -47,19 +77,19 @@ import Testing
 
 @Test func eraseKeyNonObject() {
   var arr = JSON.array([JSON.string("a")])
-  arr.erase("key")  // silently ignored
+  arr.erase(key: "key")  // silently ignored
   #expect(arr.count == 1)
 }
 
 @Test func eraseKeyMissing() {
   var obj = JSON.object(["a": JSON.string("x")])
-  obj.erase("missing")
+  obj.erase(key: "missing")
   #expect(obj.count == 1)
 }
 
 @Test func eraseIndex() {
   var arr = JSON.array([JSON.string("a"), JSON.number(.integer(1)), JSON.boolean(true)])
-  arr.erase(1)
+  arr.erase(index: 1)
   #expect(arr.count == 2)
   #expect(arr[0] == JSON.string("a"))
   #expect(arr[1] == JSON.boolean(true))
@@ -67,15 +97,15 @@ import Testing
 
 @Test func eraseIndexOutOfBounds() {
   var arr = JSON.array([JSON.string("a")])
-  arr.erase(5)  // silently ignored
+  arr.erase(index: 5)  // silently ignored
   #expect(arr.count == 1)
-  arr.erase(-1)  // silently ignored
+  arr.erase(index: -1)  // silently ignored
   #expect(arr.count == 1)
 }
 
 @Test func eraseIndexNonArray() {
   var obj = JSON.object(["a": JSON.string("x")])
-  obj.erase(0)  // silently ignored
+  obj.erase(index: 0)  // silently ignored
   #expect(obj.count == 1)
 }
 
@@ -111,19 +141,6 @@ import Testing
   var obj = JSON.object(["a": JSON.string("x")])
   obj.insert(JSON.string("b"), at: 0)  // silently ignored
   #expect(obj.count == 1)
-}
-
-@Test func emplaceArray() {
-  var arr = JSON.array([JSON.string("a")])
-  arr.emplace(JSON.number(.integer(42)))
-  #expect(arr.count == 2)
-  #expect(arr[1] == JSON.number(.integer(42)))
-}
-
-@Test func emplaceArrayNonArray() {
-  var str = JSON.string("hello")
-  str.emplace(JSON.number(.integer(42)))  // silently ignored
-  #expect(str == JSON.string("hello"))
 }
 
 @Test func emplaceObjectNewKey() {
@@ -178,7 +195,7 @@ import Testing
     "a": JSON.object(["y": JSON.number(.integer(2))]),
     "c": JSON.string("new"),
   ])
-  obj.update(with: other, mergeObjects: true)
+  obj.update(with: other, mergesNested: true)
   #expect(obj["a"]?.isObject == true)
   #expect(obj["a"]?["x"] == JSON.number(.integer(1)))  // preserved
   #expect(obj["a"]?["y"] == JSON.number(.integer(2)))  // added
@@ -197,7 +214,7 @@ import Testing
       "b": JSON.object(["d": JSON.number(.integer(2))])
     ])
   ])
-  obj.update(with: other, mergeObjects: true)
+  obj.update(with: other, mergesNested: true)
   #expect(obj["a"]?["b"]?["c"] == JSON.number(.integer(1)))  // preserved
   #expect(obj["a"]?["b"]?["d"] == JSON.number(.integer(2)))  // added
 }
@@ -209,7 +226,7 @@ import Testing
   let other = JSON.object([
     "a": JSON.string("replaced")  // not an object — overwrites entirely
   ])
-  obj.update(with: other, mergeObjects: true)
+  obj.update(with: other, mergesNested: true)
   #expect(obj["a"] == JSON.string("replaced"))
 }
 
@@ -220,7 +237,7 @@ import Testing
   let other = JSON.object([
     "a": JSON.object(["y": JSON.number(.integer(2))])
   ])
-  obj.update(with: other)  // default: mergeObjects=false
+  obj.update(with: other)  // default: mergesNested=false
   #expect(obj["a"]?["x"] == nil)  // overwritten, not merged
   #expect(obj["a"]?["y"] == JSON.number(.integer(2)))
 }
@@ -232,7 +249,7 @@ import Testing
   let other = JSON.object([
     "a": JSON.array([JSON.number(.integer(99))])  // array, not object — overwrites
   ])
-  obj.update(with: other, mergeObjects: true)
+  obj.update(with: other, mergesNested: true)
   #expect(obj["a"]?.isArray == true)
   #expect(obj["a"] == JSON.array([JSON.number(.integer(99))]))
 }
@@ -244,7 +261,7 @@ import Testing
   let other = JSON.object([
     "a": JSON.null
   ])
-  obj.update(with: other, mergeObjects: true)
+  obj.update(with: other, mergesNested: true)
   #expect(obj["a"] == JSON.null)  // null is not an object — overwrites
 }
 
@@ -253,7 +270,7 @@ import Testing
     "a": JSON.object(["x": JSON.number(.integer(1))]),
     "b": JSON.string("keep"),
   ])
-  obj.update(with: obj, mergeObjects: true)  // self-merge is safe (value semantics)
+  obj.update(with: obj, mergesNested: true)  // self-merge is safe (value semantics)
   #expect(obj["a"]?["x"] == JSON.number(.integer(1)))
   #expect(obj["b"] == JSON.string("keep"))
 }
@@ -264,10 +281,4 @@ import Testing
   a.swap(with: &b)
   #expect(a == JSON.number(.integer(42)))
   #expect(b == JSON.string("hello"))
-}
-
-// MARK: - maxCount
-
-@Test func maxSize() {
-  #expect(JSON.null.maxCount == Int.max)
 }

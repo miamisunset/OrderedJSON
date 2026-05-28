@@ -16,15 +16,14 @@ extension JSON {
   /// ## Example
   ///
   /// ```swift
-  /// let decoded = try JSON.fromMsgPack(data)
+  /// let decoded = try JSON(msgPack: data)
   /// ```
-  public static func fromMsgPack(_ data: Data) throws -> JSON {
+  public init(msgPack data: Data) throws {
     var pos = 0
-    let value = try decodeMsgPack(data, &pos)
+    self = try decodeMsgPack(data, &pos)
     if pos < data.count {
       throw JSONError.invalidMsgPack("Trailing bytes after MessagePack value")
     }
-    return value
   }
 
   /// Encodes this JSON value into MessagePack format.
@@ -34,9 +33,9 @@ extension JSON {
   ///
   /// ```swift
   /// let json = JSON.object(["key": .string("value")])
-  /// let msgpackData = json.toMsgPack()
+  /// let msgpackData = json.msgPack()
   /// ```
-  public func toMsgPack() -> Data {
+  public func msgPack() -> Data {
     var bytes: [UInt8] = []
     encodeMsgPack(self, &bytes)
     return Data(bytes)

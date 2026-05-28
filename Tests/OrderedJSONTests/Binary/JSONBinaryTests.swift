@@ -19,43 +19,43 @@ private func appendBE(_ value: UInt64, to bytes: inout [UInt8]) {
 
 @Test func cborRoundTripNull() throws {
   let json = JSON.null
-  let data = json.toCBOR()
-  let decoded = try JSON.fromCBOR(data)
+  let data = json.cbor()
+  let decoded = try JSON(cbor: data)
   #expect(decoded == json)
 }
 
 @Test func cborRoundTripBool() throws {
   let json = JSON.boolean(true)
-  let data = json.toCBOR()
-  let decoded = try JSON.fromCBOR(data)
+  let data = json.cbor()
+  let decoded = try JSON(cbor: data)
   #expect(decoded == json)
 }
 
 @Test func cborRoundTripBoolFalse() throws {
   let json = JSON.boolean(false)
-  let data = json.toCBOR()
-  let decoded = try JSON.fromCBOR(data)
+  let data = json.cbor()
+  let decoded = try JSON(cbor: data)
   #expect(decoded == json)
 }
 
 @Test func cborRoundTripInteger() throws {
   let json = JSON.number(.integer(42))
-  let data = json.toCBOR()
-  let decoded = try JSON.fromCBOR(data)
+  let data = json.cbor()
+  let decoded = try JSON(cbor: data)
   #expect(decoded == json)
 }
 
 @Test func cborRoundTripFloat() throws {
   let json = JSON.number(.float(3.14))
-  let data = json.toCBOR()
-  let decoded = try JSON.fromCBOR(data)
+  let data = json.cbor()
+  let decoded = try JSON(cbor: data)
   #expect(decoded == json)
 }
 
 @Test func cborRoundTripString() throws {
   let json = JSON.string("hello")
-  let data = json.toCBOR()
-  let decoded = try JSON.fromCBOR(data)
+  let data = json.cbor()
+  let decoded = try JSON(cbor: data)
   #expect(decoded == json)
 }
 
@@ -63,39 +63,39 @@ private func appendBE(_ value: UInt64, to bytes: inout [UInt8]) {
   let json = JSON.array([
     JSON.number(.integer(1)), JSON.number(.integer(2)), JSON.number(.integer(3)),
   ])
-  let data = json.toCBOR()
-  let decoded = try JSON.fromCBOR(data)
+  let data = json.cbor()
+  let decoded = try JSON(cbor: data)
   #expect(decoded == json)
 }
 
 @Test func cborRoundTripObject() throws {
   let json = JSON.object(["a": JSON.number(.integer(1)), "b": JSON.string("x")])
-  let data = json.toCBOR()
-  let decoded = try JSON.fromCBOR(data)
+  let data = json.cbor()
+  let decoded = try JSON(cbor: data)
   #expect(decoded == json)
 }
 
 @Test func cborNegativeInteger() throws {
   let json = JSON.number(.integer(-42))
-  let data = json.toCBOR()
-  let decoded = try JSON.fromCBOR(data)
+  let data = json.cbor()
+  let decoded = try JSON(cbor: data)
   #expect(decoded == json)
 }
 
 @Test func cborLargeInteger() throws {
   let json = JSON.number(.integer(100_000))
-  let data = json.toCBOR()
-  let decoded = try JSON.fromCBOR(data)
+  let data = json.cbor()
+  let decoded = try JSON(cbor: data)
   #expect(decoded == json)
 }
 
 @Test func cborTrailingBytes() throws {
   let json = JSON.number(.integer(1))
-  let data = json.toCBOR()
+  let data = json.cbor()
   var trailing = data
   trailing.append(0x00)
   #expect(throws: JSONError.self) {
-    try JSON.fromCBOR(trailing)
+    try JSON(cbor: trailing)
   }
 }
 
@@ -103,136 +103,136 @@ private func appendBE(_ value: UInt64, to bytes: inout [UInt8]) {
 
 @Test func msgPackRoundTripNull() throws {
   let json = JSON.null
-  let data = json.toMsgPack()
-  let decoded = try JSON.fromMsgPack(data)
+  let data = json.msgPack()
+  let decoded = try JSON(msgPack: data)
   #expect(decoded == json)
 }
 
 @Test func msgPackRoundTripBool() throws {
   let json = JSON.boolean(true)
-  let data = json.toMsgPack()
-  let decoded = try JSON.fromMsgPack(data)
+  let data = json.msgPack()
+  let decoded = try JSON(msgPack: data)
   #expect(decoded == json)
 }
 
 @Test func msgPackRoundTripBoolFalse() throws {
   let json = JSON.boolean(false)
-  let data = json.toMsgPack()
-  let decoded = try JSON.fromMsgPack(data)
+  let data = json.msgPack()
+  let decoded = try JSON(msgPack: data)
   #expect(decoded == json)
 }
 
 @Test func msgPackRoundTripInteger() throws {
   let json = JSON.number(.integer(42))
-  let data = json.toMsgPack()
-  let decoded = try JSON.fromMsgPack(data)
+  let data = json.msgPack()
+  let decoded = try JSON(msgPack: data)
   #expect(decoded == json)
 }
 
 @Test func msgPackRoundTripFloat() throws {
   let json = JSON.number(.float(3.14))
-  let data = json.toMsgPack()
-  let decoded = try JSON.fromMsgPack(data)
+  let data = json.msgPack()
+  let decoded = try JSON(msgPack: data)
   #expect(decoded == json)
 }
 
 @Test func msgPackRoundTripString() throws {
   let json = JSON.string("hello")
-  let data = json.toMsgPack()
-  let decoded = try JSON.fromMsgPack(data)
+  let data = json.msgPack()
+  let decoded = try JSON(msgPack: data)
   #expect(decoded == json)
 }
 
 @Test func msgPackRoundTripArray() throws {
   let json = JSON.array([JSON.number(.integer(1)), JSON.number(.integer(2))])
-  let data = json.toMsgPack()
-  let decoded = try JSON.fromMsgPack(data)
+  let data = json.msgPack()
+  let decoded = try JSON(msgPack: data)
   #expect(decoded == json)
 }
 
 @Test func msgPackRoundTripObject() throws {
   let json = JSON.object(["a": JSON.number(.integer(1)), "b": JSON.string("x")])
-  let data = json.toMsgPack()
-  let decoded = try JSON.fromMsgPack(data)
+  let data = json.msgPack()
+  let decoded = try JSON(msgPack: data)
   #expect(decoded == json)
 }
 
 @Test func msgPackNegativeInteger() throws {
   let json = JSON.number(.integer(-42))
-  let data = json.toMsgPack()
-  let decoded = try JSON.fromMsgPack(data)
+  let data = json.msgPack()
+  let decoded = try JSON(msgPack: data)
   #expect(decoded == json)
 }
 
 @Test func msgPackLargeInteger() throws {
   let json = JSON.number(.integer(100_000))
-  let data = json.toMsgPack()
-  let decoded = try JSON.fromMsgPack(data)
+  let data = json.msgPack()
+  let decoded = try JSON(msgPack: data)
   #expect(decoded == json)
 }
 
 @Test func msgPackTrailingBytes() throws {
   let json = JSON.number(.integer(1))
-  let data = json.toMsgPack()
+  let data = json.msgPack()
   var trailing = data
   trailing.append(0x00)
   #expect(throws: JSONError.self) {
-    try JSON.fromMsgPack(trailing)
+    try JSON(msgPack: trailing)
   }
 }
 
 // MARK: - MessagePack Edge Cases
 
 @Test func msgPackEmptyData() throws {
-  #expect(throws: JSONError.self) { try JSON.fromMsgPack(Data()) }
+  #expect(throws: JSONError.self) { try JSON(msgPack: Data()) }
 }
 
 @Test func msgPackNegativeFixInt() throws {
   let json = JSON.number(.integer(-10))
-  let data = json.toMsgPack()
-  let decoded = try JSON.fromMsgPack(data)
+  let data = json.msgPack()
+  let decoded = try JSON(msgPack: data)
   #expect(decoded == json)
 }
 
 @Test func msgPackUInt8() throws {
   let json = JSON.number(.integer(200))
-  let data = json.toMsgPack()
-  let decoded = try JSON.fromMsgPack(data)
+  let data = json.msgPack()
+  let decoded = try JSON(msgPack: data)
   #expect(decoded == json)
 }
 
 @Test func msgPackUInt16() throws {
   let json = JSON.number(.integer(1000))
-  let data = json.toMsgPack()
-  let decoded = try JSON.fromMsgPack(data)
+  let data = json.msgPack()
+  let decoded = try JSON(msgPack: data)
   #expect(decoded == json)
 }
 
 @Test func msgPackUInt64Positive() throws {
   let json = JSON.number(.integer(Int64(UInt32.max) + 1))
-  let data = json.toMsgPack()
-  let decoded = try JSON.fromMsgPack(data)
+  let data = json.msgPack()
+  let decoded = try JSON(msgPack: data)
   #expect(decoded == json)
 }
 
 @Test func msgPackInt16() throws {
   let json = JSON.number(.integer(-200))
-  let data = json.toMsgPack()
-  let decoded = try JSON.fromMsgPack(data)
+  let data = json.msgPack()
+  let decoded = try JSON(msgPack: data)
   #expect(decoded == json)
 }
 
 @Test func msgPackInt64() throws {
   let json = JSON.number(.integer(Int64(Int32.min) - 1))
-  let data = json.toMsgPack()
-  let decoded = try JSON.fromMsgPack(data)
+  let data = json.msgPack()
+  let decoded = try JSON(msgPack: data)
   #expect(decoded == json)
 }
 
 @Test func msgPackFloat32() throws {
   let json = JSON.number(.float(1.5))
-  let data = json.toMsgPack()
-  let decoded = try JSON.fromMsgPack(data)
+  let data = json.msgPack()
+  let decoded = try JSON(msgPack: data)
   #expect(decoded == json)
 }
 
@@ -240,8 +240,8 @@ private func appendBE(_ value: UInt64, to bytes: inout [UInt8]) {
   // String with length 32-255 (uses 0xD9 marker)
   let s = String(repeating: "x", count: 100)
   let json = JSON.string(s)
-  let data = json.toMsgPack()
-  let decoded = try JSON.fromMsgPack(data)
+  let data = json.msgPack()
+  let decoded = try JSON(msgPack: data)
   #expect(decoded == json)
 }
 
@@ -252,7 +252,7 @@ private func appendBE(_ value: UInt64, to bytes: inout [UInt8]) {
     bytes.append(0x2A)  // 42 encoded as positive fixint
   }
   let data = Data(bytes)
-  let decoded = try JSON.fromMsgPack(data)
+  let decoded = try JSON(msgPack: data)
   #expect(decoded.isArray)
   #expect(decoded.count == 16)
 }
@@ -264,7 +264,7 @@ private func appendBE(_ value: UInt64, to bytes: inout [UInt8]) {
     bytes.append(0x2A)
   }
   let data = Data(bytes)
-  let decoded = try JSON.fromMsgPack(data)
+  let decoded = try JSON(msgPack: data)
   #expect(decoded.isArray)
   #expect(decoded.count == 3)
 }
@@ -281,7 +281,7 @@ private func appendBE(_ value: UInt64, to bytes: inout [UInt8]) {
   bytes.append(0x62)  // "b"
   bytes.append(0x02)
   let data = Data(bytes)
-  let decoded = try JSON.fromMsgPack(data)
+  let decoded = try JSON(msgPack: data)
   #expect(decoded.isObject)
   #expect(decoded.count == 2)
 }
@@ -293,7 +293,7 @@ private func appendBE(_ value: UInt64, to bytes: inout [UInt8]) {
   bytes.append(0x61)  // "a"
   bytes.append(0x01)
   let data = Data(bytes)
-  let decoded = try JSON.fromMsgPack(data)
+  let decoded = try JSON(msgPack: data)
   #expect(decoded.isObject)
   #expect(decoded["a"] == JSON.number(.integer(1)))
 }
@@ -305,7 +305,7 @@ private func appendBE(_ value: UInt64, to bytes: inout [UInt8]) {
     bytes.append(0x61)
   }  // "a" * 32
   let data = Data(bytes)
-  let decoded = try JSON.fromMsgPack(data)
+  let decoded = try JSON(msgPack: data)
   #expect(decoded == JSON.string(String(repeating: "a", count: 32)))
 }
 
@@ -316,7 +316,7 @@ private func appendBE(_ value: UInt64, to bytes: inout [UInt8]) {
     bytes.append(0x61)
   }
   let data = Data(bytes)
-  let decoded = try JSON.fromMsgPack(data)
+  let decoded = try JSON(msgPack: data)
   #expect(decoded == JSON.string(String(repeating: "a", count: 256)))
 }
 
@@ -327,39 +327,39 @@ private func appendBE(_ value: UInt64, to bytes: inout [UInt8]) {
     bytes.append(0x61)
   }
   let data = Data(bytes)
-  let decoded = try JSON.fromMsgPack(data)
+  let decoded = try JSON(msgPack: data)
   #expect(decoded == JSON.string(String(repeating: "a", count: 100)))
 }
 
 @Test func msgPackUnknownType() throws {
   let data = Data([0xC1])  // 0xC1 is unused in MsgPack spec
-  #expect(throws: JSONError.self) { try JSON.fromMsgPack(data) }
+  #expect(throws: JSONError.self) { try JSON(msgPack: data) }
 }
 
 @Test func msgPackInvalidUTF8() throws {
   // String with invalid UTF-8 continuation byte
   let bytes: [UInt8] = [0xA1, 0xFF]
   let data = Data(bytes)
-  #expect(throws: JSONError.self) { try JSON.fromMsgPack(data) }
+  #expect(throws: JSONError.self) { try JSON(msgPack: data) }
 }
 
 @Test func msgPackNonStringMapKey() throws {
   // Map where key is an integer (0x01) instead of a string
   let data = Data([0x81, 0x01, 0x03])
-  #expect(throws: JSONError.self) { try JSON.fromMsgPack(data) }
+  #expect(throws: JSONError.self) { try JSON(msgPack: data) }
 }
 
 @Test func msgPackEncodeUInt8() throws {
   let json = JSON.number(.integer(128))
-  let data = json.toMsgPack()
-  let decoded = try JSON.fromMsgPack(data)
+  let data = json.msgPack()
+  let decoded = try JSON(msgPack: data)
   #expect(decoded == json)
 }
 
 @Test func msgPackEncodeUInt16() throws {
   let json = JSON.number(.integer(256))
-  let data = json.toMsgPack()
-  let decoded = try JSON.fromMsgPack(data)
+  let data = json.msgPack()
+  let decoded = try JSON(msgPack: data)
   #expect(decoded == json)
 }
 
@@ -369,8 +369,8 @@ private func appendBE(_ value: UInt64, to bytes: inout [UInt8]) {
     arr.append(JSON.number(.integer(Int64(idx))))
   }
   let json = JSON.array(arr)
-  let data = json.toMsgPack()
-  let decoded = try JSON.fromMsgPack(data)
+  let data = json.msgPack()
+  let decoded = try JSON(msgPack: data)
   #expect(decoded == json)
 }
 
@@ -380,33 +380,33 @@ private func appendBE(_ value: UInt64, to bytes: inout [UInt8]) {
     dict["k\(idx)"] = JSON.number(.integer(Int64(idx)))
   }
   let json = JSON.object(dict)
-  let data = json.toMsgPack()
-  let decoded = try JSON.fromMsgPack(data)
+  let data = json.msgPack()
+  let decoded = try JSON(msgPack: data)
   #expect(decoded == json)
 }
 
 @Test func msgPackEncodeLongString() throws {
   let s = String(repeating: "x", count: 50)
   let json = JSON.string(s)
-  let data = json.toMsgPack()
-  let decoded = try JSON.fromMsgPack(data)
+  let data = json.msgPack()
+  let decoded = try JSON(msgPack: data)
   #expect(decoded == json)
 }
 
 @Test func msgPackBinTypes() throws {
   // Binary 0xC4 (8-bit length)
   let bin1 = Data([0xC4, 3, 0x61, 0x62, 0x63])
-  let decoded1 = try JSON.fromMsgPack(bin1)
+  let decoded1 = try JSON(msgPack: bin1)
   #expect(decoded1.isString)
 
   // Binary 0xC5 (16-bit length)
   let bin2 = Data([0xC5, 0x00, 0x03, 0x61, 0x62, 0x63])
-  let decoded2 = try JSON.fromMsgPack(bin2)
+  let decoded2 = try JSON(msgPack: bin2)
   #expect(decoded2.isString)
 
   // Binary 0xC6 (32-bit length)
   let bin3 = Data([0xC6, 0x00, 0x00, 0x00, 0x03, 0x61, 0x62, 0x63])
-  let decoded3 = try JSON.fromMsgPack(bin3)
+  let decoded3 = try JSON(msgPack: bin3)
   #expect(decoded3.isString)
 }
 
@@ -414,81 +414,81 @@ private func appendBE(_ value: UInt64, to bytes: inout [UInt8]) {
 
 @Test func ubjsonRoundTripNull() throws {
   let json = JSON.null
-  let data = json.toUBJSON()
-  let decoded = try JSON.fromUBJSON(data)
+  let data = json.ubjson()
+  let decoded = try JSON(ubjson: data)
   #expect(decoded == json)
 }
 
 @Test func ubjsonRoundTripBool() throws {
   let json = JSON.boolean(true)
-  let data = json.toUBJSON()
-  let decoded = try JSON.fromUBJSON(data)
+  let data = json.ubjson()
+  let decoded = try JSON(ubjson: data)
   #expect(decoded == json)
 }
 
 @Test func ubjsonRoundTripBoolFalse() throws {
   let json = JSON.boolean(false)
-  let data = json.toUBJSON()
-  let decoded = try JSON.fromUBJSON(data)
+  let data = json.ubjson()
+  let decoded = try JSON(ubjson: data)
   #expect(decoded == json)
 }
 
 @Test func ubjsonRoundTripInteger() throws {
   let json = JSON.number(.integer(42))
-  let data = json.toUBJSON()
-  let decoded = try JSON.fromUBJSON(data)
+  let data = json.ubjson()
+  let decoded = try JSON(ubjson: data)
   #expect(decoded == json)
 }
 
 @Test func ubjsonRoundTripFloat() throws {
   let json = JSON.number(.float(3.14))
-  let data = json.toUBJSON()
-  let decoded = try JSON.fromUBJSON(data)
+  let data = json.ubjson()
+  let decoded = try JSON(ubjson: data)
   #expect(decoded == json)
 }
 
 @Test func ubjsonRoundTripString() throws {
   let json = JSON.string("hello")
-  let data = json.toUBJSON()
-  let decoded = try JSON.fromUBJSON(data)
+  let data = json.ubjson()
+  let decoded = try JSON(ubjson: data)
   #expect(decoded == json)
 }
 
 @Test func ubjsonRoundTripArray() throws {
   let json = JSON.array([JSON.number(.integer(1)), JSON.number(.integer(2))])
-  let data = json.toUBJSON()
-  let decoded = try JSON.fromUBJSON(data)
+  let data = json.ubjson()
+  let decoded = try JSON(ubjson: data)
   #expect(decoded == json)
 }
 
 @Test func ubjsonRoundTripObject() throws {
   let json = JSON.object(["a": JSON.number(.integer(1)), "b": JSON.string("x")])
-  let data = json.toUBJSON()
-  let decoded = try JSON.fromUBJSON(data)
+  let data = json.ubjson()
+  let decoded = try JSON(ubjson: data)
   #expect(decoded == json)
 }
 
 @Test func ubjsonNegativeInteger() throws {
   let json = JSON.number(.integer(-42))
-  let data = json.toUBJSON()
-  let decoded = try JSON.fromUBJSON(data)
+  let data = json.ubjson()
+  let decoded = try JSON(ubjson: data)
   #expect(decoded == json)
 }
 
 @Test func ubjsonLargeInteger() throws {
   let json = JSON.number(.integer(100_000))
-  let data = json.toUBJSON()
-  let decoded = try JSON.fromUBJSON(data)
+  let data = json.ubjson()
+  let decoded = try JSON(ubjson: data)
   #expect(decoded == json)
 }
 
 @Test func ubjsonTrailingBytes() throws {
   let json = JSON.number(.integer(1))
-  let data = json.toUBJSON()
+  let data = json.ubjson()
   var trailing = data
   trailing.append(0x00)
   #expect(throws: JSONError.self) {
-    try JSON.fromUBJSON(trailing)
+    try JSON(ubjson: trailing)
   }
 }
 
@@ -496,51 +496,51 @@ private func appendBE(_ value: UInt64, to bytes: inout [UInt8]) {
 
 @Test func bsonRoundTripNull() throws {
   let json = JSON.null
-  let data = json.toBSON()
-  let decoded = try JSON.fromBSON(data)
+  let data = json.bson()
+  let decoded = try JSON(bson: data)
   #expect(decoded["value"] == json)
 }
 
 @Test func bsonRoundTripBool() throws {
   let json = JSON.boolean(true)
-  let data = json.toBSON()
-  let decoded = try JSON.fromBSON(data)
+  let data = json.bson()
+  let decoded = try JSON(bson: data)
   // BSON wraps non-object values in a {"value": ...} document
   #expect(decoded["value"] == json)
 }
 
 @Test func bsonRoundTripBoolFalse() throws {
   let json = JSON.boolean(false)
-  let data = json.toBSON()
-  let decoded = try JSON.fromBSON(data)
+  let data = json.bson()
+  let decoded = try JSON(bson: data)
   #expect(decoded["value"] == json)
 }
 
 @Test func bsonRoundTripInteger() throws {
   let json = JSON.number(.integer(42))
-  let data = json.toBSON()
-  let decoded = try JSON.fromBSON(data)
+  let data = json.bson()
+  let decoded = try JSON(bson: data)
   #expect(decoded["value"] == json)
 }
 
 @Test func bsonRoundTripFloat() throws {
   let json = JSON.number(.float(3.14))
-  let data = json.toBSON()
-  let decoded = try JSON.fromBSON(data)
+  let data = json.bson()
+  let decoded = try JSON(bson: data)
   #expect(decoded["value"] == json)
 }
 
 @Test func bsonRoundTripString() throws {
   let json = JSON.string("hello")
-  let data = json.toBSON()
-  let decoded = try JSON.fromBSON(data)
+  let data = json.bson()
+  let decoded = try JSON(bson: data)
   #expect(decoded["value"] == json)
 }
 
 @Test func bsonRoundTripArray() throws {
   let json = JSON.array([JSON.number(.integer(1)), JSON.number(.integer(2))])
-  let data = json.toBSON()
-  let decoded = try JSON.fromBSON(data)
+  let data = json.bson()
+  let decoded = try JSON(bson: data)
   // BSON wraps arrays as embedded document with numeric keys
   let expected = JSON.object(["0": JSON.number(.integer(1)), "1": JSON.number(.integer(2))])
   #expect(decoded == expected)
@@ -548,32 +548,32 @@ private func appendBE(_ value: UInt64, to bytes: inout [UInt8]) {
 
 @Test func bsonRoundTripObject() throws {
   let json = JSON.object(["a": JSON.number(.integer(1)), "b": JSON.string("x")])
-  let data = json.toBSON()
-  let decoded = try JSON.fromBSON(data)
+  let data = json.bson()
+  let decoded = try JSON(bson: data)
   #expect(decoded == json)
 }
 
 @Test func bsonNegativeInteger() throws {
   let json = JSON.number(.integer(-42))
-  let data = json.toBSON()
-  let decoded = try JSON.fromBSON(data)
+  let data = json.bson()
+  let decoded = try JSON(bson: data)
   #expect(decoded["value"] == json)
 }
 
 @Test func bsonLargeInteger() throws {
   let json = JSON.number(.integer(100_000))
-  let data = json.toBSON()
-  let decoded = try JSON.fromBSON(data)
+  let data = json.bson()
+  let decoded = try JSON(bson: data)
   #expect(decoded["value"] == json)
 }
 
 @Test func bsonTrailingBytes() throws {
   let json = JSON.number(.integer(1))
-  let data = json.toBSON()
+  let data = json.bson()
   var trailing = data
   trailing.append(0x00)
   #expect(throws: JSONError.self) {
-    try JSON.fromBSON(trailing)
+    try JSON(bson: trailing)
   }
 }
 
@@ -581,81 +581,81 @@ private func appendBE(_ value: UInt64, to bytes: inout [UInt8]) {
 
 @Test func bjdataRoundTripNull() throws {
   let json = JSON.null
-  let data = json.toBJData()
-  let decoded = try JSON.fromBJData(data)
+  let data = json.bjdata()
+  let decoded = try JSON(bjdata: data)
   #expect(decoded == json)
 }
 
 @Test func bjdataRoundTripBool() throws {
   let json = JSON.boolean(true)
-  let data = json.toBJData()
-  let decoded = try JSON.fromBJData(data)
+  let data = json.bjdata()
+  let decoded = try JSON(bjdata: data)
   #expect(decoded == json)
 }
 
 @Test func bjdataRoundTripBoolFalse() throws {
   let json = JSON.boolean(false)
-  let data = json.toBJData()
-  let decoded = try JSON.fromBJData(data)
+  let data = json.bjdata()
+  let decoded = try JSON(bjdata: data)
   #expect(decoded == json)
 }
 
 @Test func bjdataRoundTripInteger() throws {
   let json = JSON.number(.integer(42))
-  let data = json.toBJData()
-  let decoded = try JSON.fromBJData(data)
+  let data = json.bjdata()
+  let decoded = try JSON(bjdata: data)
   #expect(decoded == json)
 }
 
 @Test func bjdataRoundTripFloat() throws {
   let json = JSON.number(.float(3.14))
-  let data = json.toBJData()
-  let decoded = try JSON.fromBJData(data)
+  let data = json.bjdata()
+  let decoded = try JSON(bjdata: data)
   #expect(decoded == json)
 }
 
 @Test func bjdataRoundTripString() throws {
   let json = JSON.string("hello")
-  let data = json.toBJData()
-  let decoded = try JSON.fromBJData(data)
+  let data = json.bjdata()
+  let decoded = try JSON(bjdata: data)
   #expect(decoded == json)
 }
 
 @Test func bjdataRoundTripArray() throws {
   let json = JSON.array([JSON.number(.integer(1)), JSON.number(.integer(2))])
-  let data = json.toBJData()
-  let decoded = try JSON.fromBJData(data)
+  let data = json.bjdata()
+  let decoded = try JSON(bjdata: data)
   #expect(decoded == json)
 }
 
 @Test func bjdataRoundTripObject() throws {
   let json = JSON.object(["a": JSON.number(.integer(1)), "b": JSON.string("x")])
-  let data = json.toBJData()
-  let decoded = try JSON.fromBJData(data)
+  let data = json.bjdata()
+  let decoded = try JSON(bjdata: data)
   #expect(decoded == json)
 }
 
 @Test func bjdataNegativeInteger() throws {
   let json = JSON.number(.integer(-42))
-  let data = json.toBJData()
-  let decoded = try JSON.fromBJData(data)
+  let data = json.bjdata()
+  let decoded = try JSON(bjdata: data)
   #expect(decoded == json)
 }
 
 @Test func bjdataLargeInteger() throws {
   let json = JSON.number(.integer(100_000))
-  let data = json.toBJData()
-  let decoded = try JSON.fromBJData(data)
+  let data = json.bjdata()
+  let decoded = try JSON(bjdata: data)
   #expect(decoded == json)
 }
 
 @Test func bjdataTrailingBytes() throws {
   let json = JSON.number(.integer(1))
-  let data = json.toBJData()
+  let data = json.bjdata()
   var trailing = data
   trailing.append(0x00)
   #expect(throws: JSONError.self) {
-    try JSON.fromBJData(trailing)
+    try JSON(bjdata: trailing)
   }
 }
 
@@ -663,36 +663,36 @@ private func appendBE(_ value: UInt64, to bytes: inout [UInt8]) {
 
 @Test func cborLargeNegative() throws {
   let json = JSON.number(.integer(-1_000_000))
-  let data = json.toCBOR()
-  let decoded = try JSON.fromCBOR(data)
+  let data = json.cbor()
+  let decoded = try JSON(cbor: data)
   #expect(decoded == json)
 }
 
 @Test func msgPackLargeNegative() throws {
   let json = JSON.number(.integer(-1_000_000))
-  let data = json.toMsgPack()
-  let decoded = try JSON.fromMsgPack(data)
+  let data = json.msgPack()
+  let decoded = try JSON(msgPack: data)
   #expect(decoded == json)
 }
 
 @Test func ubjsonLargeNegative() throws {
   let json = JSON.number(.integer(-1_000_000))
-  let data = json.toUBJSON()
-  let decoded = try JSON.fromUBJSON(data)
+  let data = json.ubjson()
+  let decoded = try JSON(ubjson: data)
   #expect(decoded == json)
 }
 
 @Test func bsonLargeNegative() throws {
   let json = JSON.number(.integer(-1_000_000))
-  let data = json.toBSON()
-  let decoded = try JSON.fromBSON(data)
+  let data = json.bson()
+  let decoded = try JSON(bson: data)
   #expect(decoded["value"] == json)
 }
 
 @Test func bjdataLargeNegative() throws {
   let json = JSON.number(.integer(-1_000_000))
-  let data = json.toBJData()
-  let decoded = try JSON.fromBJData(data)
+  let data = json.bjdata()
+  let decoded = try JSON(bjdata: data)
   #expect(decoded == json)
 }
 
@@ -702,7 +702,7 @@ private func appendBE(_ value: UInt64, to bytes: inout [UInt8]) {
   // CBOR byte string (major type 2) with 3 bytes
   let bytes: [UInt8] = [0x43, 0x61, 0x62, 0x63]  // major 2, len=3, data="abc"
   let data = Data(bytes)
-  let decoded = try JSON.fromCBOR(data)
+  let decoded = try JSON(cbor: data)
   #expect(decoded.isString)
 }
 
@@ -711,7 +711,7 @@ private func appendBE(_ value: UInt64, to bytes: inout [UInt8]) {
   // Tag 1: major 6 (0xC0), info 1 = 0xC1, then integer 42
   let bytes: [UInt8] = [0xC1, 0x18, 0x2A]  // tag 1, unsigned 42
   let data = Data(bytes)
-  let decoded = try JSON.fromCBOR(data)
+  let decoded = try JSON(cbor: data)
   #expect(decoded == JSON.number(.integer(42)))
 }
 
@@ -720,7 +720,7 @@ private func appendBE(_ value: UInt64, to bytes: inout [UInt8]) {
   // 1.5 encoded as half-float: 0x3E, 0x80 = 0b0 01111 1000000000 = 1.5
   let bytes: [UInt8] = [0xF9, 0x3E, 0x80]  // major 7, info 25, value=0x3E80
   let data = Data(bytes)
-  let decoded = try JSON.fromCBOR(data)
+  let decoded = try JSON(cbor: data)
   #expect(decoded.isNumber)
 }
 
@@ -728,19 +728,19 @@ private func appendBE(_ value: UInt64, to bytes: inout [UInt8]) {
   // CBOR undefined value (major 7, info 23) — maps to null
   let bytes: [UInt8] = [0xF7]  // major 7, info 23 (undefined)
   let data = Data(bytes)
-  let decoded = try JSON.fromCBOR(data)
+  let decoded = try JSON(cbor: data)
   #expect(decoded.isNull)
 }
 
 @Test func cborEmptyData() throws {
-  #expect(throws: JSONError.self) { try JSON.fromCBOR(Data()) }
+  #expect(throws: JSONError.self) { try JSON(cbor: Data()) }
 }
 
 @Test func cborReservedInfo() throws {
   // Reserved additional info (28-31) should throw
   let bytes: [UInt8] = [0xF8]  // major 7, info 28 (reserved)
   let data = Data(bytes)
-  #expect(throws: JSONError.self) { try JSON.fromCBOR(data) }
+  #expect(throws: JSONError.self) { try JSON(cbor: data) }
 }
 
 @Test func cborUnknownMajorType() {
@@ -753,7 +753,7 @@ private func appendBE(_ value: UInt64, to bytes: inout [UInt8]) {
   // Half-float denormalized value (exp=0)
   let bytes: [UInt8] = [0xF9, 0x00, 0x01]  // major 7, info 25, value=0x0001 (min denormalized)
   let data = Data(bytes)
-  let decoded = try JSON.fromCBOR(data)
+  let decoded = try JSON(cbor: data)
   #expect(decoded.isNumber)
 }
 
@@ -761,7 +761,7 @@ private func appendBE(_ value: UInt64, to bytes: inout [UInt8]) {
   // Half-float infinity (exp=31, mant=0)
   let bytes: [UInt8] = [0xF9, 0xFC, 0x00]  // major 7, info 25, value=0xFC00 (-inf)
   let data = Data(bytes)
-  let decoded = try JSON.fromCBOR(data)
+  let decoded = try JSON(cbor: data)
   #expect(decoded.isNumber)
 }
 
@@ -769,7 +769,7 @@ private func appendBE(_ value: UInt64, to bytes: inout [UInt8]) {
   // Half-float NaN (exp=31, mant!=0)
   let bytes: [UInt8] = [0xF9, 0xFE, 0x00]  // major 7, info 25, value=0xFE00 (NaN)
   let data = Data(bytes)
-  let decoded = try JSON.fromCBOR(data)
+  let decoded = try JSON(cbor: data)
   #expect(decoded.isNumber)
   #expect(decoded.isFloat)
 }
@@ -778,7 +778,7 @@ private func appendBE(_ value: UInt64, to bytes: inout [UInt8]) {
   // Half-float denormalized: 0x0001 = 2^(-24) ≈ 5.96e-8
   let bytes: [UInt8] = [0xF9, 0x00, 0x01]  // major 7, info 25, value=0x0001
   let data = Data(bytes)
-  let decoded = try JSON.fromCBOR(data)
+  let decoded = try JSON(cbor: data)
   #expect(decoded.isNumber)
   // 2^(-24) = 1 / 16777216 ≈ 5.960464477539063e-8
   #expect(decoded == JSON.number(.float(1.0 / 16_777_216.0)))
@@ -788,7 +788,7 @@ private func appendBE(_ value: UInt64, to bytes: inout [UInt8]) {
   // Half-float denormalized max: 0x03FF = 2^(-14) * (1023/1024) ≈ 6.1e-5
   let bytes: [UInt8] = [0xF9, 0x03, 0xFF]  // major 7, info 25, value=0x03FF
   let data = Data(bytes)
-  let decoded = try JSON.fromCBOR(data)
+  let decoded = try JSON(cbor: data)
   #expect(decoded.isNumber)
   // Max denormalized = 2^(-14) * (1023/1024) = 1023 / (16384 * 1024) = 1023 / 16777216
   #expect(decoded == JSON.number(.float(1023.0 / 16_777_216.0)))
@@ -798,7 +798,7 @@ private func appendBE(_ value: UInt64, to bytes: inout [UInt8]) {
   // Half-float normalized min: 0x0400 = 2^(-14) * (1024/1024) = 2^(-14) ≈ 6.1e-5
   let bytes: [UInt8] = [0xF9, 0x04, 0x00]  // major 7, info 25, value=0x0400
   let data = Data(bytes)
-  let decoded = try JSON.fromCBOR(data)
+  let decoded = try JSON(cbor: data)
   #expect(decoded.isNumber)
   // Min normalized = 2^(-14) = 1 / 16384
   #expect(decoded == JSON.number(.float(1.0 / 16384.0)))
@@ -809,14 +809,14 @@ private func appendBE(_ value: UInt64, to bytes: inout [UInt8]) {
   // Map of 1 entry: major 5 (0xA0 | 1 = 0xA1), integer key 0x01, value null (0xF6)
   let bytes: [UInt8] = [0xA1, 0x01, 0xF6]
   let data = Data(bytes)
-  #expect(throws: JSONError.self) { try JSON.fromCBOR(data) }
+  #expect(throws: JSONError.self) { try JSON(cbor: data) }
 }
 
 @Test func cborUnsupportedSimpleValue() throws {
   // CBOR simple value 28 (info 28) — not 20-23, not half/double float
   let bytes: [UInt8] = [0xFC]  // major 7, info 28
   let data = Data(bytes)
-  #expect(throws: JSONError.self) { try JSON.fromCBOR(data) }
+  #expect(throws: JSONError.self) { try JSON(cbor: data) }
 }
 
 // MARK: - UBJSON Edge Cases
@@ -825,40 +825,40 @@ private func appendBE(_ value: UInt64, to bytes: inout [UInt8]) {
   // UBJSON char marker 'C' followed by a single character
   let bytes: [UInt8] = [0x43, 0x41]  // 'C', 'A'
   let data = Data(bytes)
-  let decoded = try JSON.fromUBJSON(data)
+  let decoded = try JSON(ubjson: data)
   #expect(decoded == JSON.string("A"))
 }
 
 @Test func ubjsonEmptyData() throws {
-  #expect(throws: JSONError.self) { try JSON.fromUBJSON(Data()) }
+  #expect(throws: JSONError.self) { try JSON(ubjson: Data()) }
 }
 
 @Test func ubjsonUnknownMarker() throws {
   // UBJSON marker 'X' (not in spec)
   let bytes: [UInt8] = [0x58]
   let data = Data(bytes)
-  #expect(throws: JSONError.self) { try JSON.fromUBJSON(data) }
+  #expect(throws: JSONError.self) { try JSON(ubjson: data) }
 }
 
 @Test func ubjsonStringLenUnexpectedEnd() throws {
   // UBJSON string marker with incomplete length marker
   let bytes: [UInt8] = [0x53]  // 'S' marker, no length
   let data = Data(bytes)
-  #expect(throws: JSONError.self) { try JSON.fromUBJSON(data) }
+  #expect(throws: JSONError.self) { try JSON(ubjson: data) }
 }
 
 @Test func ubjsonCountUnexpectedEnd() throws {
   // UBJSON array marker with incomplete count
   let bytes: [UInt8] = [0x5B]  // '[' marker, no count
   let data = Data(bytes)
-  #expect(throws: JSONError.self) { try JSON.fromUBJSON(data) }
+  #expect(throws: JSONError.self) { try JSON(ubjson: data) }
 }
 
 @Test func ubjsonStringMarkerNotString() throws {
   // UBJSON object with non-string key marker
   let bytes: [UInt8] = [0x7B, 0x49, 0x01, 0x49, 0x02]  // object with int8 keys
   let data = Data(bytes)
-  #expect(throws: JSONError.self) { try JSON.fromUBJSON(data) }
+  #expect(throws: JSONError.self) { try JSON(ubjson: data) }
 }
 
 // MARK: - BJData Edge Cases
@@ -867,33 +867,33 @@ private func appendBE(_ value: UInt64, to bytes: inout [UInt8]) {
   // BJData char marker 'C' followed by a single character
   let bytes: [UInt8] = [0x43, 0x41]  // 'C', 'A'
   let data = Data(bytes)
-  let decoded = try JSON.fromBJData(data)
+  let decoded = try JSON(bjdata: data)
   #expect(decoded == JSON.string("A"))
 }
 
 @Test func bjdataEmptyData() throws {
-  #expect(throws: JSONError.self) { try JSON.fromBJData(Data()) }
+  #expect(throws: JSONError.self) { try JSON(bjdata: Data()) }
 }
 
 @Test func bjdataUnknownMarker() throws {
   // BJData marker 'X' (not in spec)
   let bytes: [UInt8] = [0x58]
   let data = Data(bytes)
-  #expect(throws: JSONError.self) { try JSON.fromBJData(data) }
+  #expect(throws: JSONError.self) { try JSON(bjdata: data) }
 }
 
 @Test func bjdataStringLenUnexpectedEnd() throws {
   // BJData string marker with incomplete length marker
   let bytes: [UInt8] = [0x53]  // 'S' marker, no length
   let data = Data(bytes)
-  #expect(throws: JSONError.self) { try JSON.fromBJData(data) }
+  #expect(throws: JSONError.self) { try JSON(bjdata: data) }
 }
 
 @Test func bjdataStringMarkerNotString() throws {
   // BJData object with non-string key marker
   let bytes: [UInt8] = [0x7B, 0x49, 0x01, 0x49, 0x02]
   let data = Data(bytes)
-  #expect(throws: JSONError.self) { try JSON.fromBJData(data) }
+  #expect(throws: JSONError.self) { try JSON(bjdata: data) }
 }
 
 // MARK: - BSON Edge Cases
@@ -912,25 +912,25 @@ private func appendBE(_ value: UInt64, to bytes: inout [UInt8]) {
   bytes[3] = UInt8((totalLen >> 24) & 0xFF)
   bytes.append(0x00)  // document null terminator
   let data = Data(bytes)
-  #expect(throws: JSONError.self) { try JSON.fromBSON(data) }
+  #expect(throws: JSONError.self) { try JSON(bson: data) }
 }
 
 @Test func bsonEmptyData() throws {
-  #expect(throws: JSONError.self) { try JSON.fromBSON(Data()) }
+  #expect(throws: JSONError.self) { try JSON(bson: Data()) }
 }
 
 @Test func bsonUnexpectedEnd() throws {
   // Truncated BSON document (incomplete length bytes)
   let data = Data([0x05, 0x00])  // only 2 bytes, need 4 for length
-  #expect(throws: JSONError.self) { try JSON.fromBSON(data) }
+  #expect(throws: JSONError.self) { try JSON(bson: data) }
 }
 
 // MARK: - CBOR Large Negative
 
 @Test func cborLargeNegativeInt64() throws {
   let json = JSON.number(.integer(-1_000_000_000))
-  let data = json.toCBOR()
-  let decoded = try JSON.fromCBOR(data)
+  let data = json.cbor()
+  let decoded = try JSON(cbor: data)
   #expect(decoded == json)
 }
 
@@ -944,7 +944,7 @@ private func appendBE(_ value: UInt64, to bytes: inout [UInt8]) {
   let large = UInt64(Int64.max) + 1  // 2^63
   appendBE(large, to: &bytes)
   let data = Data(bytes)
-  let decoded = try JSON.fromMsgPack(data)
+  let decoded = try JSON(msgPack: data)
   // Should decode as float since value exceeds Int64.max
   #expect(decoded.isFloat)
   if case .number(.float(let d)) = decoded.storage {
@@ -961,7 +961,7 @@ private func appendBE(_ value: UInt64, to bytes: inout [UInt8]) {
   let large = UInt64(Int64.max) + 1
   appendBE(large, to: &bytes)
   let data = Data(bytes)
-  let decoded = try JSON.fromCBOR(data)
+  let decoded = try JSON(cbor: data)
   // Should decode as float since value exceeds Int64.max
   #expect(decoded.isFloat)
   if case .number(.float(let d)) = decoded.storage {
@@ -979,7 +979,7 @@ private func appendBE(_ value: UInt64, to bytes: inout [UInt8]) {
   let large = UInt64.max
   appendBE(large, to: &bytes)
   let data = Data(bytes)
-  let decoded = try JSON.fromCBOR(data)
+  let decoded = try JSON(cbor: data)
   // Should decode as float since negative value exceeds Int64 range
   #expect(decoded.isFloat)
 }
@@ -991,7 +991,7 @@ private func appendBE(_ value: UInt64, to bytes: inout [UInt8]) {
   let arg = UInt64(Int64.max)
   appendBE(arg, to: &bytes)
   let data = Data(bytes)
-  let decoded = try JSON.fromCBOR(data)
+  let decoded = try JSON(cbor: data)
   #expect(decoded.isInteger)
   if case .number(.integer(let i)) = decoded.storage {
     #expect(i == Int64.min)
@@ -1033,7 +1033,7 @@ private func appendBE(_ value: UInt64, to bytes: inout [UInt8]) {
   let bits = Double.nan.bitPattern
   appendBE(bits, to: &bytes)
   let data = Data(bytes)
-  let decoded = try JSON.fromCBOR(data)
+  let decoded = try JSON(cbor: data)
   #expect(decoded.isFloat)
   if case .number(.float(let d)) = decoded.storage {
     #expect(d.isNaN)
@@ -1054,15 +1054,15 @@ private func appendBE(_ value: UInt64, to bytes: inout [UInt8]) {
   var bytes: [UInt8] = [0x1B]
   appendBE(original, to: &bytes)
   let data = Data(bytes)
-  let decoded = try JSON.fromCBOR(data)
+  let decoded = try JSON(cbor: data)
   #expect(decoded.isFloat)
   if case .number(.float(let d)) = decoded.storage {
     // The Double representation of 2^63 is exact (it's a power of 2)
     // but larger values would lose precision
     #expect(d == Double(original))
     // Re-encode back to CBOR and verify
-    let reEncoded = decoded.toCBOR()
-    let roundTrip = try JSON.fromCBOR(reEncoded)
+    let reEncoded = decoded.cbor()
+    let roundTrip = try JSON(cbor: reEncoded)
     #expect(roundTrip == decoded)
   } else {
     Issue.record("Expected float")
@@ -1077,7 +1077,7 @@ private func appendBE(_ value: UInt64, to bytes: inout [UInt8]) {
   let large = UInt64(Int64.max) + 1
   appendBE(large, to: &bytes)
   let data = Data(bytes)
-  let decoded = try JSON.fromUBJSON(data)
+  let decoded = try JSON(ubjson: data)
   #expect(decoded.isInteger || decoded.isFloat)
 }
 
@@ -1099,7 +1099,7 @@ private func appendBE(_ value: UInt64, to bytes: inout [UInt8]) {
   bytes.append(contentsOf: element)
   bytes.append(0x00)  // document null terminator
   let data = Data(bytes)
-  let decoded = try JSON.fromBSON(data)
+  let decoded = try JSON(bson: data)
   #expect(decoded.isObject)
   if case .object(let dict) = decoded.storage {
     let val = try #require(dict["x"])
@@ -1113,7 +1113,7 @@ private func appendBE(_ value: UInt64, to bytes: inout [UInt8]) {
   let large = UInt64(Int64.max) + 1
   appendBE(large, to: &bytes)
   let data = Data(bytes)
-  let decoded = try JSON.fromBJData(data)
+  let decoded = try JSON(bjdata: data)
   #expect(decoded.isFloat || decoded.isInteger)
 }
 
@@ -1123,77 +1123,77 @@ private func appendBE(_ value: UInt64, to bytes: inout [UInt8]) {
   // CBOR text string with length > Int64.max should throw
   let bytes: [UInt8] = [0x7B, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF]
   let data = Data(bytes)
-  #expect(throws: JSONError.self) { try JSON.fromCBOR(data) }
+  #expect(throws: JSONError.self) { try JSON(cbor: data) }
 }
 
 @Test func cborArrayCountOverflowThrows() throws {
   // CBOR array with count > Int64.max should throw
   let bytes: [UInt8] = [0x9B, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF]
   let data = Data(bytes)
-  #expect(throws: JSONError.self) { try JSON.fromCBOR(data) }
+  #expect(throws: JSONError.self) { try JSON(cbor: data) }
 }
 
 @Test func cborStringLenExceedsDataThrows() throws {
   // CBOR text string with length > available data should throw
   let bytes: [UInt8] = [0x78, 100, 0x41, 0x42, 0x43, 0x44, 0x45]
   let data = Data(bytes)
-  #expect(throws: JSONError.self) { try JSON.fromCBOR(data) }
+  #expect(throws: JSONError.self) { try JSON(cbor: data) }
 }
 
 @Test func msgPackStringLenExceedsDataThrows() throws {
   // MsgPack string 32 with length > available data should throw
   let bytes: [UInt8] = [0xDB, 0xFF, 0xFF, 0xFF, 0xFF]
   let data = Data(bytes)
-  #expect(throws: JSONError.self) { try JSON.fromMsgPack(data) }
+  #expect(throws: JSONError.self) { try JSON(msgPack: data) }
 }
 
 @Test func msgPackBinLenExceedsDataThrows() throws {
   // MsgPack bin 32 with length > available data should throw
   let bytes: [UInt8] = [0xC6, 0xFF, 0xFF, 0xFF, 0xFF]
   let data = Data(bytes)
-  #expect(throws: JSONError.self) { try JSON.fromMsgPack(data) }
+  #expect(throws: JSONError.self) { try JSON(msgPack: data) }
 }
 
 @Test func bsonDocLenTooSmallThrows() throws {
   // BSON document with length < 5 should throw
   let bytes: [UInt8] = [0x03, 0x00, 0x00, 0x00]
   let data = Data(bytes)
-  #expect(throws: JSONError.self) { try JSON.fromBSON(data) }
+  #expect(throws: JSONError.self) { try JSON(bson: data) }
 }
 
 @Test func bsonStringLenNegativeThrows() throws {
   // BSON string with negative length should throw
   let bytes: [UInt8] = [0x02, 0x78, 0x00, 0xFF, 0xFF, 0xFF, 0xFF]
   let data = Data(bytes)
-  #expect(throws: JSONError.self) { try JSON.fromBSON(data) }
+  #expect(throws: JSONError.self) { try JSON(bson: data) }
 }
 
 @Test func bsonStringLenExceedsDataThrows() throws {
   // BSON string with length > available data should throw
   let bytes: [UInt8] = [0x02, 0x78, 0x00, 0x64, 0x00, 0x00, 0x00]
   let data = Data(bytes)
-  #expect(throws: JSONError.self) { try JSON.fromBSON(data) }
+  #expect(throws: JSONError.self) { try JSON(bson: data) }
 }
 
 @Test func bsonBinaryLenExceedsDataThrows() throws {
   // BSON binary with length > available data should throw
   let bytes: [UInt8] = [0x05, 0x78, 0x00, 0x64, 0x00, 0x00, 0x00, 0x00]
   let data = Data(bytes)
-  #expect(throws: JSONError.self) { try JSON.fromBSON(data) }
+  #expect(throws: JSONError.self) { try JSON(bson: data) }
 }
 
 @Test func bsonBinaryMissingSubtypeThrows() throws {
   // BSON binary with no subtype byte should throw
   let bytes: [UInt8] = [0x05, 0x78, 0x00, 0x01, 0x00, 0x00, 0x00]
   let data = Data(bytes)
-  #expect(throws: JSONError.self) { try JSON.fromBSON(data) }
+  #expect(throws: JSONError.self) { try JSON(bson: data) }
 }
 
 @Test func bsonArrayLenTooSmallThrows() throws {
   // BSON array with length < 5 should throw
   let bytes: [UInt8] = [0x03, 0x00, 0x00, 0x00]
   let data = Data(bytes)
-  #expect(throws: JSONError.self) { try JSON.fromBSON(data) }
+  #expect(throws: JSONError.self) { try JSON(bson: data) }
 }
 
 @Test func bsonEmbeddedArrayRoundTrip() throws {
@@ -1219,7 +1219,7 @@ private func appendBE(_ value: UInt64, to bytes: inout [UInt8]) {
   ]
 
   let data = Data(bytes)
-  let decoded = try JSON.fromBSON(data)
+  let decoded = try JSON(bson: data)
   #expect(decoded.isObject)
   #expect(decoded["arr"] != nil)
   let arr = try #require(decoded["arr"])
@@ -1240,7 +1240,7 @@ private func appendBE(_ value: UInt64, to bytes: inout [UInt8]) {
     0x00,  // doc null terminator
   ]
   let data = Data(bytes)
-  #expect(throws: JSONError.self) { try JSON.fromBSON(data) }
+  #expect(throws: JSONError.self) { try JSON(bson: data) }
 }
 
 @Test func bsonCStringKeyNoNullTerminatorThrows() throws {
@@ -1255,119 +1255,119 @@ private func appendBE(_ value: UInt64, to bytes: inout [UInt8]) {
     0x00,  // doc null terminator
   ]
   let data = Data(bytes)
-  #expect(throws: JSONError.self) { try JSON.fromBSON(data) }
+  #expect(throws: JSONError.self) { try JSON(bson: data) }
 }
 
 @Test func ubjsonStringLenInt16NegativeThrows() throws {
   // UBJSON string with Int16 length = -1 should throw
   let bytes: [UInt8] = [0x53, 0x49, 0xFF, 0xFF, 0x41]
   let data = Data(bytes)
-  #expect(throws: JSONError.self) { try JSON.fromUBJSON(data) }
+  #expect(throws: JSONError.self) { try JSON(ubjson: data) }
 }
 
 @Test func ubjsonStringLenInt32NegativeThrows() throws {
   // UBJSON string with Int32 length = -1 should throw
   let bytes: [UInt8] = [0x53, 0x6C, 0xFF, 0xFF, 0xFF, 0xFF, 0x41]
   let data = Data(bytes)
-  #expect(throws: JSONError.self) { try JSON.fromUBJSON(data) }
+  #expect(throws: JSONError.self) { try JSON(ubjson: data) }
 }
 
 @Test func ubjsonCountInt16NegativeThrows() throws {
   // UBJSON array with Int16 count = -1 should throw
   let bytes: [UInt8] = [0x5B, 0x49, 0xFF, 0xFF]
   let data = Data(bytes)
-  #expect(throws: JSONError.self) { try JSON.fromUBJSON(data) }
+  #expect(throws: JSONError.self) { try JSON(ubjson: data) }
 }
 
 @Test func ubjsonStringLenExceedsDataThrows() throws {
   // UBJSON string with length > available data should throw
   let bytes: [UInt8] = [0x53, 0x49, 0x64, 0x00]
   let data = Data(bytes)
-  #expect(throws: JSONError.self) { try JSON.fromUBJSON(data) }
+  #expect(throws: JSONError.self) { try JSON(ubjson: data) }
 }
 
 @Test func bjdataStringLenInt16NegativeThrows() throws {
   // BJData string with Int16 length = -1 should throw
   let bytes: [UInt8] = [0x53, 0x49, 0xFF, 0xFF, 0x41]
   let data = Data(bytes)
-  #expect(throws: JSONError.self) { try JSON.fromBJData(data) }
+  #expect(throws: JSONError.self) { try JSON(bjdata: data) }
 }
 
 @Test func bjdataStringLenInt32NegativeThrows() throws {
   // BJData string with Int32 length = -1 should throw
   let bytes: [UInt8] = [0x53, 0x6C, 0xFF, 0xFF, 0xFF, 0xFF, 0x41]
   let data = Data(bytes)
-  #expect(throws: JSONError.self) { try JSON.fromBJData(data) }
+  #expect(throws: JSONError.self) { try JSON(bjdata: data) }
 }
 
 @Test func bjdataStringLenExceedsDataThrows() throws {
   // BJData string with length > available data should throw
   let bytes: [UInt8] = [0x53, 0x49, 0x64, 0x00]
   let data = Data(bytes)
-  #expect(throws: JSONError.self) { try JSON.fromBJData(data) }
+  #expect(throws: JSONError.self) { try JSON(bjdata: data) }
 }
 
 @Test func cborTruncatedUInt16Argument() throws {
   // CBOR half-float marker (info 25) with only 1 byte of argument (needs 2)
   let bytes: [UInt8] = [0xF9, 0x00]  // major 7, info 25, 1 byte (need 2)
   let data = Data(bytes)
-  #expect(throws: JSONError.self) { try JSON.fromCBOR(data) }
+  #expect(throws: JSONError.self) { try JSON(cbor: data) }
 }
 
 @Test func cborTruncatedUInt32Argument() throws {
   // CBOR float marker (info 26) with only 2 bytes of argument (needs 4)
   let bytes: [UInt8] = [0xFA, 0x00, 0x00]  // major 7, info 26, 2 bytes (need 4)
   let data = Data(bytes)
-  #expect(throws: JSONError.self) { try JSON.fromCBOR(data) }
+  #expect(throws: JSONError.self) { try JSON(cbor: data) }
 }
 
 @Test func cborTruncatedUInt64Argument() throws {
   // CBOR double marker (info 27) with only 4 bytes of argument (needs 8)
   let bytes: [UInt8] = [0xFB, 0x00, 0x00, 0x00, 0x00]  // major 7, info 27, 4 bytes (need 8)
   let data = Data(bytes)
-  #expect(throws: JSONError.self) { try JSON.fromCBOR(data) }
+  #expect(throws: JSONError.self) { try JSON(cbor: data) }
 }
 
 @Test func ubjsonTruncatedUInt16Argument() throws {
   // UBJSON int16 marker 'J' with only 1 byte (needs 2)
   let bytes: [UInt8] = [0x4A, 0x01]  // 'J', 1 byte (need 2)
   let data = Data(bytes)
-  #expect(throws: JSONError.self) { try JSON.fromUBJSON(data) }
+  #expect(throws: JSONError.self) { try JSON(ubjson: data) }
 }
 
 @Test func ubjsonTruncatedUInt32Argument() throws {
   // UBJSON int32 marker with only 2 bytes (needs 4)
   let bytes: [UInt8] = [0x4C, 0x00, 0x00]  // 'L', 2 bytes (need 4)
   let data = Data(bytes)
-  #expect(throws: JSONError.self) { try JSON.fromUBJSON(data) }
+  #expect(throws: JSONError.self) { try JSON(ubjson: data) }
 }
 
 @Test func bsonTruncatedUInt32Argument() throws {
   // BSON document with only 2 bytes of length (needs 4)
   let bytes: [UInt8] = [0x02, 0x00]  // doc length: 2 bytes (need 4)
   let data = Data(bytes)
-  #expect(throws: JSONError.self) { try JSON.fromBSON(data) }
+  #expect(throws: JSONError.self) { try JSON(bson: data) }
 }
 
 @Test func bjdataTruncatedUInt16Argument() throws {
   // BJData int16 marker 'J' with only 1 byte (needs 2)
   let bytes: [UInt8] = [0x4A, 0x01]  // 'J', 1 byte (need 2)
   let data = Data(bytes)
-  #expect(throws: JSONError.self) { try JSON.fromBJData(data) }
+  #expect(throws: JSONError.self) { try JSON(bjdata: data) }
 }
 
 @Test func bjdataTruncatedUInt32Argument() throws {
   // BJData int32 marker with only 2 bytes (needs 4)
   let bytes: [UInt8] = [0x4C, 0x00, 0x00]  // 'L', 2 bytes (need 4)
   let data = Data(bytes)
-  #expect(throws: JSONError.self) { try JSON.fromBJData(data) }
+  #expect(throws: JSONError.self) { try JSON(bjdata: data) }
 }
 
 @Test func cborSingleByteArgumentTruncated() throws {
   // CBOR marker with info 24 (1-byte argument) but no argument byte
   let bytes: [UInt8] = [0x18]  // major 0 (unsigned), info 24, 0 argument bytes
   let data = Data(bytes)
-  #expect(throws: JSONError.self) { try JSON.fromCBOR(data) }
+  #expect(throws: JSONError.self) { try JSON(cbor: data) }
 }
 
 @Test func ubjsonStringLenInt16Truncated() throws {
@@ -1375,7 +1375,7 @@ private func appendBE(_ value: UInt64, to bytes: inout [UInt8]) {
   // Marker 'S' + 'J' (int16 marker), then only 1 byte of length (needs 2)
   let bytes: [UInt8] = [0x53, 0x4A, 0x01]  // 'S', 'J', 1 byte (need 2)
   let data = Data(bytes)
-  #expect(throws: JSONError.self) { try JSON.fromUBJSON(data) }
+  #expect(throws: JSONError.self) { try JSON(ubjson: data) }
 }
 
 @Test func ubjsonStringLenInt32Truncated() throws {
@@ -1383,21 +1383,21 @@ private func appendBE(_ value: UInt64, to bytes: inout [UInt8]) {
   // Marker 'S' + 'L' (int32 marker), then only 2 bytes of length (needs 4)
   let bytes: [UInt8] = [0x53, 0x4C, 0x00, 0x00]  // 'S', 'L', 2 bytes (need 4)
   let data = Data(bytes)
-  #expect(throws: JSONError.self) { try JSON.fromUBJSON(data) }
+  #expect(throws: JSONError.self) { try JSON(ubjson: data) }
 }
 
 @Test func bjdataStringLenInt16Truncated() throws {
   // BJData string with int16 length prefix, truncated
   let bytes: [UInt8] = [0x53, 0x4A, 0x01]  // 'S', 'J', 1 byte (need 2)
   let data = Data(bytes)
-  #expect(throws: JSONError.self) { try JSON.fromBJData(data) }
+  #expect(throws: JSONError.self) { try JSON(bjdata: data) }
 }
 
 @Test func bjdataStringLenInt32Truncated() throws {
   // BJData string with int32 length prefix, truncated
   let bytes: [UInt8] = [0x53, 0x4C, 0x00, 0x00]  // 'S', 'L', 2 bytes (need 4)
   let data = Data(bytes)
-  #expect(throws: JSONError.self) { try JSON.fromBJData(data) }
+  #expect(throws: JSONError.self) { try JSON(bjdata: data) }
 }
 
 @Test func bsonBinarySubtypeZeroLength() throws {
@@ -1415,5 +1415,5 @@ private func appendBE(_ value: UInt64, to bytes: inout [UInt8]) {
     // missing subtype byte
   ]
   let data = Data(bytes)
-  #expect(throws: JSONError.self) { try JSON.fromBSON(data) }
+  #expect(throws: JSONError.self) { try JSON(bson: data) }
 }

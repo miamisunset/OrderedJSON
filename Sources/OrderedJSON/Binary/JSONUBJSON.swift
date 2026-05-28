@@ -16,15 +16,14 @@ extension JSON {
   /// ## Example
   ///
   /// ```swift
-  /// let decoded = try JSON.fromUBJSON(data)
+  /// let decoded = try JSON(ubjson: data)
   /// ```
-  public static func fromUBJSON(_ data: Data) throws -> JSON {
+  public init(ubjson data: Data) throws {
     var pos = 0
-    let value = try decodeUBJSON(data, &pos)
+    self = try decodeUBJSON(data, &pos)
     if pos < data.count {
       throw JSONError.invalidUBJSON("Trailing bytes after UBJSON value")
     }
-    return value
   }
 
   /// Encodes this JSON value into UBJSON format.
@@ -34,9 +33,9 @@ extension JSON {
   ///
   /// ```swift
   /// let json = JSON.object(["key": .string("value")])
-  /// let ubjsonData = json.toUBJSON()
+  /// let ubjsonData = json.ubjson()
   /// ```
-  public func toUBJSON() -> Data {
+  public func ubjson() -> Data {
     var bytes: [UInt8] = []
     encodeUBJSON(self, &bytes)
     return Data(bytes)

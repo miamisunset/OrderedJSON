@@ -39,74 +39,60 @@ Align the `JSON` public API surface with the [Swift API Design Guidelines](https
 
 ---
 
-### Phase 2: Mutating/Nonmutating Pairs (Medium Impact)
+### Phase 2: Mutating/Nonmutating Pairs (Medium Impact) ✅
 
 | Current | Proposed | Rationale |
 |---|---|---|
-| `clear()` mutating | Add `cleared()` nonmutating | Consistent pair pattern |
-| `patch(_:)` nonmutating + `patchInPlace(_:)` mutating | `patch(_:)` nonmutating + mutating overload | Standard Swift pattern |
+| `clear()` mutating | Add `cleared()` nonmutating | Consistent pair pattern | ✅ Done
+| `patch(_:)` nonmutating + `patchInPlace(_:)` mutating | `patch(_:)` nonmutating + `patching(_:)` mutating | `sort`/`sorted` pattern — mutating gets -ing form | ✅ Done in Phase 1
 
 **Files affected:**
-- `Sources/OrderedJSON/Modifiers/JSONClear.swift`
-- `Sources/OrderedJSON/Patch/JSONPatch.swift`
+- `Sources/OrderedJSON/Modifiers/JSONClear.swift` — add `cleared()` (done)
+- `Sources/OrderedJSON/Patch/JSONPatch.swift` — renamed `patchInPlace` → `patching` (done in Phase 1)
+- `Tests/OrderedJSONTests/Modifiers/JSONModifierTests.swift` — add `cleared()` tests (done)
 
 ---
 
-### Phase 3: Argument Labels & Overload Safety (High Impact)
+### Phase 3: Argument Labels & Overload Safety (High Impact) ✅
 
-#### `contains(_:)` — Unlabeled String overload ambiguity
+**Completed:** All API signatures updated with explicit argument labels.
 
-**Problem:** `contains("foo")` is ambiguous because `JSON` conforms to `ExpressibleByStringLiteral`. The `String` overload (key lookup) is resolved, but callers expecting array containment write `contains("foo")` and silently get object key lookup.
-
-**Proposed fix:**
-```swift
-// Rename to make intent explicit
-func contains(key: String) -> Bool       // was contains(_: String)
-func contains(element: JSON) -> Bool     // was contains(_: JSON)
-```
-
-#### `value(_:default:)` — Unlabeled first argument
-
-```swift
-// Current: value("key", default: .null)
-// Proposed: value(forKey: "key", default: .null)
-public func value(forKey key: String, default defaultValue: JSON) -> JSON
-public func value(at index: Int, default defaultValue: JSON) -> JSON
-```
-
-#### `at(_:)` — Label clarity
-
-```swift
-// Current: at("key"), at(5)
-// Proposed: at(key: "key"), at(index: 5)
-public func at(key: String) throws -> JSON
-public func at(index: Int) throws -> JSON
-```
+| Method | Old | New |
+|-------|-----|-----|
+| `contains(_: String)` | `contains(_ key: String)` | `contains(key key: String)` |
+| `contains(_: JSON)` | `contains(_ element: JSON)` | `contains(element element: JSON)` |
+| `value(_:default:)` (key) | `value(_ key: String, default:)` | `value(forKey key: String, default:)` |
+| `value(_:default:)` (index) | `value(_ index: Int, default:)` | `value(at index: Int, default:)` |
+| `at(_:)` (key) | `at(_ key: String)` | `at(key key: String)` |
+| `at(_:)` (index) | `at(_ index: Int)` | `at(index index: Int)` |
 
 **Files affected:**
 - `Sources/OrderedJSON/Access/JSONLookup.swift`
 - `Sources/OrderedJSON/Access/JSONSubscript.swift`
+- `Tests/OrderedJSONTests/Access/JSONAccessTests.swift`
 
 ---
 
-### Phase 4: Value Extraction Names (Medium Impact)
+### Phase 4: Value Extraction Names (Medium Impact) ✅
 
 | Current | Proposed | Rationale |
 |---|---|---|
 | `stringValue` → `String?` | Keep — standard Swift | ✅ OK |
 | `boolValue` → `Bool?` | Keep — standard Swift | ✅ OK |
 | `intValue` → `Int64?` | Keep — standard Swift | ✅ OK |
-| `floatValue` → `Double?` | Rename to `doubleValue` | `floatValue` returns `Double?`, misleading name |
+| `floatValue` → `doubleValue` | Rename to `doubleValue` | `floatValue` returns `Double?`, misleading name | ✅ Done
 | `numberValue` → `JSONNumber?` | Keep — standard Swift | ✅ OK |
 | `arrayValue` → `[JSON]?` | Keep — standard Swift | ✅ OK |
 | `objectValue` → `OrderedDictionary`? | Keep — standard Swift | ✅ OK |
 
 **Files affected:**
-- `Sources/OrderedJSON/Core/JSON.swift` — rename `floatValue` → `doubleValue`
+- `Sources/OrderedJSON/Core/JSON.swift` — rename `floatValue` → `doubleValue` (done)
+- `Sources/OrderedJSON/Schema/JSONSchemaValidators.swift` — update call sites (done)
+- `Tests/OrderedJSONTests/Core/JSONCoreTests.swift` — update test calls (done)
 
 ---
 
-### Phase 5: Builder API Labels (Medium Impact)
+### Phase 5: Builder API Labels (Medium Impact) ✅
 
 #### `ObjectBuilder.set(_:_:)` — Unlabeled arguments
 
@@ -134,20 +120,20 @@ Add a note that `nil` literals are ambiguous and callers must use `as Type?`.
 
 ---
 
-### Phase 6: Sequence API Names (Low Impact)
+### Phase 6: Sequence API Names (Low Impact) ✅
 
 | Current | Proposed | Rationale |
 |---|---|---|
-| `items()` → `[(key: String, value: JSON)]` | Keep — but rename to `keyValuePairs` | `items` is not Swift-idiomatic; `keyValuePairs` is clearer |
-| `keys()` (if exists) | `allKeys` | Standard Swift naming |
-| `entries()` (if exists) | `sortedPairs` or remove | Rarely used |
+| `items()` → `keyValuePairs()` | Rename to `keyValuePairs()` | `items` is not Swift-idiomatic; `keyValuePairs` is clearer | ✅ Done
+| `keys()` (if exists) | `allKeys` | Standard Swift naming | N/A — no `keys()` exists
+| `entries()` (if exists) | `sortedPairs` or remove | Rarely used | N/A — no `entries()` exists
 
 **Files affected:**
 - `Sources/OrderedJSON/Operators/JSONSequence.swift`
 
 ---
 
-### Phase 7: Documentation & Complexity Annotations (Low Impact)
+### Phase 7: Documentation & Complexity Annotations (Low Impact) ✅
 
 Add documentation for O(n) properties:
 
@@ -159,12 +145,12 @@ Add documentation for O(n) properties:
 - `entries()` — O(n) builds tuple array
 
 **Files affected:**
-- `Sources/OrderedJSON/Access/JSONAccess.swift`
-- `Sources/OrderedJSON/Operators/JSONSequence.swift`
+- `Sources/OrderedJSON/Access/JSONAccess.swift` — added O(n) docs for `objectKeys`, `arrayValue`, `objectValue` (done)
+- `Sources/OrderedJSON/Operators/JSONSequence.swift` — added O(n) docs for `keyValuePairs()` (done)
 
 ---
 
-### Phase 8: Silent No-Op Behavior (Design Decision)
+### Phase 8: Silent No-Op Behavior (Design Decision) ✅
 
 **Problem:** Setting a key on an array, appending to an object, erasing from the wrong type — all silently do nothing.
 
@@ -179,7 +165,7 @@ Add documentation for O(n) properties:
 
 ---
 
-### Phase 9: `JSONPointer` API (Low Impact)
+### Phase 9: `JSONPointer` API (Low Impact) ✅
 
 | Current | Proposed | Rationale |
 |---|---|---|
@@ -193,7 +179,7 @@ Add documentation for O(n) properties:
 
 ---
 
-### Phase 10: Codable API Names (Low Impact)
+### Phase 10: Codable API Names (Low Impact) ✅
 
 | Current | Proposed | Rationale |
 |---|---|---|
@@ -205,7 +191,7 @@ Add documentation for O(n) properties:
 
 ---
 
-### Phase 11: SAX Protocol Naming (Medium Impact)
+### Phase 11: SAX Protocol Naming (Medium Impact) ✅
 
 | Current | Proposed | Rationale |
 |---|---|---|
@@ -215,7 +201,7 @@ Add documentation for O(n) properties:
 
 ---
 
-### Phase 12: Remove `maxCount` Property (Low Impact)
+### Phase 12: Remove `maxCount` Property (Low Impact) ✅
 
 `maxCount` returns `Int.max` — this is a C++-ism that is meaningless in Swift (Swift arrays don't have a fixed max). Remove it.
 
@@ -232,22 +218,22 @@ Add documentation for O(n) properties:
 | 2: Mutating pairs | No (additive) | 2 files | Small |
 | 3: Argument labels | Yes | 2 files | Medium |
 | 4: Value extraction | Yes | 1 file | Small |
-| 5: Builder docs | No | 1 file | Small |
+| 5: Builder docs | No | 1 file | Small | ✅
 | 6: Sequence naming | Yes | 1 file | Small |
 | 7: Complexity docs | No | 2 files | Small |
-| 8: Silent no-ops | No | Docs only | Small |
+| 8: Silent no-ops | No | Docs only | Small | ✅
 | 9: JSONPointer | No | 0 | None |
 | 10: Codable | No | 0 | None |
 | 11: SAX | No | 0 | None |
-| 12: Remove maxCount | Yes | 1 file | Small |
+| 12: Remove maxCount | Yes | 1 file | Small | ✅
 
 ## Implementation Order
 
 1. Phase 3 (argument labels) — highest clarity impact, changes call sites
-2. Phase 1 (C++ names) — removes confusion
-3. Phase 4 (floatValue rename) — prevents misuse
-4. Phase 2 (mutating pairs) — adds consistency
-5. Phase 6 (sequence naming)
-6. Phase 7 (documentation)
-7. Phase 5, 8, 9, 10, 11 (low-impact docs)
-8. Phase 12 (maxCount removal)
+2. Phase 1 (C++ names) — removes confusion ✅
+3. Phase 4 (floatValue → doubleValue) — prevents misuse ✅
+4. Phase 2 (mutating pairs) — adds consistency ✅
+5. Phase 6 (sequence naming) ✅
+6. Phase 7 (documentation) ✅
+7. Phase 5, 8, 9, 10, 11 (low-impact docs) ✅
+8. Phase 12 (maxCount removal) ✅

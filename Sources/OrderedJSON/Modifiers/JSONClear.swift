@@ -10,13 +10,21 @@ extension JSON {
   /// For arrays, removes all elements (leaving an empty array).
   /// For primitives, this is a no-op.
   public mutating func clear() {
+    self = cleared()
+  }
+
+  /// Returns a copy with all elements removed from an object or array.
+  ///
+  /// For objects, returns an empty object. For arrays, returns an empty array.
+  /// For primitives, returns an identical copy (no-op).
+  public func cleared() -> JSON {
     switch storage {
     case .object:
-      storage = .object(OrderedDictionary<String, JSON>())
+      return JSON.object(OrderedDictionary<String, JSON>())
     case .array:
-      storage = .array([])
+      return JSON.array([])
     case .null, .boolean, .number, .string:
-      break  // no-op for primitives
+      return self
     }
   }
 
@@ -26,7 +34,7 @@ extension JSON {
   ///
   /// If the value is not an object or the key doesn't exist, this is a no-op.
   /// - Parameter key: The key to remove.
-  public mutating func erase(_ key: String) {
+  public mutating func erase(key: String) {
     guard case .object(var dict) = storage else { return }
     dict.removeValue(forKey: key)
     storage = .object(dict)
@@ -38,16 +46,16 @@ extension JSON {
   ///
   /// If the value is not an array or the index is out of bounds, this is a no-op.
   /// - Parameter index: The index of the element to remove.
-  public mutating func erase(_ index: Int) {
+  public mutating func erase(index: Int) {
     guard case .array(var arr) = storage else { return }
     guard index >= 0, index < arr.count else { return }
     arr.remove(at: index)
     storage = .array(arr)
   }
 
-  // MARK: - append (push_back)
+  // MARK: - append
 
-  /// Appends a value to the end of a JSON array (equivalent to `push_back`).
+  /// Appends a value to the end of a JSON array.
   ///
   /// If the value is not an array, this is a no-op.
   /// - Parameter value: The value to append.
@@ -69,19 +77,6 @@ extension JSON {
     guard case .array(var arr) = storage else { return }
     guard index >= 0, index <= arr.count else { return }
     arr.insert(value, at: index)
-    storage = .array(arr)
-  }
-
-  // MARK: - emplace (array)
-
-  /// Appends a value to a JSON array (equivalent to `append`).
-  ///
-  /// Provided for compatibility with nlohmann/json's `emplace_back`.
-  /// If the value is not an array, this is a no-op.
-  /// - Parameter value: The value to append.
-  public mutating func emplace(_ value: JSON) {
-    guard case .array(var arr) = storage else { return }
-    arr.append(value)
     storage = .array(arr)
   }
 
@@ -108,8 +103,8 @@ extension JSON {
   ///
   /// Mirrors `nlohmann::basic_json::update(const_reference j, bool merge_objects)`.
   ///
-  /// When `mergeObjects` is `false` (default), existing keys are overwritten
-  /// and new keys are added. When `mergeObjects` is `true`, objects at the
+  /// When `mergesNested` is `false` (default), existing keys are overwritten
+  /// and new keys are added. When `mergesNested` is `true`, objects at the
   /// same key are recursively merged instead of replaced — useful for merging
   /// nested configuration trees.
   ///
@@ -118,19 +113,19 @@ extension JSON {
   /// merged; any other type (primitive, array, null) overwrites.
   /// - Parameters:
   ///   - other: The object whose keys to merge in.
-  ///   - mergeObjects: If `true`, recursively merge nested objects at the
+  ///   - mergesNested: If `true`, recursively merge nested objects at the
   ///     same key. Defaults to `false`.
-  public mutating func update(with other: JSON, mergeObjects: Bool = false) {
+  public mutating func update(with other: JSON, mergesNested: Bool = false) {
     guard case .object(var dict) = storage else { return }
     guard case .object(let otherDict) = other.storage else { return }
     for (key, value) in otherDict {
-      if mergeObjects,
+      if mergesNested,
         let existing = dict[key],
         existing.isObject,
         value.isObject
       {
         var merged = existing
-        merged.update(with: value, mergeObjects: true)
+        merged.update(with: value, mergesNested: true)
         dict[key] = merged
       } else {
         dict[key] = value

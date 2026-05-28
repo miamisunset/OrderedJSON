@@ -95,14 +95,7 @@ public struct JSON: Hashable, Sendable {
   }
 
   /// The JSON `null` singleton value.
-  /// Equivalent to `JSON.nullValue()`.
   public static let null = JSON(storage: .null)
-
-  /// Creates a JSON null value.
-  /// - Returns: A JSON null.
-  public static func nullValue() -> JSON {
-    JSON(storage: .null)
-  }
 
   // MARK: - Convenience initializers
 
@@ -280,9 +273,9 @@ public struct JSON: Hashable, Sendable {
     }
   }
 
-  /// Returns the float value if this JSON value is a float (or integer widened
+  /// Returns the double value if this JSON value is a float (or integer widened
   /// to Double), otherwise nil.
-  public var floatValue: Double? {
+  public var doubleValue: Double? {
     switch storage {
     case .number(.float(let d)): return d
     case .number(.integer(let i)): return Double(i)
