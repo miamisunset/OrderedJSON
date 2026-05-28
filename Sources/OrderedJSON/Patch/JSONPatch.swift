@@ -19,11 +19,11 @@ extension JSON {
   /// let patch = JSON.array([
   ///   .object(["op": .string("add"), "path": .string("/baz"), "value": .string("qux")])
   /// ])
-  /// let patched = try json.patch(patch)
+  /// let patched = try json.applying(patch)
   /// ```
-  public func patch(_ patchValue: JSON) throws -> JSON {
+  public func applying(_ patchValue: JSON) throws -> JSON {
     var copy = self
-    try copy.patching(patchValue)
+    try copy.patch(patchValue)
     return copy
   }
 
@@ -31,7 +31,7 @@ extension JSON {
   ///
   /// - Parameter patchValue: A JSON array of patch operations.
   /// - Throws: `JSONError.formatError` if the patch is malformed or an operation fails.
-  public mutating func patching(_ patchValue: JSON) throws {
+  public mutating func patch(_ patchValue: JSON) throws {
     guard case .array(let operations) = patchValue.storage else {
       throw JSONError.formatError("Patch must be an array of operations")
     }

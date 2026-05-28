@@ -359,23 +359,23 @@ import Testing
 // MARK: - Standard Encoding Tests
 
 @Test func encodeStandardNull() {
-  #expect(JSON.null.dump(indent: -1) == "null")
+  #expect(JSON.null.dump(indent: nil) == "null")
 }
 
 @Test func encodeStandardBool() {
-  #expect(JSON.boolean(true).dump(indent: -1) == "true")
+  #expect(JSON.boolean(true).dump(indent: nil) == "true")
 }
 
 @Test func encodeStandardInt() {
-  #expect(JSON.number(.integer(42)).dump(indent: -1) == "42")
+  #expect(JSON.number(.integer(42)).dump(indent: nil) == "42")
 }
 
 @Test func encodeStandardFloat() {
-  #expect(JSON.number(.float(3.14)).dump(indent: -1) == "3.14")
+  #expect(JSON.number(.float(3.14)).dump(indent: nil) == "3.14")
 }
 
 @Test func encodeStandardString() {
-  #expect(JSON.string("hello").dump(indent: -1) == "\"hello\"")
+  #expect(JSON.string("hello").dump(indent: nil) == "\"hello\"")
 }
 
 @Test func encodeStandardArray() {
@@ -384,7 +384,7 @@ import Testing
     JSON.number(.integer(1)),
     JSON.boolean(true),
   ])
-  #expect(value.dump(indent: -1) == "[\"a\",1,true]")
+  #expect(value.dump(indent: nil) == "[\"a\",1,true]")
 }
 
 @Test func encodeStandardObject() {
@@ -392,7 +392,7 @@ import Testing
     "name": JSON.string("Alice"),
     "age": JSON.number(.integer(30)),
   ])
-  #expect(value.dump(indent: -1) == "{\"name\":\"Alice\",\"age\":30}")
+  #expect(value.dump(indent: nil) == "{\"name\":\"Alice\",\"age\":30}")
 }
 
 @Test func parseLargeIntegerBeyondInt64Max() throws {

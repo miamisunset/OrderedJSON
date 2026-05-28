@@ -10,13 +10,13 @@ struct JSONSchemaTypeValidationTests {
   @Test("type string — valid")
   func typeStringValid() throws {
     let schema = try JSONSchema(schema: .object(["type": .string("string")]))
-    #expect(schema.validation(of: .string("hello")).valid)
+    #expect(schema.validating(.string("hello")).valid)
   }
 
   @Test("type string — invalid (number)")
   func typeStringInvalid() throws {
     let schema = try JSONSchema(schema: .object(["type": .string("string")]))
-    let result = schema.validation(of: .number(.integer(42)))
+    let result = schema.validating(.number(.integer(42)))
     #expect(!result.valid)
     #expect(result.errors.first?.keyword == "type")
   }
@@ -24,13 +24,13 @@ struct JSONSchemaTypeValidationTests {
   @Test("type integer — valid")
   func typeIntegerValid() throws {
     let schema = try JSONSchema(schema: .object(["type": .string("integer")]))
-    #expect(schema.validation(of: .number(.integer(42))).valid)
+    #expect(schema.validating(.number(.integer(42))).valid)
   }
 
   @Test("type integer — invalid (float)")
   func typeIntegerInvalid() throws {
     let schema = try JSONSchema(schema: .object(["type": .string("integer")]))
-    let result = schema.validation(of: .number(.float(42.5)))
+    let result = schema.validating(.number(.float(42.5)))
     #expect(!result.valid)
     #expect(result.errors.first?.keyword == "type")
   }
@@ -38,38 +38,38 @@ struct JSONSchemaTypeValidationTests {
   @Test("type number — accepts integer")
   func typeNumberAcceptsInteger() throws {
     let schema = try JSONSchema(schema: .object(["type": .string("number")]))
-    #expect(schema.validation(of: .number(.integer(42))).valid)
+    #expect(schema.validating(.number(.integer(42))).valid)
   }
 
   @Test("type number — accepts float")
   func typeNumberAcceptsFloat() throws {
     let schema = try JSONSchema(schema: .object(["type": .string("number")]))
-    #expect(schema.validation(of: .number(.float(3.14))).valid)
+    #expect(schema.validating(.number(.float(3.14))).valid)
   }
 
   @Test("type boolean — valid")
   func typeBooleanValid() throws {
     let schema = try JSONSchema(schema: .object(["type": .string("boolean")]))
-    #expect(schema.validation(of: .boolean(true)).valid)
-    #expect(schema.validation(of: .boolean(false)).valid)
+    #expect(schema.validating(.boolean(true)).valid)
+    #expect(schema.validating(.boolean(false)).valid)
   }
 
   @Test("type null — valid")
   func typeNullValid() throws {
     let schema = try JSONSchema(schema: .object(["type": .string("null")]))
-    #expect(schema.validation(of: .null).valid)
+    #expect(schema.validating(.null).valid)
   }
 
   @Test("type object — valid")
   func typeObjectValid() throws {
     let schema = try JSONSchema(schema: .object(["type": .string("object")]))
-    #expect(schema.validation(of: .object(["key": .string("val")])).valid)
+    #expect(schema.validating(.object(["key": .string("val")])).valid)
   }
 
   @Test("type array — valid")
   func typeArrayValid() throws {
     let schema = try JSONSchema(schema: .object(["type": .string("array")]))
-    #expect(schema.validation(of: .array([.number(.integer(1))])).valid)
+    #expect(schema.validating(.array([.number(.integer(1))])).valid)
   }
 
   @Test("type array of strings — valid")
@@ -77,8 +77,8 @@ struct JSONSchemaTypeValidationTests {
     let schema = try JSONSchema(
       schema: .object(["type": .array([.string("string"), .string("number")])])
     )
-    #expect(schema.validation(of: .string("hello")).valid)
-    #expect(schema.validation(of: .number(.integer(42))).valid)
+    #expect(schema.validating(.string("hello")).valid)
+    #expect(schema.validating(.number(.integer(42))).valid)
   }
 
   @Test("type array of strings — invalid")
@@ -86,7 +86,7 @@ struct JSONSchemaTypeValidationTests {
     let schema = try JSONSchema(
       schema: .object(["type": .array([.string("string"), .string("number")])])
     )
-    let result = schema.validation(of: .boolean(true))
+    let result = schema.validating(.boolean(true))
     #expect(!result.valid)
     #expect(result.errors.first?.keyword == "type")
   }
@@ -106,7 +106,7 @@ struct JSONSchemaPropertiesTests {
       ])
     )
     let doc: JSON = .object(["name": .string("Alice")])
-    #expect(schema.validation(of: doc).valid)
+    #expect(schema.validating(doc).valid)
   }
 
   @Test("properties — invalid nested")
@@ -119,7 +119,7 @@ struct JSONSchemaPropertiesTests {
       ])
     )
     let doc: JSON = .object(["age": .string("thirty")])
-    let result = schema.validation(of: doc)
+    let result = schema.validating(doc)
     #expect(!result.valid)
     #expect(result.errors.first?.keyword == "type")
   }
@@ -134,7 +134,7 @@ struct JSONSchemaPropertiesTests {
       ])
     )
     let doc: JSON = .object([:])
-    #expect(schema.validation(of: doc).valid)
+    #expect(schema.validating(doc).valid)
   }
 
   @Test("properties — non-object value skips validation")
@@ -146,7 +146,7 @@ struct JSONSchemaPropertiesTests {
         ])
       ])
     )
-    #expect(schema.validation(of: .string("hello")).valid)
+    #expect(schema.validating(.string("hello")).valid)
   }
 }
 
@@ -160,7 +160,7 @@ struct JSONSchemaRequiredTests {
       schema: .object(["required": .array([.string("a"), .string("b")])])
     )
     let doc: JSON = .object(["a": .string("x"), "b": .string("y")])
-    #expect(schema.validation(of: doc).valid)
+    #expect(schema.validating(doc).valid)
   }
 
   @Test("required — fails when missing")
@@ -169,7 +169,7 @@ struct JSONSchemaRequiredTests {
       schema: .object(["required": .array([.string("name")])])
     )
     let doc: JSON = .object(["age": .number(.integer(30))])
-    let result = schema.validation(of: doc)
+    let result = schema.validating(doc)
     #expect(!result.valid)
     #expect(result.errors.first?.keyword == "required")
   }
@@ -180,7 +180,7 @@ struct JSONSchemaRequiredTests {
       schema: .object(["required": .array([.string("name")])])
     )
     let doc: JSON = .object(["name": .null])
-    #expect(schema.validation(of: doc).valid)
+    #expect(schema.validating(doc).valid)
   }
 
   @Test("required — non-object skips validation")
@@ -188,7 +188,7 @@ struct JSONSchemaRequiredTests {
     let schema = try JSONSchema(
       schema: .object(["required": .array([.string("name")])])
     )
-    #expect(schema.validation(of: .string("hello")).valid)
+    #expect(schema.validating(.string("hello")).valid)
   }
 }
 
@@ -201,8 +201,8 @@ struct JSONSchemaNumericBoundsTests {
     let schema = try JSONSchema(
       schema: .object(["minimum": .number(.integer(10))])
     )
-    #expect(schema.validation(of: .number(.integer(10))).valid)
-    #expect(schema.validation(of: .number(.integer(20))).valid)
+    #expect(schema.validating(.number(.integer(10))).valid)
+    #expect(schema.validating(.number(.integer(20))).valid)
   }
 
   @Test("minimum — invalid")
@@ -210,7 +210,7 @@ struct JSONSchemaNumericBoundsTests {
     let schema = try JSONSchema(
       schema: .object(["minimum": .number(.integer(10))])
     )
-    let result = schema.validation(of: .number(.integer(5)))
+    let result = schema.validating(.number(.integer(5)))
     #expect(!result.valid)
     #expect(result.errors.first?.keyword == "minimum")
   }
@@ -220,8 +220,8 @@ struct JSONSchemaNumericBoundsTests {
     let schema = try JSONSchema(
       schema: .object(["maximum": .number(.integer(100))])
     )
-    #expect(schema.validation(of: .number(.integer(50))).valid)
-    #expect(schema.validation(of: .number(.integer(100))).valid)
+    #expect(schema.validating(.number(.integer(50))).valid)
+    #expect(schema.validating(.number(.integer(100))).valid)
   }
 
   @Test("maximum — invalid")
@@ -229,7 +229,7 @@ struct JSONSchemaNumericBoundsTests {
     let schema = try JSONSchema(
       schema: .object(["maximum": .number(.integer(100))])
     )
-    let result = schema.validation(of: .number(.integer(200)))
+    let result = schema.validating(.number(.integer(200)))
     #expect(!result.valid)
     #expect(result.errors.first?.keyword == "maximum")
   }
@@ -242,7 +242,7 @@ struct JSONSchemaNumericBoundsTests {
         "maximum": .number(.integer(100)),
       ])
     )
-    #expect(schema.validation(of: .number(.integer(50))).valid)
+    #expect(schema.validating(.number(.integer(50))).valid)
   }
 
   @Test("minimum + maximum — invalid out of range")
@@ -253,7 +253,7 @@ struct JSONSchemaNumericBoundsTests {
         "maximum": .number(.integer(100)),
       ])
     )
-    let result = schema.validation(of: .number(.integer(5)))
+    let result = schema.validating(.number(.integer(5)))
     #expect(!result.valid)
   }
 
@@ -262,8 +262,8 @@ struct JSONSchemaNumericBoundsTests {
     let schema = try JSONSchema(
       schema: .object(["minimum": .number(.integer(Int64.max))])
     )
-    #expect(schema.validation(of: .number(.integer(Int64.max))).valid)
-    let result = schema.validation(of: .number(.integer(Int64.max - 1)))
+    #expect(schema.validating(.number(.integer(Int64.max))).valid)
+    let result = schema.validating(.number(.integer(Int64.max - 1)))
     #expect(!result.valid)
     #expect(result.errors.first?.keyword == "minimum")
   }
@@ -278,8 +278,8 @@ struct JSONSchemaExclusiveBoundsTests {
     let schema = try JSONSchema(
       schema: .object(["exclusiveMinimum": .number(.integer(10))])
     )
-    #expect(schema.validation(of: .number(.integer(11))).valid)
-    #expect(schema.validation(of: .number(.integer(20))).valid)
+    #expect(schema.validating(.number(.integer(11))).valid)
+    #expect(schema.validating(.number(.integer(20))).valid)
   }
 
   @Test("exclusiveMinimum — Draft 2020-12 invalid (equal)")
@@ -287,7 +287,7 @@ struct JSONSchemaExclusiveBoundsTests {
     let schema = try JSONSchema(
       schema: .object(["exclusiveMinimum": .number(.integer(10))])
     )
-    let result = schema.validation(of: .number(.integer(10)))
+    let result = schema.validating(.number(.integer(10)))
     #expect(!result.valid)
     #expect(result.errors.first?.keyword == "exclusiveMinimum")
   }
@@ -300,8 +300,8 @@ struct JSONSchemaExclusiveBoundsTests {
         "exclusiveMinimum": .boolean(true),
       ]), draft: .draft7
     )
-    #expect(schema.validation(of: .number(.integer(11))).valid)
-    let result = schema.validation(of: .number(.integer(10)))
+    #expect(schema.validating(.number(.integer(11))).valid)
+    let result = schema.validating(.number(.integer(10)))
     #expect(!result.valid)
     #expect(result.errors.first?.keyword == "exclusiveMinimum")
   }
@@ -314,8 +314,8 @@ struct JSONSchemaExclusiveBoundsTests {
         "exclusiveMinimum": .boolean(false),
       ]), draft: .draft7
     )
-    #expect(schema.validation(of: .number(.integer(10))).valid)
-    #expect(schema.validation(of: .number(.integer(5))).valid == false)
+    #expect(schema.validating(.number(.integer(10))).valid)
+    #expect(schema.validating(.number(.integer(5))).valid == false)
   }
 
   @Test("exclusiveMaximum — Draft 2020-12 valid")
@@ -323,8 +323,8 @@ struct JSONSchemaExclusiveBoundsTests {
     let schema = try JSONSchema(
       schema: .object(["exclusiveMaximum": .number(.integer(100))])
     )
-    #expect(schema.validation(of: .number(.integer(50))).valid)
-    #expect(schema.validation(of: .number(.integer(99))).valid)
+    #expect(schema.validating(.number(.integer(50))).valid)
+    #expect(schema.validating(.number(.integer(99))).valid)
   }
 
   @Test("exclusiveMaximum — Draft 2020-12 invalid (equal)")
@@ -332,7 +332,7 @@ struct JSONSchemaExclusiveBoundsTests {
     let schema = try JSONSchema(
       schema: .object(["exclusiveMaximum": .number(.integer(100))])
     )
-    let result = schema.validation(of: .number(.integer(100)))
+    let result = schema.validating(.number(.integer(100)))
     #expect(!result.valid)
     #expect(result.errors.first?.keyword == "exclusiveMaximum")
   }
@@ -345,8 +345,8 @@ struct JSONSchemaExclusiveBoundsTests {
         "exclusiveMaximum": .boolean(true),
       ]), draft: .draft7
     )
-    #expect(schema.validation(of: .number(.integer(99))).valid)
-    let result = schema.validation(of: .number(.integer(100)))
+    #expect(schema.validating(.number(.integer(99))).valid)
+    let result = schema.validating(.number(.integer(100)))
     #expect(!result.valid)
     #expect(result.errors.first?.keyword == "exclusiveMaximum")
   }
@@ -361,8 +361,8 @@ struct JSONSchemaMultipleOfTests {
     let schema = try JSONSchema(
       schema: .object(["multipleOf": .number(.integer(3))])
     )
-    #expect(schema.validation(of: .number(.integer(9))).valid)
-    #expect(schema.validation(of: .number(.integer(0))).valid)
+    #expect(schema.validating(.number(.integer(9))).valid)
+    #expect(schema.validating(.number(.integer(0))).valid)
   }
 
   @Test("multipleOf — invalid integer")
@@ -370,7 +370,7 @@ struct JSONSchemaMultipleOfTests {
     let schema = try JSONSchema(
       schema: .object(["multipleOf": .number(.integer(3))])
     )
-    let result = schema.validation(of: .number(.integer(10)))
+    let result = schema.validating(.number(.integer(10)))
     #expect(!result.valid)
     #expect(result.errors.first?.keyword == "multipleOf")
   }
@@ -380,8 +380,8 @@ struct JSONSchemaMultipleOfTests {
     let schema = try JSONSchema(
       schema: .object(["multipleOf": .number(.float(1.5))])
     )
-    #expect(schema.validation(of: .number(.float(4.5))).valid)
-    #expect(schema.validation(of: .number(.float(0.0))).valid)
+    #expect(schema.validating(.number(.float(4.5))).valid)
+    #expect(schema.validating(.number(.float(0.0))).valid)
   }
 
   @Test("multipleOf — non-number value skips")
@@ -389,7 +389,7 @@ struct JSONSchemaMultipleOfTests {
     let schema = try JSONSchema(
       schema: .object(["multipleOf": .number(.integer(2))])
     )
-    #expect(schema.validation(of: .string("hello")).valid)
+    #expect(schema.validating(.string("hello")).valid)
   }
 
   @Test("multipleOf — zero or negative is ignored per spec")
@@ -397,11 +397,11 @@ struct JSONSchemaMultipleOfTests {
     let schema = try JSONSchema(
       schema: .object(["multipleOf": .number(.integer(0))])
     )
-    #expect(schema.validation(of: .number(.integer(5))).valid)
+    #expect(schema.validating(.number(.integer(5))).valid)
     let schemaNeg = try JSONSchema(
       schema: .object(["multipleOf": .number(.integer(-3))])
     )
-    #expect(schemaNeg.validation(of: .number(.integer(6))).valid)
+    #expect(schemaNeg.validating(.number(.integer(6))).valid)
   }
 }
 
@@ -414,7 +414,7 @@ struct JSONSchemaPatternTests {
     let schema = try JSONSchema(
       schema: .object(["pattern": .string("^[A-Z][a-z]+$")])
     )
-    #expect(schema.validation(of: .string("Hello")).valid)
+    #expect(schema.validating(.string("Hello")).valid)
   }
 
   @Test("pattern — invalid no match")
@@ -422,7 +422,7 @@ struct JSONSchemaPatternTests {
     let schema = try JSONSchema(
       schema: .object(["pattern": .string("^[0-9]+$")])
     )
-    let result = schema.validation(of: .string("abc"))
+    let result = schema.validating(.string("abc"))
     #expect(!result.valid)
     #expect(result.errors.first?.keyword == "pattern")
   }
@@ -432,7 +432,7 @@ struct JSONSchemaPatternTests {
     let schema = try JSONSchema(
       schema: .object(["pattern": .string("^[0-9]+$")])
     )
-    #expect(schema.validation(of: .number(.integer(42))).valid)
+    #expect(schema.validating(.number(.integer(42))).valid)
   }
 
   @Test("pattern — invalid regex fails at init time, not at validation")
@@ -440,7 +440,7 @@ struct JSONSchemaPatternTests {
     let schema = try JSONSchema(
       schema: .object(["pattern": .string("^valid$")])
     )
-    #expect(schema.validation(of: .string("valid")).valid)
+    #expect(schema.validating(.string("valid")).valid)
   }
 }
 
@@ -453,8 +453,8 @@ struct JSONSchemaEnumTests {
     let schema = try JSONSchema(
       schema: .object(["enum": .array([.string("a"), .string("b")])])
     )
-    #expect(schema.validation(of: .string("a")).valid)
-    #expect(schema.validation(of: .string("b")).valid)
+    #expect(schema.validating(.string("a")).valid)
+    #expect(schema.validating(.string("b")).valid)
   }
 
   @Test("enum — invalid no match")
@@ -462,7 +462,7 @@ struct JSONSchemaEnumTests {
     let schema = try JSONSchema(
       schema: .object(["enum": .array([.string("a"), .string("b")])])
     )
-    let result = schema.validation(of: .string("c"))
+    let result = schema.validating(.string("c"))
     #expect(!result.valid)
     #expect(result.errors.first?.keyword == "enum")
   }
@@ -472,13 +472,13 @@ struct JSONSchemaEnumTests {
     let schema = try JSONSchema(
       schema: .object(["enum": .array([.string("hello")])])
     )
-    #expect(schema.validation(of: .string("hello")).valid)
+    #expect(schema.validating(.string("hello")).valid)
   }
 
   @Test("enum — empty array never matches")
   func enumEmptyArray() throws {
     let schema = try JSONSchema(schema: .object(["enum": .array([])]))
-    let result = schema.validation(of: .string("anything"))
+    let result = schema.validating(.string("anything"))
     #expect(!result.valid)
   }
 
@@ -487,7 +487,7 @@ struct JSONSchemaEnumTests {
     let schema = try JSONSchema(
       schema: .object(["enum": .array([.number(.float(1.0))])])
     )
-    #expect(schema.validation(of: .number(.integer(1))).valid)
+    #expect(schema.validating(.number(.integer(1))).valid)
   }
 
   @Test("enum — array with integer 1 matches float 1.0")
@@ -495,7 +495,7 @@ struct JSONSchemaEnumTests {
     let schema = try JSONSchema(
       schema: .object(["enum": .array([.array([.number(.float(1.0))])])])
     )
-    #expect(schema.validation(of: .array([.number(.integer(1))])).valid)
+    #expect(schema.validating(.array([.number(.integer(1))])).valid)
   }
 
   @Test("enum — object key order is ignored")
@@ -506,7 +506,7 @@ struct JSONSchemaEnumTests {
       ])
     )
     let doc: JSON = .object(["b": .number(.integer(2)), "a": .number(.integer(1))])
-    #expect(schema.validation(of: doc).valid)
+    #expect(schema.validating(doc).valid)
   }
 }
 
@@ -519,7 +519,7 @@ struct JSONSchemaConstTests {
     let schema = try JSONSchema(
       schema: .object(["const": .string("hello")])
     )
-    #expect(schema.validation(of: .string("hello")).valid)
+    #expect(schema.validating(.string("hello")).valid)
   }
 
   @Test("const — invalid mismatch")
@@ -527,7 +527,7 @@ struct JSONSchemaConstTests {
     let schema = try JSONSchema(
       schema: .object(["const": .string("hello")])
     )
-    let result = schema.validation(of: .string("world"))
+    let result = schema.validating(.string("world"))
     #expect(!result.valid)
     #expect(result.errors.first?.keyword == "const")
   }
@@ -537,7 +537,7 @@ struct JSONSchemaConstTests {
     let schema = try JSONSchema(
       schema: .object(["const": .string("test")])
     )
-    #expect(schema.validation(of: .string("test")).valid)
+    #expect(schema.validating(.string("test")).valid)
   }
 
   @Test("const — object match")
@@ -545,7 +545,7 @@ struct JSONSchemaConstTests {
     let schema = try JSONSchema(
       schema: .object(["const": .object(["a": .number(.integer(1))])])
     )
-    #expect(schema.validation(of: .object(["a": .number(.integer(1))])).valid)
+    #expect(schema.validating(.object(["a": .number(.integer(1))])).valid)
   }
 }
 
@@ -563,7 +563,7 @@ struct JSONSchemaAllOfTests {
         ])
       ])
     )
-    #expect(schema.validation(of: .string("hello")).valid)
+    #expect(schema.validating(.string("hello")).valid)
   }
 
   @Test("allOf — invalid when one subschema fails")
@@ -576,7 +576,7 @@ struct JSONSchemaAllOfTests {
         ])
       ])
     )
-    let result = schema.validation(of: .string("hello"))
+    let result = schema.validating(.string("hello"))
     #expect(!result.valid)
     #expect(result.errors.first?.keyword == "allOf")
   }
@@ -584,13 +584,13 @@ struct JSONSchemaAllOfTests {
   @Test("allOf — empty array passes")
   func allOfEmpty() throws {
     let schema = try JSONSchema(schema: .object(["allOf": .array([])]))
-    #expect(schema.validation(of: .string("anything")).valid)
+    #expect(schema.validating(.string("anything")).valid)
   }
 
   @Test("allOf — missing keyword skips")
   func allOfMissing() throws {
     let schema = try JSONSchema(schema: .object(["type": .string("string")]))
-    #expect(schema.validation(of: .string("test")).valid)
+    #expect(schema.validating(.string("test")).valid)
   }
 }
 
@@ -608,8 +608,8 @@ struct JSONSchemaAnyOfTests {
         ])
       ])
     )
-    #expect(schema.validation(of: .string("test")).valid)
-    #expect(schema.validation(of: .number(.integer(42))).valid)
+    #expect(schema.validating(.string("test")).valid)
+    #expect(schema.validating(.number(.integer(42))).valid)
   }
 
   @Test("anyOf — invalid when none match")
@@ -622,7 +622,7 @@ struct JSONSchemaAnyOfTests {
         ])
       ])
     )
-    let result = schema.validation(of: .string("test"))
+    let result = schema.validating(.string("test"))
     #expect(!result.valid)
     #expect(result.errors.first?.keyword == "anyOf")
   }
@@ -630,7 +630,7 @@ struct JSONSchemaAnyOfTests {
   @Test("anyOf — empty array fails (no subschemas to match)")
   func anyOfEmpty() throws {
     let schema = try JSONSchema(schema: .object(["anyOf": .array([])]))
-    let result = schema.validation(of: .string("test"))
+    let result = schema.validating(.string("test"))
     #expect(!result.valid)
     #expect(result.errors.first?.keyword == "anyOf")
   }
@@ -650,7 +650,7 @@ struct JSONSchemaOneOfTests {
         ])
       ])
     )
-    #expect(schema.validation(of: .string("test")).valid)
+    #expect(schema.validating(.string("test")).valid)
   }
 
   @Test("oneOf — invalid when zero match")
@@ -663,7 +663,7 @@ struct JSONSchemaOneOfTests {
         ])
       ])
     )
-    let result = schema.validation(of: .string("test"))
+    let result = schema.validating(.string("test"))
     #expect(!result.valid)
     #expect(result.errors.first?.keyword == "oneOf")
   }
@@ -678,7 +678,7 @@ struct JSONSchemaOneOfTests {
         ])
       ])
     )
-    let result = schema.validation(of: .string("hello"))
+    let result = schema.validating(.string("hello"))
     #expect(!result.valid)
     #expect(result.errors.first?.keyword == "oneOf")
     #expect(result.errors.first?.message.contains("2") == true)
@@ -687,7 +687,7 @@ struct JSONSchemaOneOfTests {
   @Test("oneOf — empty array fails")
   func oneOfEmpty() throws {
     let schema = try JSONSchema(schema: .object(["oneOf": .array([])]))
-    let result = schema.validation(of: .string("test"))
+    let result = schema.validating(.string("test"))
     #expect(!result.valid)
     #expect(result.errors.first?.keyword == "oneOf")
   }
@@ -702,7 +702,7 @@ struct JSONSchemaNotTests {
     let schema = try JSONSchema(
       schema: .object(["not": .object(["type": .string("number")])])
     )
-    #expect(schema.validation(of: .string("test")).valid)
+    #expect(schema.validating(.string("test")).valid)
   }
 
   @Test("not — invalid when subschema matches")
@@ -710,7 +710,7 @@ struct JSONSchemaNotTests {
     let schema = try JSONSchema(
       schema: .object(["not": .object(["type": .string("string")])])
     )
-    let result = schema.validation(of: .string("test"))
+    let result = schema.validating(.string("test"))
     #expect(!result.valid)
     #expect(result.errors.first?.keyword == "not")
   }
@@ -718,7 +718,7 @@ struct JSONSchemaNotTests {
   @Test("not — missing keyword skips")
   func notMissing() throws {
     let schema = try JSONSchema(schema: .object([:]))
-    #expect(schema.validation(of: .string("test")).valid)
+    #expect(schema.validating(.string("test")).valid)
   }
 }
 
@@ -734,7 +734,7 @@ struct JSONSchemaIfThenElseTests {
         "then": .object(["minLength": .number(.integer(3))]),
       ])
     )
-    #expect(schema.validation(of: .string("hello")).valid)
+    #expect(schema.validating(.string("hello")).valid)
   }
 
   @Test("if/then — invalid when if matches but then fails")
@@ -745,7 +745,7 @@ struct JSONSchemaIfThenElseTests {
         "then": .object(["minLength": .number(.integer(10))]),
       ])
     )
-    let result = schema.validation(of: .string("hello"))
+    let result = schema.validating(.string("hello"))
     #expect(!result.valid)
     #expect(result.errors.first?.keyword == "then")
   }
@@ -758,7 +758,7 @@ struct JSONSchemaIfThenElseTests {
         "else": .object(["minLength": .number(.integer(3))]),
       ])
     )
-    #expect(schema.validation(of: .number(.integer(42))).valid)
+    #expect(schema.validating(.number(.integer(42))).valid)
   }
 
   @Test("if/else — invalid when if fails and else fails")
@@ -769,7 +769,7 @@ struct JSONSchemaIfThenElseTests {
         "else": .object(["type": .string("string")]),
       ])
     )
-    let result = schema.validation(of: .number(.integer(42)))
+    let result = schema.validating(.number(.integer(42)))
     #expect(!result.valid)
     #expect(result.errors.first?.keyword == "else")
   }
@@ -777,8 +777,8 @@ struct JSONSchemaIfThenElseTests {
   @Test("if alone — no then/else, if result doesn't affect validity")
   func ifAlone() throws {
     let schema = try JSONSchema(schema: .object(["if": .object(["type": .string("number")])]))
-    #expect(schema.validation(of: .string("test")).valid)
-    #expect(schema.validation(of: .number(.integer(42))).valid)
+    #expect(schema.validating(.string("test")).valid)
+    #expect(schema.validating(.number(.integer(42))).valid)
   }
 
   @Test("if/then/else — full conditional")
@@ -790,10 +790,10 @@ struct JSONSchemaIfThenElseTests {
         "else": .object(["type": .string("string")]),
       ])
     )
-    #expect(schema.validation(of: .number(.integer(42))).valid)
-    #expect(schema.validation(of: .number(.integer(-1))).valid == false)
-    #expect(schema.validation(of: .string("test")).valid)
-    #expect(schema.validation(of: .boolean(true)).valid == false)
+    #expect(schema.validating(.number(.integer(42))).valid)
+    #expect(schema.validating(.number(.integer(-1))).valid == false)
+    #expect(schema.validating(.string("test")).valid)
+    #expect(schema.validating(.boolean(true)).valid == false)
   }
 }
 
@@ -811,7 +811,7 @@ struct JSONSchemaDependentSchemasTests {
       ])
     )
     let doc: JSON = .object(["name": .string("Alice")])
-    #expect(schema.validation(of: doc).valid)
+    #expect(schema.validating(doc).valid)
   }
 
   @Test("dependentSchemas — valid when dependency key is present and schema matches")
@@ -824,7 +824,7 @@ struct JSONSchemaDependentSchemasTests {
       ])
     )
     let doc: JSON = .object(["credit_card": .string("1234"), "number": .string("1234")])
-    #expect(schema.validation(of: doc).valid)
+    #expect(schema.validating(doc).valid)
   }
 
   @Test("dependentSchemas — invalid when dependency key is present and schema fails")
@@ -837,7 +837,7 @@ struct JSONSchemaDependentSchemasTests {
       ])
     )
     let doc: JSON = .object(["credit_card": .string("1234"), "number": .string("1234")])
-    let result = schema.validation(of: doc)
+    let result = schema.validating(doc)
     #expect(!result.valid)
     #expect(result.errors.first?.keyword == "dependentSchemas")
   }
@@ -853,7 +853,7 @@ struct JSONSchemaDependentSchemasTests {
       ])
     )
     let doc: JSON = .object(["a": .string("x"), "b": .string("y")])
-    #expect(schema.validation(of: doc).valid)
+    #expect(schema.validating(doc).valid)
   }
 }
 
@@ -871,7 +871,7 @@ struct JSONSchemaDependentRequiredTests {
       ])
     )
     let doc: JSON = .object(["name": .string("Alice")])
-    #expect(schema.validation(of: doc).valid)
+    #expect(schema.validating(doc).valid)
   }
 
   @Test("dependentRequired — valid when dependency key is present and required keys are present")
@@ -886,7 +886,7 @@ struct JSONSchemaDependentRequiredTests {
     let doc: JSON = .object([
       "credit_card": .string("x"), "number": .string("1234"), "cvc": .string("789"),
     ])
-    #expect(schema.validation(of: doc).valid)
+    #expect(schema.validating(doc).valid)
   }
 
   @Test("dependentRequired — invalid when dependency key is present but required keys are missing")
@@ -899,7 +899,7 @@ struct JSONSchemaDependentRequiredTests {
       ])
     )
     let doc: JSON = .object(["credit_card": .string("x"), "number": .string("1234")])
-    let result = schema.validation(of: doc)
+    let result = schema.validating(doc)
     #expect(!result.valid)
     #expect(result.errors.first?.keyword == "dependentRequired")
   }
@@ -915,7 +915,7 @@ struct JSONSchemaDependentRequiredTests {
       ])
     )
     let doc: JSON = .object(["a": .string("x")])
-    let result = schema.validation(of: doc)
+    let result = schema.validating(doc)
     #expect(!result.valid)
     #expect(result.errors.first?.keyword == "dependentRequired")
     #expect(result.errors.first?.message.contains("b") == true)
@@ -931,7 +931,7 @@ struct JSONSchemaDependentRequiredTests {
       ])
     )
     let doc: JSON = .object(["credit_card": .string("x")])
-    let result = schema.validation(of: doc)
+    let result = schema.validating(doc)
     #expect(result.errors.count == 2)
     #expect(result.errors.allSatisfy { $0.keyword == "dependentRequired" })
   }
@@ -944,13 +944,13 @@ struct JSONSchemaItemsTests {
   @Test("items — schema mode (Draft 2020-12) — valid")
   func itemsSchemaValid() throws {
     let schema = try JSONSchema(schema: .object(["items": .object(["type": .string("string")])]))
-    #expect(schema.validation(of: .array([.string("a"), .string("b")])).valid)
+    #expect(schema.validating(.array([.string("a"), .string("b")])).valid)
   }
 
   @Test("items — schema mode — invalid")
   func itemsSchemaInvalid() throws {
     let schema = try JSONSchema(schema: .object(["items": .object(["type": .string("string")])]))
-    let result = schema.validation(of: .array([.string("a"), .number(.integer(1))]))
+    let result = schema.validating(.array([.string("a"), .number(.integer(1))]))
     #expect(!result.valid)
     #expect(
       result.errors.map(\.keyword).contains("items")
@@ -969,7 +969,7 @@ struct JSONSchemaItemsTests {
         ])
       ]), draft: .draft7
     )
-    #expect(schema.validation(of: .array([.string("a"), .number(.integer(1))])).valid)
+    #expect(schema.validating(.array([.string("a"), .number(.integer(1))])).valid)
   }
 
   @Test("items — Draft 7 tuple mode — invalid")
@@ -982,14 +982,14 @@ struct JSONSchemaItemsTests {
         ])
       ]), draft: .draft7
     )
-    let result = schema.validation(of: .array([.string("a"), .string("b")]))
+    let result = schema.validating(.array([.string("a"), .string("b")]))
     #expect(!result.valid)
   }
 
   @Test("items — non-array value skips")
   func itemsNonArray() throws {
     let schema = try JSONSchema(schema: .object(["items": .object(["type": .string("string")])]))
-    #expect(schema.validation(of: .string("hello")).valid)
+    #expect(schema.validating(.string("hello")).valid)
   }
 }
 
@@ -1005,7 +1005,7 @@ struct JSONSchemaPrefixItemsTests {
         ])
       ])
     )
-    #expect(schema.validation(of: .array([.string("a"), .number(.integer(1))])).valid)
+    #expect(schema.validating(.array([.string("a"), .number(.integer(1))])).valid)
   }
 
   @Test("prefixItems — invalid")
@@ -1017,7 +1017,7 @@ struct JSONSchemaPrefixItemsTests {
         ])
       ])
     )
-    let result = schema.validation(of: .array([.number(.integer(1))]))
+    let result = schema.validating(.array([.number(.integer(1))]))
     #expect(!result.valid)
     #expect(
       result.errors.map(\.keyword).contains("prefixItems")
@@ -1031,7 +1031,7 @@ struct JSONSchemaPrefixItemsTests {
     let schema = try JSONSchema(
       schema: .object(["prefixItems": .array([.object(["type": .string("string")])])])
     )
-    #expect(schema.validation(of: .string("hello")).valid)
+    #expect(schema.validating(.string("hello")).valid)
   }
 }
 
@@ -1040,14 +1040,14 @@ struct JSONSchemaMinMaxItemsTests {
   @Test("minItems — valid")
   func minItemsValid() throws {
     let schema = try JSONSchema(schema: .object(["minItems": .number(.integer(2))]))
-    #expect(schema.validation(of: .array([.string("a"), .string("b")])).valid)
-    #expect(schema.validation(of: .array([.string("a"), .string("b"), .string("c")])).valid)
+    #expect(schema.validating(.array([.string("a"), .string("b")])).valid)
+    #expect(schema.validating(.array([.string("a"), .string("b"), .string("c")])).valid)
   }
 
   @Test("minItems — invalid")
   func minItemsInvalid() throws {
     let schema = try JSONSchema(schema: .object(["minItems": .number(.integer(3))]))
-    let result = schema.validation(of: .array([.string("a"), .string("b")]))
+    let result = schema.validating(.array([.string("a"), .string("b")]))
     #expect(!result.valid)
     #expect(result.errors.first?.keyword == "minItems")
   }
@@ -1055,14 +1055,14 @@ struct JSONSchemaMinMaxItemsTests {
   @Test("maxItems — valid")
   func maxItemsValid() throws {
     let schema = try JSONSchema(schema: .object(["maxItems": .number(.integer(3))]))
-    #expect(schema.validation(of: .array([.string("a"), .string("b")])).valid)
-    #expect(schema.validation(of: .array([.string("a")])).valid)
+    #expect(schema.validating(.array([.string("a"), .string("b")])).valid)
+    #expect(schema.validating(.array([.string("a")])).valid)
   }
 
   @Test("maxItems — invalid")
   func maxItemsInvalid() throws {
     let schema = try JSONSchema(schema: .object(["maxItems": .number(.integer(2))]))
-    let result = schema.validation(of: .array([.string("a"), .string("b"), .string("c")]))
+    let result = schema.validating(.array([.string("a"), .string("b"), .string("c")]))
     #expect(!result.valid)
     #expect(result.errors.first?.keyword == "maxItems")
   }
@@ -1072,7 +1072,7 @@ struct JSONSchemaMinMaxItemsTests {
     let schema = try JSONSchema(
       schema: .object(["minItems": .number(.integer(2)), "maxItems": .number(.integer(5))])
     )
-    #expect(schema.validation(of: .string("hello")).valid)
+    #expect(schema.validating(.string("hello")).valid)
   }
 }
 
@@ -1081,13 +1081,13 @@ struct JSONSchemaUniqueItemsTests {
   @Test("uniqueItems — valid (all unique)")
   func uniqueItemsValid() throws {
     let schema = try JSONSchema(schema: .object(["uniqueItems": .boolean(true)]))
-    #expect(schema.validation(of: .array([.string("a"), .string("b")])).valid)
+    #expect(schema.validating(.array([.string("a"), .string("b")])).valid)
   }
 
   @Test("uniqueItems — invalid (duplicates)")
   func uniqueItemsInvalid() throws {
     let schema = try JSONSchema(schema: .object(["uniqueItems": .boolean(true)]))
-    let result = schema.validation(of: .array([.string("a"), .string("a")]))
+    let result = schema.validating(.array([.string("a"), .string("a")]))
     #expect(!result.valid)
     #expect(result.errors.first?.keyword == "uniqueItems")
   }
@@ -1095,19 +1095,19 @@ struct JSONSchemaUniqueItemsTests {
   @Test("uniqueItems — false disables check")
   func uniqueItemsFalse() throws {
     let schema = try JSONSchema(schema: .object(["uniqueItems": .boolean(false)]))
-    #expect(schema.validation(of: .array([.string("a"), .string("a")])).valid)
+    #expect(schema.validating(.array([.string("a"), .string("a")])).valid)
   }
 
   @Test("uniqueItems — non-array skips")
   func uniqueItemsNonArray() throws {
     let schema = try JSONSchema(schema: .object(["uniqueItems": .boolean(true)]))
-    #expect(schema.validation(of: .string("hello")).valid)
+    #expect(schema.validating(.string("hello")).valid)
   }
 
   @Test("uniqueItems — integer 1 and float 1.0 are considered equal")
   func uniqueItemsIntFloat() throws {
     let schema = try JSONSchema(schema: .object(["uniqueItems": .boolean(true)]))
-    let result = schema.validation(of: .array([.number(.integer(1)), .number(.float(1.0))]))
+    let result = schema.validating(.array([.number(.integer(1)), .number(.float(1.0))]))
     #expect(!result.valid)
     #expect(result.errors.first?.keyword == "uniqueItems")
   }
@@ -1118,13 +1118,13 @@ struct JSONSchemaContainsTests {
   @Test("contains — valid (at least one matches)")
   func containsValid() throws {
     let schema = try JSONSchema(schema: .object(["contains": .object(["type": .string("string")])]))
-    #expect(schema.validation(of: .array([.number(.integer(1)), .string("hello")])).valid)
+    #expect(schema.validating(.array([.number(.integer(1)), .string("hello")])).valid)
   }
 
   @Test("contains — invalid (none match)")
   func containsInvalid() throws {
     let schema = try JSONSchema(schema: .object(["contains": .object(["type": .string("string")])]))
-    let result = schema.validation(of: .array([.number(.integer(1)), .number(.integer(2))]))
+    let result = schema.validating(.array([.number(.integer(1)), .number(.integer(2))]))
     #expect(!result.valid)
     #expect(result.errors.first?.keyword == "contains")
   }
@@ -1132,14 +1132,14 @@ struct JSONSchemaContainsTests {
   @Test("contains — empty array fails")
   func containsEmpty() throws {
     let schema = try JSONSchema(schema: .object(["contains": .object(["type": .string("string")])]))
-    let result = schema.validation(of: .array([]))
+    let result = schema.validating(.array([]))
     #expect(!result.valid)
   }
 
   @Test("contains — non-array skips")
   func containsNonArray() throws {
     let schema = try JSONSchema(schema: .object(["contains": .object(["type": .string("string")])]))
-    #expect(schema.validation(of: .string("hello")).valid)
+    #expect(schema.validating(.string("hello")).valid)
   }
 
   @Test("contains — TODO: minContains/maxContains not yet supported")
@@ -1154,7 +1154,7 @@ struct JSONSchemaContainsTests {
       ])
     )
     // minContains is now enforced — 2 required but only 1 match
-    #expect(!schema.validation(of: .array([.number(.integer(1)), .string("hello")])).valid)
+    #expect(!schema.validating(.array([.number(.integer(1)), .string("hello")])).valid)
   }
 }
 
@@ -1165,14 +1165,14 @@ struct JSONSchemaMinMaxPropertiesTests {
   @Test("minProperties — valid")
   func minPropertiesValid() throws {
     let schema = try JSONSchema(schema: .object(["minProperties": .number(.integer(1))]))
-    #expect(schema.validation(of: .object(["a": .string("x")])).valid)
-    #expect(schema.validation(of: .object(["a": .string("x"), "b": .string("y")])).valid)
+    #expect(schema.validating(.object(["a": .string("x")])).valid)
+    #expect(schema.validating(.object(["a": .string("x"), "b": .string("y")])).valid)
   }
 
   @Test("minProperties — invalid")
   func minPropertiesInvalid() throws {
     let schema = try JSONSchema(schema: .object(["minProperties": .number(.integer(2))]))
-    let result = schema.validation(of: .object(["a": .string("x")]))
+    let result = schema.validating(.object(["a": .string("x")]))
     #expect(!result.valid)
     #expect(result.errors.first?.keyword == "minProperties")
   }
@@ -1180,14 +1180,14 @@ struct JSONSchemaMinMaxPropertiesTests {
   @Test("maxProperties — valid")
   func maxPropertiesValid() throws {
     let schema = try JSONSchema(schema: .object(["maxProperties": .number(.integer(3))]))
-    #expect(schema.validation(of: .object(["a": .string("x")])).valid)
-    #expect(schema.validation(of: .object(["a": .string("x"), "b": .string("y")])).valid)
+    #expect(schema.validating(.object(["a": .string("x")])).valid)
+    #expect(schema.validating(.object(["a": .string("x"), "b": .string("y")])).valid)
   }
 
   @Test("maxProperties — invalid")
   func maxPropertiesInvalid() throws {
     let schema = try JSONSchema(schema: .object(["maxProperties": .number(.integer(1))]))
-    let result = schema.validation(of: .object(["a": .string("x"), "b": .string("y")]))
+    let result = schema.validating(.object(["a": .string("x"), "b": .string("y")]))
     #expect(!result.valid)
     #expect(result.errors.first?.keyword == "maxProperties")
   }
@@ -1199,7 +1199,7 @@ struct JSONSchemaMinMaxPropertiesTests {
         "minProperties": .number(.integer(2)), "maxProperties": .number(.integer(5)),
       ])
     )
-    #expect(schema.validation(of: .string("hello")).valid)
+    #expect(schema.validating(.string("hello")).valid)
   }
 }
 
@@ -1210,7 +1210,7 @@ struct JSONSchemaPropertyNamesTests {
     let schema = try JSONSchema(
       schema: .object(["propertyNames": .object(["pattern": .string("^[a-z]+$")])])
     )
-    #expect(schema.validation(of: .object(["name": .string("Alice")])).valid)
+    #expect(schema.validating(.object(["name": .string("Alice")])).valid)
   }
 
   @Test("propertyNames — invalid (key fails schema)")
@@ -1218,7 +1218,7 @@ struct JSONSchemaPropertyNamesTests {
     let schema = try JSONSchema(
       schema: .object(["propertyNames": .object(["pattern": .string("^[a-z]+$")])])
     )
-    let result = schema.validation(of: .object(["NAME": .string("Alice")]))
+    let result = schema.validating(.object(["NAME": .string("Alice")]))
     #expect(!result.valid)
     #expect(result.errors.first?.keyword == "propertyNames")
   }
@@ -1228,7 +1228,7 @@ struct JSONSchemaPropertyNamesTests {
     let schema = try JSONSchema(
       schema: .object(["propertyNames": .object(["type": .string("string")])])
     )
-    #expect(schema.validation(of: .string("hello")).valid)
+    #expect(schema.validating(.string("hello")).valid)
   }
 
   @Test("propertyNames — inner dispatch preserves parent keyword")
@@ -1237,7 +1237,7 @@ struct JSONSchemaPropertyNamesTests {
     let schema = try JSONSchema(
       schema: .object(["propertyNames": .object(["maxLength": .number(.integer(3))])])
     )
-    let result = schema.validation(of: .object(["abcd": .number(.integer(1))]))
+    let result = schema.validating(.object(["abcd": .number(.integer(1))]))
     #expect(!result.valid)
     // The error keyword is "propertyNames" (parent wraps inner errors)
     #expect(result.errors.first?.keyword == "propertyNames")
@@ -1255,7 +1255,7 @@ struct JSONSchemaPatternPropertiesTests {
         ])
       ])
     )
-    #expect(schema.validation(of: .object(["name": .string("Alice")])).valid)
+    #expect(schema.validating(.object(["name": .string("Alice")])).valid)
   }
 
   @Test("patternProperties — invalid (value fails schema)")
@@ -1267,7 +1267,7 @@ struct JSONSchemaPatternPropertiesTests {
         ])
       ])
     )
-    let result = schema.validation(of: .object(["name": .string("Alice")]))
+    let result = schema.validating(.object(["name": .string("Alice")]))
     #expect(!result.valid)
     #expect(
       result.errors.map(\.keyword).contains("patternProperties")
@@ -1282,7 +1282,7 @@ struct JSONSchemaPatternPropertiesTests {
     let schema = try JSONSchema(
       schema: .object(["patternProperties": .object(["^.*$": propSchema])])
     )
-    #expect(schema.validation(of: .string("hello")).valid)
+    #expect(schema.validating(.string("hello")).valid)
   }
 
   @Test("patternProperties — invalid regex at init time")
@@ -1307,7 +1307,7 @@ struct JSONSchemaAdditionalPropertiesTests {
         "additionalProperties": .boolean(false),
       ]), draft: .draft7
     )
-    #expect(schema.validation(of: .object(["name": .string("Alice")])).valid)
+    #expect(schema.validating(.object(["name": .string("Alice")])).valid)
   }
 
   @Test("additionalProperties — invalid (key not covered)")
@@ -1318,8 +1318,8 @@ struct JSONSchemaAdditionalPropertiesTests {
         "additionalProperties": .boolean(false),
       ]), draft: .draft7
     )
-    let result = schema.validation(
-      of: .object(["name": .string("Alice"), "age": .number(.integer(30))])
+    let result = schema.validating(
+      .object(["name": .string("Alice"), "age": .number(.integer(30))])
     )
     #expect(!result.valid)
     // Error keyword is "false" from the boolean subschema, not "additionalProperties"
@@ -1331,7 +1331,7 @@ struct JSONSchemaAdditionalPropertiesTests {
     let schema = try JSONSchema(
       schema: .object(["additionalProperties": .boolean(false)]), draft: .draft7
     )
-    #expect(schema.validation(of: .string("hello")).valid)
+    #expect(schema.validating(.string("hello")).valid)
   }
 }
 
@@ -1345,7 +1345,7 @@ struct JSONSchemaUnevaluatedPropertiesTests {
         "unevaluatedProperties": .boolean(false),
       ])
     )
-    #expect(schema.validation(of: .object(["name": .string("Alice")])).valid)
+    #expect(schema.validating(.object(["name": .string("Alice")])).valid)
   }
 
   @Test("unevaluatedProperties — invalid (key not evaluated)")
@@ -1356,8 +1356,8 @@ struct JSONSchemaUnevaluatedPropertiesTests {
         "unevaluatedProperties": .boolean(false),
       ])
     )
-    let result = schema.validation(
-      of: .object(["name": .string("Alice"), "age": .number(.integer(30))])
+    let result = schema.validating(
+      .object(["name": .string("Alice"), "age": .number(.integer(30))])
     )
     #expect(!result.valid)
     // Error keyword is "false" from the boolean subschema, not "unevaluatedProperties"
@@ -1376,14 +1376,14 @@ struct JSONSchemaUnevaluatedPropertiesTests {
     )
     // All keys are evaluated by additionalProperties, so unevaluatedProperties
     // has nothing to check — the schema validates successfully.
-    let result = schema.validation(of: .object(["x": .string("hello")]))
+    let result = schema.validating(.object(["x": .string("hello")]))
     #expect(result.valid)
   }
 
   @Test("unevaluatedProperties — non-object skips")
   func unevaluatedPropertiesNonObject() throws {
     let schema = try JSONSchema(schema: .object(["unevaluatedProperties": .boolean(false)]))
-    #expect(schema.validation(of: .string("hello")).valid)
+    #expect(schema.validating(.string("hello")).valid)
   }
 }
 
@@ -1397,7 +1397,7 @@ struct JSONSchemaAdditionalItemsTests {
         "additionalItems": .object(["type": .string("number")]),
       ]), draft: .draft7
     )
-    #expect(schema.validation(of: .array([.string("a"), .number(.integer(1))])).valid)
+    #expect(schema.validating(.array([.string("a"), .number(.integer(1))])).valid)
   }
 
   @Test("additionalItems — Draft 7 invalid (beyond tuple fails)")
@@ -1408,7 +1408,7 @@ struct JSONSchemaAdditionalItemsTests {
         "additionalItems": .object(["type": .string("number")]),
       ]), draft: .draft7
     )
-    let result = schema.validation(of: .array([.string("a"), .string("b")]))
+    let result = schema.validating(.array([.string("a"), .string("b")]))
     #expect(!result.valid)
     #expect(
       result.errors.map(\.keyword).contains("additionalItems")
@@ -1422,7 +1422,7 @@ struct JSONSchemaAdditionalItemsTests {
     let schema = try JSONSchema(
       schema: .object(["additionalItems": .object(["type": .string("string")])]), draft: .draft7
     )
-    #expect(schema.validation(of: .string("hello")).valid)
+    #expect(schema.validating(.string("hello")).valid)
   }
 }
 
@@ -1436,7 +1436,7 @@ struct JSONSchemaUnevaluatedItemsTests {
         "unevaluatedItems": .object(["type": .string("number")]),
       ])
     )
-    #expect(schema.validation(of: .array([.string("a"), .number(.integer(1))])).valid)
+    #expect(schema.validating(.array([.string("a"), .number(.integer(1))])).valid)
   }
 
   @Test("unevaluatedItems — invalid (beyond prefix fails)")
@@ -1447,7 +1447,7 @@ struct JSONSchemaUnevaluatedItemsTests {
         "unevaluatedItems": .object(["type": .string("number")]),
       ])
     )
-    let result = schema.validation(of: .array([.string("a"), .string("b")]))
+    let result = schema.validating(.array([.string("a"), .string("b")]))
     #expect(!result.valid)
     #expect(
       result.errors.map(\.keyword).contains("unevaluatedItems")
@@ -1461,7 +1461,7 @@ struct JSONSchemaUnevaluatedItemsTests {
     let schema = try JSONSchema(
       schema: .object(["unevaluatedItems": .object(["type": .string("string")])])
     )
-    #expect(schema.validation(of: .string("hello")).valid)
+    #expect(schema.validating(.string("hello")).valid)
   }
 
   @Test("unevaluatedItems — items schema short-circuits unevaluatedItems")
@@ -1474,7 +1474,7 @@ struct JSONSchemaUnevaluatedItemsTests {
         "unevaluatedItems": .boolean(false),
       ])
     )
-    let result = schema.validation(of: .array([.string("a"), .string("b")]))
+    let result = schema.validating(.array([.string("a"), .string("b")]))
     #expect(result.valid)
   }
 
@@ -1491,7 +1491,7 @@ struct JSONSchemaUnevaluatedItemsTests {
     // Current behavior: unevaluatedItems fires on index 0 (which contains matched).
     // Correct behavior (spec): index 0 is evaluated by contains, so unevaluatedItems
     // should only check indices not matched by contains.
-    let result = schema.validation(of: .array([.number(.integer(1)), .number(.integer(2))]))
+    let result = schema.validating(.array([.number(.integer(1)), .number(.integer(2))]))
     // Current (deviant): fails — unevaluatedItems fires on index 0
     #expect(!result.valid)
     // Once contains tracking lands, this should pass (#expect(result.valid))
@@ -1505,9 +1505,9 @@ func formatDateTimeValid() throws {
   let schema = try JSONSchema(
     schema: .object(["format": .string("date-time")]), draft: .draft7
   )
-  #expect(schema.validation(of: .string("2025-01-01T12:00:00Z")).valid)
-  #expect(schema.validation(of: .string("2025-01-01T12:00:00.123Z")).valid)
-  #expect(schema.validation(of: .string("2025-01-01T12:00:00+05:30")).valid)
+  #expect(schema.validating(.string("2025-01-01T12:00:00Z")).valid)
+  #expect(schema.validating(.string("2025-01-01T12:00:00.123Z")).valid)
+  #expect(schema.validating(.string("2025-01-01T12:00:00+05:30")).valid)
 }
 
 @Test("format — date-time invalid")
@@ -1515,9 +1515,9 @@ func formatDateTimeInvalid() throws {
   let schema = try JSONSchema(
     schema: .object(["format": .string("date-time")]), draft: .draft7
   )
-  #expect(!schema.validation(of: .string("2025-01-01 12:00:00")).valid)
-  #expect(!schema.validation(of: .string("2025-01-01T12:00:00")).valid)  // no timezone
-  #expect(!schema.validation(of: .string("not-a-date")).valid)
+  #expect(!schema.validating(.string("2025-01-01 12:00:00")).valid)
+  #expect(!schema.validating(.string("2025-01-01T12:00:00")).valid)  // no timezone
+  #expect(!schema.validating(.string("not-a-date")).valid)
 }
 
 @Test("format — date valid")
@@ -1525,8 +1525,8 @@ func formatDateValid() throws {
   let schema = try JSONSchema(
     schema: .object(["format": .string("date")]), draft: .draft7
   )
-  #expect(schema.validation(of: .string("2025-01-01")).valid)
-  #expect(schema.validation(of: .string("2025-12-31")).valid)
+  #expect(schema.validating(.string("2025-01-01")).valid)
+  #expect(schema.validating(.string("2025-12-31")).valid)
 }
 
 @Test("format — date invalid")
@@ -1534,8 +1534,8 @@ func formatDateInvalid() throws {
   let schema = try JSONSchema(
     schema: .object(["format": .string("date")]), draft: .draft7
   )
-  #expect(!schema.validation(of: .string("2025-13-01")).valid)  // invalid month
-  #expect(!schema.validation(of: .string("not-a-date")).valid)
+  #expect(!schema.validating(.string("2025-13-01")).valid)  // invalid month
+  #expect(!schema.validating(.string("not-a-date")).valid)
 }
 
 @Test("format — time valid")
@@ -1543,9 +1543,9 @@ func formatTimeValid() throws {
   let schema = try JSONSchema(
     schema: .object(["format": .string("time")]), draft: .draft7
   )
-  #expect(schema.validation(of: .string("12:00:00")).valid)
-  #expect(schema.validation(of: .string("12:00:00Z")).valid)
-  #expect(schema.validation(of: .string("12:00:00.123Z")).valid)
+  #expect(schema.validating(.string("12:00:00")).valid)
+  #expect(schema.validating(.string("12:00:00Z")).valid)
+  #expect(schema.validating(.string("12:00:00.123Z")).valid)
 }
 
 @Test("format — time invalid")
@@ -1553,8 +1553,8 @@ func formatTimeInvalid() throws {
   let schema = try JSONSchema(
     schema: .object(["format": .string("time")]), draft: .draft7
   )
-  #expect(!schema.validation(of: .string("25:00:00")).valid)  // invalid hour
-  #expect(!schema.validation(of: .string("not-a-time")).valid)
+  #expect(!schema.validating(.string("25:00:00")).valid)  // invalid hour
+  #expect(!schema.validating(.string("not-a-time")).valid)
 }
 
 @Test("format — duration valid")
@@ -1562,9 +1562,9 @@ func formatDurationValid() throws {
   let schema = try JSONSchema(
     schema: .object(["format": .string("duration")]), draft: .draft7
   )
-  #expect(schema.validation(of: .string("P1Y")).valid)
-  #expect(schema.validation(of: .string("P1Y2M3DT4H5M6S")).valid)
-  #expect(schema.validation(of: .string("PT1H")).valid)
+  #expect(schema.validating(.string("P1Y")).valid)
+  #expect(schema.validating(.string("P1Y2M3DT4H5M6S")).valid)
+  #expect(schema.validating(.string("PT1H")).valid)
 }
 
 @Test("format — duration invalid")
@@ -1572,8 +1572,8 @@ func formatDurationInvalid() throws {
   let schema = try JSONSchema(
     schema: .object(["format": .string("duration")]), draft: .draft7
   )
-  #expect(!schema.validation(of: .string("P")).valid)
-  #expect(!schema.validation(of: .string("PT")).valid)
+  #expect(!schema.validating(.string("P")).valid)
+  #expect(!schema.validating(.string("PT")).valid)
 }
 
 @Test("format — email valid")
@@ -1581,8 +1581,8 @@ func formatEmailValid() throws {
   let schema = try JSONSchema(
     schema: .object(["format": .string("email")]), draft: .draft7
   )
-  #expect(schema.validation(of: .string("user@example.com")).valid)
-  #expect(schema.validation(of: .string("a.b@c.d")).valid)
+  #expect(schema.validating(.string("user@example.com")).valid)
+  #expect(schema.validating(.string("a.b@c.d")).valid)
 }
 
 @Test("format — email invalid")
@@ -1590,10 +1590,10 @@ func formatEmailInvalid() throws {
   let schema = try JSONSchema(
     schema: .object(["format": .string("email")]), draft: .draft7
   )
-  #expect(!schema.validation(of: .string("not-an-email")).valid)
-  #expect(!schema.validation(of: .string("@example.com")).valid)
-  #expect(!schema.validation(of: .string("user@example.")).valid)  // empty TLD
-  #expect(!schema.validation(of: .string("user@.com")).valid)  // no domain
+  #expect(!schema.validating(.string("not-an-email")).valid)
+  #expect(!schema.validating(.string("@example.com")).valid)
+  #expect(!schema.validating(.string("user@example.")).valid)  // empty TLD
+  #expect(!schema.validating(.string("user@.com")).valid)  // no domain
 }
 
 @Test("format — hostname valid")
@@ -1601,8 +1601,8 @@ func formatHostnameValid() throws {
   let schema = try JSONSchema(
     schema: .object(["format": .string("hostname")]), draft: .draft7
   )
-  #expect(schema.validation(of: .string("example.com")).valid)
-  #expect(schema.validation(of: .string("my-host.example.com")).valid)
+  #expect(schema.validating(.string("example.com")).valid)
+  #expect(schema.validating(.string("my-host.example.com")).valid)
 }
 
 @Test("format — hostname invalid")
@@ -1610,7 +1610,7 @@ func formatHostnameInvalid() throws {
   let schema = try JSONSchema(
     schema: .object(["format": .string("hostname")]), draft: .draft7
   )
-  #expect(!schema.validation(of: .string("not_a_hostname")).valid)
+  #expect(!schema.validating(.string("not_a_hostname")).valid)
 }
 
 @Test("format — hostname single-label")
@@ -1618,8 +1618,8 @@ func formatHostnameSingleLabel() throws {
   let schema = try JSONSchema(
     schema: .object(["format": .string("hostname")]), draft: .draft7
   )
-  #expect(schema.validation(of: .string("localhost")).valid)
-  #expect(schema.validation(of: .string("myhost")).valid)
+  #expect(schema.validating(.string("localhost")).valid)
+  #expect(schema.validating(.string("myhost")).valid)
 }
 
 @Test("format — ipv4 valid")
@@ -1627,8 +1627,8 @@ func formatIPv4Valid() throws {
   let schema = try JSONSchema(
     schema: .object(["format": .string("ipv4")]), draft: .draft7
   )
-  #expect(schema.validation(of: .string("192.168.1.1")).valid)
-  #expect(schema.validation(of: .string("127.0.0.1")).valid)
+  #expect(schema.validating(.string("192.168.1.1")).valid)
+  #expect(schema.validating(.string("127.0.0.1")).valid)
 }
 
 @Test("format — ipv4 invalid")
@@ -1636,8 +1636,8 @@ func formatIPv4Invalid() throws {
   let schema = try JSONSchema(
     schema: .object(["format": .string("ipv4")]), draft: .draft7
   )
-  #expect(!schema.validation(of: .string("300.0.0.0")).valid)
-  #expect(!schema.validation(of: .string("not-an-ip")).valid)
+  #expect(!schema.validating(.string("300.0.0.0")).valid)
+  #expect(!schema.validating(.string("not-an-ip")).valid)
 }
 
 @Test("format — ipv6 valid")
@@ -1645,8 +1645,8 @@ func formatIPv6Valid() throws {
   let schema = try JSONSchema(
     schema: .object(["format": .string("ipv6")]), draft: .draft7
   )
-  #expect(schema.validation(of: .string("::1")).valid)
-  #expect(schema.validation(of: .string("fe80::1")).valid)
+  #expect(schema.validating(.string("::1")).valid)
+  #expect(schema.validating(.string("fe80::1")).valid)
 }
 
 @Test("format — ipv6 invalid")
@@ -1654,7 +1654,7 @@ func formatIPv6Invalid() throws {
   let schema = try JSONSchema(
     schema: .object(["format": .string("ipv6")]), draft: .draft7
   )
-  #expect(!schema.validation(of: .string("not-an-ipv6")).valid)
+  #expect(!schema.validating(.string("not-an-ipv6")).valid)
 }
 
 @Test("format — uuid valid")
@@ -1662,7 +1662,7 @@ func formatUUIDValid() throws {
   let schema = try JSONSchema(
     schema: .object(["format": .string("uuid")]), draft: .draft7
   )
-  #expect(schema.validation(of: .string("f47ac10b-58cc-4372-a567-0e02b2c3d479")).valid)
+  #expect(schema.validating(.string("f47ac10b-58cc-4372-a567-0e02b2c3d479")).valid)
 }
 
 @Test("format — uuid invalid")
@@ -1670,7 +1670,7 @@ func formatUUIDInvalid() throws {
   let schema = try JSONSchema(
     schema: .object(["format": .string("uuid")]), draft: .draft7
   )
-  #expect(!schema.validation(of: .string("not-a-uuid")).valid)
+  #expect(!schema.validating(.string("not-a-uuid")).valid)
 }
 
 @Test("format — uri valid")
@@ -1678,9 +1678,9 @@ func formatURIValid() throws {
   let schema = try JSONSchema(
     schema: .object(["format": .string("uri")]), draft: .draft7
   )
-  #expect(schema.validation(of: .string("https://example.com")).valid)
-  #expect(schema.validation(of: .string("https://example.com/path")).valid)
-  #expect(schema.validation(of: .string("ftp://ftp.example.com")).valid)
+  #expect(schema.validating(.string("https://example.com")).valid)
+  #expect(schema.validating(.string("https://example.com/path")).valid)
+  #expect(schema.validating(.string("ftp://ftp.example.com")).valid)
 }
 
 @Test("format — uri invalid")
@@ -1688,8 +1688,8 @@ func formatURIInvalid() throws {
   let schema = try JSONSchema(
     schema: .object(["format": .string("uri")]), draft: .draft7
   )
-  #expect(!schema.validation(of: .string("/relative/path")).valid)  // no scheme
-  #expect(!schema.validation(of: .string("not-a-uri")).valid)
+  #expect(!schema.validating(.string("/relative/path")).valid)  // no scheme
+  #expect(!schema.validating(.string("not-a-uri")).valid)
 }
 
 @Test("format — uri-reference valid")
@@ -1697,9 +1697,9 @@ func formatURIReferenceValid() throws {
   let schema = try JSONSchema(
     schema: .object(["format": .string("uri-reference")]), draft: .draft7
   )
-  #expect(schema.validation(of: .string("/relative/path")).valid)
-  #expect(schema.validation(of: .string("#fragment")).valid)
-  #expect(schema.validation(of: .string("https://example.com")).valid)
+  #expect(schema.validating(.string("/relative/path")).valid)
+  #expect(schema.validating(.string("#fragment")).valid)
+  #expect(schema.validating(.string("https://example.com")).valid)
 }
 
 @Test("format — uri-reference invalid")
@@ -1707,7 +1707,7 @@ func formatURIReferenceInvalid() throws {
   let schema = try JSONSchema(
     schema: .object(["format": .string("uri-reference")]), draft: .draft7
   )
-  #expect(!schema.validation(of: .string("")).valid)  // empty string is not a valid URI
+  #expect(!schema.validating(.string("")).valid)  // empty string is not a valid URI
 }
 
 @Test("format — json-pointer valid")
@@ -1715,8 +1715,8 @@ func formatJSONPointerValid() throws {
   let schema = try JSONSchema(
     schema: .object(["format": .string("json-pointer")]), draft: .draft7
   )
-  #expect(schema.validation(of: .string("")).valid)  // root
-  #expect(schema.validation(of: .string("/foo/bar")).valid)
+  #expect(schema.validating(.string("")).valid)  // root
+  #expect(schema.validating(.string("/foo/bar")).valid)
 }
 
 @Test("format — json-pointer invalid")
@@ -1724,7 +1724,7 @@ func formatJSONPointerInvalid() throws {
   let schema = try JSONSchema(
     schema: .object(["format": .string("json-pointer")]), draft: .draft7
   )
-  #expect(!schema.validation(of: .string("no-leading-slash")).valid)
+  #expect(!schema.validating(.string("no-leading-slash")).valid)
 }
 
 @Test("format — regex valid")
@@ -1732,7 +1732,7 @@ func formatRegexValid() throws {
   let schema = try JSONSchema(
     schema: .object(["format": .string("regex")]), draft: .draft7
   )
-  #expect(schema.validation(of: .string("^[a-z]+$")).valid)
+  #expect(schema.validating(.string("^[a-z]+$")).valid)
 }
 
 @Test("format — regex invalid")
@@ -1740,7 +1740,7 @@ func formatRegexInvalid() throws {
   let schema = try JSONSchema(
     schema: .object(["format": .string("regex")]), draft: .draft7
   )
-  #expect(!schema.validation(of: .string("[invalid")).valid)
+  #expect(!schema.validating(.string("[invalid")).valid)
 }
 
 @Test("format — non-string skips validation")
@@ -1748,8 +1748,8 @@ func formatNonString() throws {
   let schema = try JSONSchema(
     schema: .object(["format": .string("email")]), draft: .draft7
   )
-  #expect(schema.validation(of: .number(.integer(42))).valid)
-  #expect(schema.validation(of: .object([:])).valid)
+  #expect(schema.validating(.number(.integer(42))).valid)
+  #expect(schema.validating(.object([:])).valid)
 }
 
 @Test("format — unknown format skips validation")
@@ -1757,7 +1757,7 @@ func formatUnknown() throws {
   let schema = try JSONSchema(
     schema: .object(["format": .string("nonexistent-format")]), draft: .draft7
   )
-  #expect(schema.validation(of: .string("anything")).valid)
+  #expect(schema.validating(.string("anything")).valid)
 }
 
 @Test("format — draft202012 annotation mode (no assertion)")
@@ -1767,7 +1767,7 @@ func formatDraft202012Annotation() throws {
   let schema = try JSONSchema(
     schema: .object(["format": .string("email")])
   )
-  #expect(schema.validation(of: .string("not-an-email")).valid)
+  #expect(schema.validating(.string("not-an-email")).valid)
 }
 
 @Test("format — draft7 assertion mode")
@@ -1777,7 +1777,7 @@ func formatDraft7Assertion() throws {
     schema: .object(["format": .string("email")]), draft: .draft7
   )
   // Invalid emails should fail validation in assertion mode
-  #expect(!schema.validation(of: .string("not-an-email")).valid)
+  #expect(!schema.validating(.string("not-an-email")).valid)
 }
 
 @Test("format — disabled format skips validation")
@@ -1787,13 +1787,13 @@ func formatDisabled() throws {
   let schema = try JSONSchema(
     schema: .object(["format": .string("email")]), draft: .draft7, formatOptions: opts
   )
-  #expect(schema.validation(of: .string("not-an-email")).valid)
+  #expect(schema.validating(.string("not-an-email")).valid)
 }
 
 @Test("format — format keyword absent skips")
 func formatAbsent() throws {
   let schema = try JSONSchema(schema: .object([:]))
-  #expect(schema.validation(of: .string("anything")).valid)
+  #expect(schema.validating(.string("anything")).valid)
 }
 
 // MARK: - Content Keywords
@@ -1806,15 +1806,15 @@ func contentMediaTypeAnnotation() throws {
     ])
   )
   // contentMediaType is an annotation — always passes
-  #expect(schema.validation(of: .string("some content")).valid)
-  #expect(schema.validation(of: .number(.integer(42))).valid)
-  #expect(schema.validation(of: .null).valid)
+  #expect(schema.validating(.string("some content")).valid)
+  #expect(schema.validating(.number(.integer(42))).valid)
+  #expect(schema.validating(.null).valid)
 }
 
 @Test("contentMediaType — absent keyword skips")
 func contentMediaTypeAbsent() throws {
   let schema = try JSONSchema(schema: .object([:]))
-  #expect(schema.validation(of: .string("test")).valid)
+  #expect(schema.validating(.string("test")).valid)
 }
 
 @Test("contentEncoding — annotation only, no validation errors")
@@ -1825,14 +1825,14 @@ func contentEncodingAnnotation() throws {
     ])
   )
   // contentEncoding is an annotation — always passes
-  #expect(schema.validation(of: .string("dGVzdA==")).valid)
-  #expect(schema.validation(of: .number(.integer(1))).valid)
+  #expect(schema.validating(.string("dGVzdA==")).valid)
+  #expect(schema.validating(.number(.integer(1))).valid)
 }
 
 @Test("contentEncoding — absent keyword skips")
 func contentEncodingAbsent() throws {
   let schema = try JSONSchema(schema: .object([:]))
-  #expect(schema.validation(of: .string("test")).valid)
+  #expect(schema.validating(.string("test")).valid)
 }
 
 @Test("contentSchema — valid JSON string passes")
@@ -1843,7 +1843,7 @@ func contentSchemaValidJSON() throws {
     ])
   )
   // The string is parsed as JSON and validated against contentSchema
-  #expect(schema.validation(of: .string("{\"key\":\"value\"}")).valid)
+  #expect(schema.validating(.string("{\"key\":\"value\"}")).valid)
 }
 
 @Test("contentSchema — valid base64 encoded JSON passes")
@@ -1855,7 +1855,7 @@ func contentSchemaValidBase64() throws {
     ])
   )
   // Base64 of {"key":"value"}
-  #expect(schema.validation(of: .string("eyJrZXkiOiJ2YWx1ZSJ9")).valid)
+  #expect(schema.validating(.string("eyJrZXkiOiJ2YWx1ZSJ9")).valid)
 }
 
 @Test("contentSchema — invalid JSON fails")
@@ -1866,7 +1866,7 @@ func contentSchemaInvalidJSON() throws {
     ])
   )
   // contentSchema is an annotation — no validation errors produced
-  let result = schema.validation(of: .string("not-json"))
+  let result = schema.validating(.string("not-json"))
   #expect(result.valid)
 }
 
@@ -1879,7 +1879,7 @@ func contentSchemaInvalidBase64() throws {
     ])
   )
   // contentSchema is an annotation — no validation errors produced
-  let result = schema.validation(of: .string("not-valid-base64!!"))
+  let result = schema.validating(.string("not-valid-base64!!"))
   #expect(result.valid)
 }
 
@@ -1891,7 +1891,7 @@ func contentSchemaNonString() throws {
     ])
   )
   // Non-string values are skipped by contentSchema
-  #expect(schema.validation(of: .number(.integer(42))).valid)
+  #expect(schema.validating(.number(.integer(42))).valid)
 }
 
 @Test("contentSchema — decoded JSON fails contentSchema validation")
@@ -1905,14 +1905,14 @@ func contentSchemaDecodedFails() throws {
     ])
   )
   // contentSchema is an annotation — no validation errors produced
-  let result = schema.validation(of: .string("{\"age\":30}"))
+  let result = schema.validating(.string("{\"age\":30}"))
   #expect(result.valid)
 }
 
 @Test("contentSchema — absent keyword skips")
 func contentSchemaAbsent() throws {
   let schema = try JSONSchema(schema: .object([:]))
-  #expect(schema.validation(of: .string("test")).valid)
+  #expect(schema.validating(.string("test")).valid)
 }
 
 @Test("contentSchema — base64 decodes to non-UTF-8 data fails")
@@ -1924,6 +1924,6 @@ func contentSchemaBase64NonUTF8() throws {
     ])
   )
   // contentSchema is an annotation — no validation errors produced
-  let result = schema.validation(of: .string("/g=="))
+  let result = schema.validating(.string("/g=="))
   #expect(result.valid)
 }

@@ -3,7 +3,7 @@ import OrderedCollections
 
 /// A JSON encoder that produces `JSON` values with preserved key order.
 ///
-/// - Important: Set `userInfo` before calling `encode`/`encodeToString`;
+/// - Important: Set `userInfo` before calling `encode`/`encodeAsString`;
 ///   mutations after the call do not propagate to nested containers.
 public struct OrderedJSONEncoder {
   /// The user info dictionary for the encoder, propagated to all nested encoders.
@@ -34,9 +34,9 @@ public struct OrderedJSONEncoder {
     return impl.json
   }
 
-  public func encodeToString<T: Encodable>(_ value: T) throws -> String {
+  public func encodeAsString<T: Encodable>(_ value: T) throws -> String {
     let json = try encode(value)
-    return json.dump(indent: -1)
+    return json.dump(indent: nil)
   }
 }
 

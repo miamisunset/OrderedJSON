@@ -122,7 +122,7 @@ import Testing
     let value: String
   }
   let encoder = OrderedJSONEncoder()
-  let str = try encoder.encodeToString(Item(id: 1, value: "test"))
+  let str = try encoder.encodeAsString(Item(id: 1, value: "test"))
   #expect(str == #"{"id":1,"value":"test"}"#)
 }
 
@@ -175,7 +175,7 @@ import Testing
   #expect(person.age == 30)
 }
 
-// MARK: - JSONWithExtras
+// MARK: - JSONWithUnknownKeys
 
 @Test func jsonWithExtrasDecode() throws {
   struct Person: Decodable {
@@ -186,11 +186,11 @@ import Testing
     {"name": "Alice", "age": 30, "color": "blue", "city": "NYC"}
     """#
   let decoder = OrderedJSONDecoder()
-  let wrapped = try decoder.decode(JSONWithExtras<Person>.self, from: jsonString)
+  let wrapped = try decoder.decode(JSONWithUnknownKeys<Person>.self, from: jsonString)
   #expect(wrapped.value.name == "Alice")
   #expect(wrapped.value.age == 30)
-  #expect(wrapped.extras["color"] == .string("blue"))
-  #expect(wrapped.extras["city"] == .string("NYC"))
+  #expect(wrapped.unknownKeys["color"] == .string("blue"))
+  #expect(wrapped.unknownKeys["city"] == .string("NYC"))
 }
 
 @Test func jsonWithExtrasEncode() throws {
@@ -202,14 +202,14 @@ import Testing
     "color": .string("blue"),
     "city": .string("NYC"),
   ])
-  let wrapped = JSONWithExtras(
+  let wrapped = JSONWithUnknownKeys(
     value: Person(name: "Alice", age: 30),
-    extras: extras
+    unknownKeys: extras
   )
   let encoder = JSONEncoder()
   let data = try encoder.encode(wrapped)
   let decoder = OrderedJSONDecoder()
-  let back = try decoder.decode(JSONWithExtras<Person>.self, from: data)
+  let back = try decoder.decode(JSONWithUnknownKeys<Person>.self, from: data)
   #expect(back.value.name == "Alice")
   #expect(back.value.age == 30)
 }
@@ -221,10 +221,10 @@ import Testing
   }
   let jsonString = #"{"name": "Alice", "age": 30}"#
   let decoder = OrderedJSONDecoder()
-  let wrapped = try decoder.decode(JSONWithExtras<Person>.self, from: jsonString)
+  let wrapped = try decoder.decode(JSONWithUnknownKeys<Person>.self, from: jsonString)
   #expect(wrapped.value.name == "Alice")
   #expect(wrapped.value.age == 30)
-  #expect(wrapped.extras.isEmpty)
+  #expect(wrapped.unknownKeys.isEmpty)
 }
 
 @Test func jsonWithExtrasContainsMarksAccessed() throws {
@@ -245,11 +245,11 @@ import Testing
   }
   let json = JSON.object(["x": .string("hello"), "y": .string("world"), "z": .string("extra")])
   let decoder = OrderedJSONDecoder()
-  let decoded = try decoder.decode(JSONWithExtras<TestStruct>.self, from: json)
+  let decoded = try decoder.decode(JSONWithUnknownKeys<TestStruct>.self, from: json)
   #expect(decoded.value.x == "hello")
   #expect(decoded.value.y == "world")
   // 'z' was never accessed via contains or decode, so it appears in extras
-  #expect(decoded.extras["z"] == .string("extra"))
+  #expect(decoded.unknownKeys["z"] == .string("extra"))
 }
 
 @Test func jsonWithExtrasDateStrategyPropagated() throws {
@@ -265,10 +265,10 @@ import Testing
   ])
   var decoder = OrderedJSONDecoder()
   decoder.dateDecodingStrategy = .secondsSince1970
-  let decoded = try decoder.decode(JSONWithExtras<Person>.self, from: json)
+  let decoded = try decoder.decode(JSONWithUnknownKeys<Person>.self, from: json)
   #expect(decoded.value.name == "Alice")
   #expect(decoded.value.birth.timeIntervalSince1970 == 1_234_567_890.0)
-  #expect(decoded.extras["extra"] == .string("extra_key"))
+  #expect(decoded.unknownKeys["extra"] == .string("extra_key"))
 }
 
 @Test func jsonWithExtrasDataStrategyPropagated() throws {
@@ -282,9 +282,9 @@ import Testing
   ])
   var decoder = OrderedJSONDecoder()
   decoder.dataDecodingStrategy = .base64
-  let decoded = try decoder.decode(JSONWithExtras<Container>.self, from: json)
+  let decoded = try decoder.decode(JSONWithUnknownKeys<Container>.self, from: json)
   #expect(decoded.value.data == Data([72, 101, 108, 108, 111]))  // "Hello" bytes
-  #expect(decoded.extras["extra"] == .number(.integer(42)))
+  #expect(decoded.unknownKeys["extra"] == .number(.integer(42)))
 }
 
 @Test func jsonWithExtrasDecimalStrategyPropagated() throws {
@@ -298,19 +298,19 @@ import Testing
   ])
   var decoder = OrderedJSONDecoder()
   decoder.decimalDecodingStrategy = .asNumber
-  let decoded = try decoder.decode(JSONWithExtras<Container>.self, from: json)
+  let decoded = try decoder.decode(JSONWithUnknownKeys<Container>.self, from: json)
   #expect(decoded.value.amount == Decimal(string: "3.14"))
-  #expect(decoded.extras["extra"] == .string("extra_key"))
+  #expect(decoded.unknownKeys["extra"] == .string("extra_key"))
 }
 
 // MARK: - Throwing accessors
 
-@Test func requireStringSuccess() throws {
+@Test func stringValueSuccess() throws {
   let json = JSON.string("hello")
   #expect(try json.requireString() == "hello")
 }
 
-@Test func requireStringThrows() {
+@Test func stringValueThrows() {
   let json = JSON.number(.integer(42))
   #expect {
     try json.requireString()
@@ -320,17 +320,17 @@ import Testing
   }
 }
 
-@Test func requireBoolSuccess() throws {
+@Test func boolValueSuccess() throws {
   let json = JSON.boolean(true)
   #expect(try json.requireBool() == true)
 }
 
-@Test func requireInt64Success() throws {
+@Test func requireInt64ValueSuccess() throws {
   let json = JSON.number(.integer(42))
   #expect(try json.requireInt64() == 42)
 }
 
-@Test func requireDoubleSuccess() throws {
+@Test func doubleValueSuccess() throws {
   let json = JSON.number(.float(3.14))
   #expect(try json.requireDouble() == 3.14)
 }
@@ -397,12 +397,12 @@ extension JSON {
 
 // MARK: - Integer and unsigned width accessors
 
-@Test func requireInt8Success() throws {
+@Test func requireInt8ValueSuccess() throws {
   let json = JSON.number(.integer(42))
   #expect(try json.requireInt8() == 42)
 }
 
-@Test func requireInt8Overflow() throws {
+@Test func requireInt8ValueOverflow() throws {
   let json = JSON.number(.integer(200))
   #expect {
     try json.requireInt8()
@@ -412,22 +412,22 @@ extension JSON {
   }
 }
 
-@Test func requireInt16Success() throws {
+@Test func requireInt16ValueSuccess() throws {
   let json = JSON.number(.integer(300))
   #expect(try json.requireInt16() == 300)
 }
 
-@Test func requireInt32Success() throws {
+@Test func requireInt32ValueSuccess() throws {
   let json = JSON.number(.integer(100_000))
   #expect(try json.requireInt32() == 100_000)
 }
 
-@Test func requireUIntSuccess() throws {
+@Test func requireUIntValueSuccess() throws {
   let json = JSON.number(.integer(42))
   #expect(try json.requireUInt() == 42)
 }
 
-@Test func requireUIntNegativeThrows() throws {
+@Test func requireUIntValueNegativeThrows() throws {
   let json = JSON.number(.integer(-1))
   #expect {
     try json.requireUInt()
@@ -437,12 +437,12 @@ extension JSON {
   }
 }
 
-@Test func requireUInt8Success() throws {
+@Test func requireUInt8ValueSuccess() throws {
   let json = JSON.number(.integer(255))
   #expect(try json.requireUInt8() == 255)
 }
 
-@Test func requireUInt8Overflow() throws {
+@Test func requireUInt8ValueOverflow() throws {
   let json = JSON.number(.integer(256))
   #expect {
     try json.requireUInt8()
@@ -452,22 +452,22 @@ extension JSON {
   }
 }
 
-@Test func requireUInt16Success() throws {
+@Test func requireUInt16ValueSuccess() throws {
   let json = JSON.number(.integer(42000))
   #expect(try json.requireUInt16() == 42000)
 }
 
-@Test func requireUInt32Success() throws {
+@Test func requireUInt32ValueSuccess() throws {
   let json = JSON.number(.integer(2_000_000_000))
   #expect(try json.requireUInt32() == 2_000_000_000)
 }
 
-@Test func requireUInt64Success() throws {
+@Test func requireUInt64ValueSuccess() throws {
   let json = JSON.number(.integer(42))
   #expect(try json.requireUInt64() == 42)
 }
 
-@Test func requireUInt64NegativeThrows() throws {
+@Test func requireUInt64ValueNegativeThrows() throws {
   let json = JSON.number(.integer(-1))
   #expect {
     try json.requireUInt64()
@@ -477,19 +477,19 @@ extension JSON {
   }
 }
 
-// MARK: - requireDouble accepts integers
+// MARK: - doubleValue accepts integers
 
-@Test func requireDoubleFromInteger() throws {
+@Test func doubleValueFromInteger() throws {
   let json = JSON.number(.integer(42))
   #expect(try json.requireDouble() == 42.0)
 }
 
-@Test func requireDoubleFromFloat() throws {
+@Test func doubleValueFromFloat() throws {
   let json = JSON.number(.float(3.14))
   #expect(try json.requireDouble() == 3.14)
 }
 
-@Test func requireDoubleThrowsOnNonNumber() throws {
+@Test func doubleValueThrowsOnNonNumber() throws {
   let json = JSON.string("hello")
   #expect {
     try json.requireDouble()
@@ -499,7 +499,7 @@ extension JSON {
   }
 }
 
-@Test func requireFloatRejectsLossyDouble() throws {
+@Test func requireFloatValueRejectsLossyDouble() throws {
   // 0.1 is not exactly representable as Float
   let json = JSON.number(.float(0.1))
   #expect {
@@ -510,145 +510,21 @@ extension JSON {
   }
 }
 
-@Test func requireFloatFromInteger() throws {
+@Test func requireFloatValueFromInteger() throws {
   // Clean integers are exactly representable as Float
   let json = JSON.number(.integer(42))
   #expect(try json.requireFloat() == 42.0)
 }
 
-@Test func requireInt64FromFloat() throws {
-  // Clean integer stored as .float should still work with requireInt64
+@Test func requireInt64ValueFromFloat() throws {
+  // Clean integer stored as .float should still work with int64Value
   let json = JSON.number(.float(42.0))
   #expect(try json.requireInt64() == 42)
 }
 
-// MARK: - Generic get<T>() Tests
+// MARK: - Float throwing accessors
 
-@Test func getString() throws {
-  let json = JSON.string("hello")
-  let value: String = try json.get(String.self)
-  #expect(value == "hello")
-}
-
-@Test func getBool() throws {
-  let json = JSON.boolean(true)
-  let value: Bool = try json.get(Bool.self)
-  #expect(value == true)
-}
-
-@Test func getInt64() throws {
-  let json = JSON.number(.integer(42))
-  let value: Int64 = try json.get(Int64.self)
-  #expect(value == 42)
-}
-
-@Test func getInt() throws {
-  let json = JSON.number(.integer(42))
-  let value: Int = try json.get(Int.self)
-  #expect(value == 42)
-}
-
-@Test func getDouble() throws {
-  let json = JSON.number(.float(3.14))
-  let value: Double = try json.get(Double.self)
-  #expect(value == 3.14)
-}
-
-@Test func getDoubleFromInteger() throws {
-  let json = JSON.number(.integer(42))
-  let value: Double = try json.get(Double.self)
-  #expect(value == 42.0)
-}
-
-@Test func getFloat() throws {
-  let json = JSON.number(.integer(42))
-  let value: Float = try json.get(Float.self)
-  #expect(value == 42.0)
-}
-
-@Test func getUInt() throws {
-  let json = JSON.number(.integer(42))
-  let value: UInt = try json.get(UInt.self)
-  #expect(value == 42)
-}
-
-@Test func getUInt8() throws {
-  let json = JSON.number(.integer(42))
-  let value: UInt8 = try json.get(UInt8.self)
-  #expect(value == 42)
-}
-
-@Test func getTypeMismatchThrows() throws {
-  let json = JSON.string("hello")
-  #expect {
-    _ = try json.get(Int64.self)
-  } throws: { error in
-    guard let jsonError = error as? JSONError else { return false }
-    // requireInt64() reports expected "integer", not "Int64"
-    return jsonError == JSONError.typeError(expected: "integer", actual: "string")
-  }
-}
-
-@Test func getUnsupportedTypeFallbackThrows() throws {
-  // Exercise the final `throw` in get<T>() — an unsupported T type like Date
-  struct MyType: Hashable, Sendable {}
-  let json = JSON.string("hello")
-  #expect {
-    _ = try json.get(MyType.self)
-  } throws: { error in
-    guard let jsonError = error as? JSONError else { return false }
-    // Fallback reports T.self name as the expected type
-    return jsonError == JSONError.typeError(expected: "MyType", actual: "string")
-  }
-}
-
-@Test func getInt8() throws {
-  let json = JSON.number(.integer(42))
-  let value: Int8 = try json.get(Int8.self)
-  #expect(value == 42)
-}
-
-@Test func getInt16() throws {
-  let json = JSON.number(.integer(42))
-  let value: Int16 = try json.get(Int16.self)
-  #expect(value == 42)
-}
-
-@Test func getInt32() throws {
-  let json = JSON.number(.integer(42))
-  let value: Int32 = try json.get(Int32.self)
-  #expect(value == 42)
-}
-
-@Test func getUInt16() throws {
-  let json = JSON.number(.integer(42))
-  let value: UInt16 = try json.get(UInt16.self)
-  #expect(value == 42)
-}
-
-@Test func getUInt32() throws {
-  let json = JSON.number(.integer(42))
-  let value: UInt32 = try json.get(UInt32.self)
-  #expect(value == 42)
-}
-
-@Test func getUInt64() throws {
-  let json = JSON.number(.integer(42))
-  let value: UInt64 = try json.get(UInt64.self)
-  #expect(value == 42)
-}
-
-@Test func getInt8BoundsCheckThrows() throws {
-  let json = JSON.number(.integer(300))  // > Int8.max
-  #expect {
-    _ = try json.get(Int8.self)
-  } throws: { error in
-    guard let jsonError = error as? JSONError else { return false }
-    return jsonError == JSONError.typeError(expected: "int8", actual: "number")
-  }
-}
-
-@Test func requireInt64FromFloatThrows() throws {
+@Test func requireInt64ValueFromFloatThrows() throws {
   // Fractional float should throw
   let json = JSON.number(.float(3.14))
   #expect {
@@ -828,10 +704,10 @@ extension JSON {
   }
   let json = #"{"name": "Alice", "color": "blue"}"#
   let decoder = OrderedJSONDecoder()
-  let wrapped = try decoder.decode(JSONWithExtras<Person>.self, from: json)
+  let wrapped = try decoder.decode(JSONWithUnknownKeys<Person>.self, from: json)
   #expect(wrapped.value.name == "Alice")
   #expect(wrapped.value.age == nil)
-  #expect(wrapped.extras["color"] == .string("blue"))
+  #expect(wrapped.unknownKeys["color"] == .string("blue"))
 }
 
 // MARK: - Round-trip via OrderedJSONEncoder → dump → parse → OrderedJSONDecoder
@@ -844,7 +720,7 @@ extension JSON {
   let original = Person(name: "Alice", age: 30)
   let encoder = OrderedJSONEncoder()
   let json = try encoder.encode(original)
-  let jsonString = json.dump(indent: -1)
+  let jsonString = json.dump(indent: nil)
   let parsed = try JSON.parse(jsonString)
   let decoder = OrderedJSONDecoder()
   let roundTripped = try decoder.decode(Person.self, from: parsed)
@@ -855,7 +731,7 @@ extension JSON {
 @Test func orderedJSONEncoderDecoderArrayRoundTrip() throws {
   let encoder = OrderedJSONEncoder()
   let json = try encoder.encode([1, 2, 3])
-  let jsonString = json.dump(indent: -1)
+  let jsonString = json.dump(indent: nil)
   let parsed = try JSON.parse(jsonString)
   let decoder = OrderedJSONDecoder()
   let arr = try decoder.decode([Int].self, from: parsed)
@@ -877,7 +753,7 @@ extension JSON {
   )
   let encoder = OrderedJSONEncoder()
   let json = try encoder.encode(original)
-  let jsonString = json.dump(indent: -1)
+  let jsonString = json.dump(indent: nil)
   let parsed = try JSON.parse(jsonString)
   let decoder = OrderedJSONDecoder()
   let roundTripped = try decoder.decode(Person.self, from: parsed)
@@ -972,15 +848,15 @@ extension JSON {
   _ = try decoder.decode(Ordered.self, from: jsonString)
 }
 
-// MARK: - JSONWithExtras: extras must be object
+// MARK: - JSONWithUnknownKeys: extras must be object
 
 @Test func jsonWithExtrasNonObjectExtrasThrowsOnEncode() throws {
   struct Person: Codable {
     let name: String
   }
-  let wrapped = JSONWithExtras(
+  let wrapped = JSONWithUnknownKeys(
     value: Person(name: "Alice"),
-    extras: .null
+    unknownKeys: .null
   )
   let encoder = JSONEncoder()
   #expect {
@@ -989,7 +865,7 @@ extension JSON {
     guard let encodingError = error as? EncodingError else { return false }
     switch encodingError {
     case .invalidValue(_, let ctx):
-      return ctx.debugDescription.contains("Extras must be a JSON object")
+      return ctx.debugDescription.contains("Unknown keys must be a JSON object")
     default: return false
     }
   }

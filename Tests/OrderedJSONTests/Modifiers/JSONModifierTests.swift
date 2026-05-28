@@ -69,7 +69,7 @@ import Testing
 
 @Test func eraseKey() {
   var obj = JSON.object(["a": JSON.string("x"), "b": JSON.number(.integer(1))])
-  obj.erase(key: "a")
+  obj.remove(key: "a")
   #expect(obj.count == 1)
   #expect(obj["a"] == nil)
   #expect(obj["b"] == JSON.number(.integer(1)))
@@ -77,19 +77,19 @@ import Testing
 
 @Test func eraseKeyNonObject() {
   var arr = JSON.array([JSON.string("a")])
-  arr.erase(key: "key")  // silently ignored
+  arr.remove(key: "key")  // silently ignored
   #expect(arr.count == 1)
 }
 
 @Test func eraseKeyMissing() {
   var obj = JSON.object(["a": JSON.string("x")])
-  obj.erase(key: "missing")
+  obj.remove(key: "missing")
   #expect(obj.count == 1)
 }
 
 @Test func eraseIndex() {
   var arr = JSON.array([JSON.string("a"), JSON.number(.integer(1)), JSON.boolean(true)])
-  arr.erase(index: 1)
+  arr.remove(at: 1)
   #expect(arr.count == 2)
   #expect(arr[0] == JSON.string("a"))
   #expect(arr[1] == JSON.boolean(true))
@@ -97,15 +97,15 @@ import Testing
 
 @Test func eraseIndexOutOfBounds() {
   var arr = JSON.array([JSON.string("a")])
-  arr.erase(index: 5)  // silently ignored
+  arr.remove(at: 5)  // silently ignored
   #expect(arr.count == 1)
-  arr.erase(index: -1)  // silently ignored
+  arr.remove(at: -1)  // silently ignored
   #expect(arr.count == 1)
 }
 
 @Test func eraseIndexNonArray() {
   var obj = JSON.object(["a": JSON.string("x")])
-  obj.erase(index: 0)  // silently ignored
+  obj.remove(at: 0)  // silently ignored
   #expect(obj.count == 1)
 }
 

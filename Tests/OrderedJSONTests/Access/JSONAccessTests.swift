@@ -108,14 +108,14 @@ import Testing
 
 @Test func lookupCountKey() {
   let obj = JSON.object(["a": JSON.string("x"), "b": JSON.number(.integer(1))])
-  #expect(obj.count(key: "a") == 1)
-  #expect(obj.count(key: "missing") == 0)
+  #expect(obj.containsKey("a"))
+  #expect(!obj.containsKey("missing"))
 }
 
 @Test func lookupCountKeyNonObject() {
-  #expect(JSON.string("hello").count(key: "key") == 0)
-  #expect(JSON.array([]).count(key: "key") == 0)
-  #expect(JSON.null.count(key: "key") == 0)
+  #expect(!JSON.string("hello").containsKey("key"))
+  #expect(!JSON.array([]).containsKey("key"))
+  #expect(!JSON.null.containsKey("key"))
 }
 
 @Test func lookupFind() {

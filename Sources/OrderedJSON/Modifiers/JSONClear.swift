@@ -28,25 +28,25 @@ extension JSON {
     }
   }
 
-  // MARK: - erase(key)
+  // MARK: - remove(key)
 
   /// Removes a key-value pair from a JSON object.
   ///
   /// If the value is not an object or the key doesn't exist, this is a no-op.
   /// - Parameter key: The key to remove.
-  public mutating func erase(key: String) {
+  public mutating func remove(key: String) {
     guard case .object(var dict) = storage else { return }
     dict.removeValue(forKey: key)
     storage = .object(dict)
   }
 
-  // MARK: - erase(index)
+  // MARK: - remove(at:)
 
   /// Removes an element at the given index from a JSON array.
   ///
   /// If the value is not an array or the index is out of bounds, this is a no-op.
   /// - Parameter index: The index of the element to remove.
-  public mutating func erase(index: Int) {
+  public mutating func remove(at index: Int) {
     guard case .array(var arr) = storage else { return }
     guard index >= 0, index < arr.count else { return }
     arr.remove(at: index)
@@ -132,6 +132,22 @@ extension JSON {
       }
     }
     storage = .object(dict)
+  }
+
+  /// Returns a copy with `other`'s keys merged into this JSON object.
+  ///
+  /// When `mergesNested` is `false` (default), existing keys are overwritten
+  /// and new keys are added. When `mergesNested` is `true`, objects at the
+  /// same key are recursively merged instead of replaced.
+  /// - Parameters:
+  ///   - other: The object whose keys to merge in.
+  ///   - mergesNested: If `true`, recursively merge nested objects at the
+  ///     same key. Defaults to `false`.
+  /// - Returns: A new JSON object with `other` merged in.
+  public func updated(with other: JSON, mergesNested: Bool = false) -> JSON {
+    var copy = self
+    copy.update(with: other, mergesNested: mergesNested)
+    return copy
   }
 
   // MARK: - swap

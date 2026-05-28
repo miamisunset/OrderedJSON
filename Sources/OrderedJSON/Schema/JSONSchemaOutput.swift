@@ -50,7 +50,7 @@ public struct VerboseResult: Hashable, Sendable {
 
   /// Convenience: throws the first error if validation failed.
   /// - Throws: `JSONSchemaError` — the first validation error.
-  public func throwIfInvalid() throws {
+  public func throwOnError() throws {
     if let first = errors.first {
       throw first
     }

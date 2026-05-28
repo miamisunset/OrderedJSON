@@ -4,8 +4,8 @@ import OrderedCollections
 extension JSON {
   /// Pretty-prints this JSON value with the given indentation.
   ///
-  /// - Parameter indent: Indentation width in spaces. Use `-1` for compact
-  ///   (single-line) output. Defaults to `-1`.
+  /// - Parameter indent: Indentation width in spaces. Use `nil` for compact
+  ///   (single-line) output. Defaults to `nil`.
   /// - Parameter indentChar: Character to use for indentation. Defaults to `" "`.
   /// - Parameter ensureAscii: If `true`, non-ASCII characters are escaped as
   ///   `\uXXXX`. Defaults to `false`.
@@ -17,24 +17,24 @@ extension JSON {
   /// let json = JSON.object(["name": .string("Alice"), "age": .number(.integer(30))])
   /// json.dump()                         // compact: {"name":"Alice","age":30}
   /// json.dump(indent: 2)                // pretty-printed with 2-space indent
-  /// json.dump(indent: -1)               // compact
+  /// json.dump(indent: nil)              // compact
   /// json.dump(ensureAscii: true)        // escape non-ASCII as \uXXXX
   /// ```
   public func dump(
-    indent: Int = -1,
+    indent: Int? = nil,
     indentChar: Character = " ",
     ensureAscii: Bool = false
   ) -> String {
-    if indent < 0 {
+    if let indentValue = indent {
       var string = ""
-      serializeJSONCompact(self, ensureAscii: ensureAscii, into: &string)
+      serializeJSONPretty(
+        self, indent: indentValue, indentChar: indentChar, depth: 0, ensureAscii: ensureAscii,
+        into: &string
+      )
       return string
     }
     var string = ""
-    serializeJSONPretty(
-      self, indent: indent, indentChar: indentChar, depth: 0, ensureAscii: ensureAscii,
-      into: &string
-    )
+    serializeJSONCompact(self, ensureAscii: ensureAscii, into: &string)
     return string
   }
 

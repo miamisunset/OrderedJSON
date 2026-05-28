@@ -1,9 +1,9 @@
 import Foundation
 import OrderedCollections
 
-/// A wrapper that captures unknown JSON keys as extras during decoding.
+/// A wrapper that captures unknown JSON keys during decoding.
 ///
-/// `JSONWithExtras` is useful when you want to decode a known set of fields
+/// `JSONWithUnknownKeys` is useful when you want to decode a known set of fields
 /// into a strongly-typed struct while preserving any additional keys as a
 /// `JSON` object.
 ///
@@ -20,11 +20,11 @@ import OrderedCollections
 ///   """#.utf8)
 ///
 /// let wrapped = try OrderedJSONDecoder().decode(
-///   JSONWithExtras<Person>.self, from: data)
+///   JSONWithUnknownKeys<Person>.self, from: data)
 /// // wrapped.value.name == "Alice"
 /// // wrapped.value.age == 30
-/// // wrapped.extras["color"] == "blue"
-/// // wrapped.extras["city"] == "NYC"
+/// // wrapped.unknownKeys["color"] == "blue"
+/// // wrapped.unknownKeys["city"] == "NYC"
 /// ```
 ///
 /// ## Known Limitations
@@ -38,21 +38,21 @@ import OrderedCollections
 ///   correctly excluded from extras.
 /// - **Keyed-object only**: `T` must encode/decode as a keyed object.
 ///   Single-value and unkeyed containers are not supported.
-/// - **Extras must be a JSON object**: When encoding, `extras` must be a JSON
-///   object; encoding non-object extras throws `EncodingError.invalidValue`.
+/// - **Unknown keys must be a JSON object**: When encoding, `unknownKeys` must be a JSON
+///   object; encoding non-object unknown keys throws `EncodingError.invalidValue`.
 /// - **Set `userInfo` before calling**: The encoder/decoder copies `userInfo`
 ///   at construction time; mutations after calling `encode`/`decode` do not
 ///   propagate to nested containers.
-public struct JSONWithExtras<T: Decodable>: Decodable {
+public struct JSONWithUnknownKeys<T: Decodable>: Decodable {
   /// The decoded value of known fields.
   public let value: T
 
   /// Any unknown keys not part of `T`, captured as a JSON object.
-  public let extras: JSON
+  public let unknownKeys: JSON
 
-  public init(value: T, extras: JSON) {
+  public init(value: T, unknownKeys: JSON) {
     self.value = value
-    self.extras = extras
+    self.unknownKeys = unknownKeys
   }
 
   /// Decodes known keys into `T` and captures unknown keys into `extras`.
@@ -96,11 +96,11 @@ public struct JSONWithExtras<T: Decodable>: Decodable {
     for (key, value) in dict where !usedKeys.contains(key) {
       extrasDict[key] = value
     }
-    extras = .object(extrasDict)
+    unknownKeys = .object(extrasDict)
   }
 }
 
-extension JSONWithExtras: Encodable where T: Encodable {
+extension JSONWithUnknownKeys: Encodable where T: Encodable {
   /// Encodes both the known fields and extras into a single JSON object.
   public func encode(to encoder: Encoder) throws {
     var container = encoder.container(keyedBy: _ExtrasKey.self)
@@ -108,13 +108,13 @@ extension JSONWithExtras: Encodable where T: Encodable {
     // Encode known fields
     try value.encode(to: _ValueEncoder(container: container))
 
-    // Encode extras — must be a JSON object
-    guard case .object(let extrasDict) = extras.storage else {
+    // Encode unknown keys — must be a JSON object
+    guard case .object(let extrasDict) = unknownKeys.storage else {
       throw EncodingError.invalidValue(
-        extras,
+        unknownKeys,
         EncodingError.Context(
           codingPath: encoder.codingPath,
-          debugDescription: "Extras must be a JSON object, got \(extras.typeName)"
+          debugDescription: "Unknown keys must be a JSON object, got \(unknownKeys.typeName)"
         )
       )
     }
