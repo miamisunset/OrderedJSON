@@ -15,7 +15,7 @@ final class RefCache: @unchecked Sendable {
     return cache[key]
   }
 
-  func set(_ key: String, _ value: ResolvedRef) {
+  func set(_ key: String, to value: ResolvedRef) {
     lock.lock()
     defer { lock.unlock() }
     cache[key] = value

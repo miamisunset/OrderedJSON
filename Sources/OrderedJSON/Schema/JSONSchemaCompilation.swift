@@ -64,7 +64,7 @@ struct CompiledSchema: Hashable {
   let resources: OrderedDictionary<String, ResourceScope>
   /// Pre-compiled regex patterns for `pattern` and `patternProperties` keywords.
   /// Key is the pattern string; value is a thread-safe regex wrapper.
-  let precompiledPatterns: [String: SendableRegex]
+  let precompiledPatterns: [String: LockedRegex]
   /// Cache of keyword values per subschema, keyed by JSON pointer.
   ///
   /// - Warning: This cache is built **before** `$ref` resolution.  For
@@ -97,9 +97,9 @@ struct CompiledSchema: Hashable {
 
   /// Walks the schema tree and pre-compiles all `pattern` and `patternProperties`
   /// regex strings into `NSRegularExpression` objects.
-  private static func compilePatterns(from schema: JSON) -> [String: SendableRegex] {
-    var patterns: [String: SendableRegex] = [:]
-    collectPatterns(schema, patterns: &patterns)
+  private static func compilePatterns(from schema: JSON) -> [String: LockedRegex] {
+    var patterns: [String: LockedRegex] = [:]
+    collectRegexPatterns(schema, patterns: &patterns)
     return patterns
   }
 
@@ -115,14 +115,14 @@ struct CompiledSchema: Hashable {
 
   /// Maximum recursion depth for `buildKeywordCacheRecursive`.
   /// Prevents stack overflow from deeply nested schemas.
-  private static let maxKeywordCacheDepth = 100
+  private static let keywordCacheMaxDepth = 100
 
   private static func buildKeywordCacheRecursive(
     _ value: JSON, pointer: String, cache: inout [String: [String: JSON]],
     depth: Int = 0
   ) {
     // Depth guard — prevent stack overflow from extremely nested schemas
-    guard depth < maxKeywordCacheDepth else { return }
+    guard depth < keywordCacheMaxDepth else { return }
     guard value.isObject else { return }
     // Collect all keyword values from this subschema.
     var keywords: [String: JSON] = [:]
@@ -212,12 +212,12 @@ struct CompiledSchema: Hashable {
     }
   }
 
-  private static func collectPatterns(_ value: JSON, patterns: inout [String: SendableRegex]) {
+  private static func collectRegexPatterns(_ value: JSON, patterns: inout [String: LockedRegex]) {
     guard value.isObject else { return }
     // Check for `pattern` keyword
     if let patternStr = value["pattern"]?.stringValue,
       patterns[patternStr] == nil,
-      let regex = try? SendableRegex(pattern: patternStr)
+      let regex = try? LockedRegex(pattern: patternStr)
     {
       patterns[patternStr] = regex
     }
@@ -226,7 +226,7 @@ struct CompiledSchema: Hashable {
       if case .object(let dict) = pp.storage {
         for (patternStr, _) in dict {
           if patterns[patternStr] == nil,
-            let regex = try? SendableRegex(pattern: patternStr)
+            let regex = try? LockedRegex(pattern: patternStr)
           {
             patterns[patternStr] = regex
           }
@@ -237,31 +237,31 @@ struct CompiledSchema: Hashable {
     if let properties = value["properties"], properties.isObject {
       if case .object(let dict) = properties.storage {
         for (_, subschema) in dict {
-          collectPatterns(subschema, patterns: &patterns)
+          collectRegexPatterns(subschema, patterns: &patterns)
         }
       }
     }
     for keyword in Self.subschemaKeywords {
       if let subschema = value[keyword], subschema.isObject {
-        collectPatterns(subschema, patterns: &patterns)
+        collectRegexPatterns(subschema, patterns: &patterns)
       }
       if let arr = value[keyword], arr.isArray {
         for item in arr where item.isObject {
-          collectPatterns(item, patterns: &patterns)
+          collectRegexPatterns(item, patterns: &patterns)
         }
       }
     }
     if let defs = value["$defs"], defs.isObject {
       if case .object(let dict) = defs.storage {
         for (_, subschema) in dict {
-          collectPatterns(subschema, patterns: &patterns)
+          collectRegexPatterns(subschema, patterns: &patterns)
         }
       }
     }
     if let defs = value["definitions"], defs.isObject {
       if case .object(let dict) = defs.storage {
         for (_, subschema) in dict {
-          collectPatterns(subschema, patterns: &patterns)
+          collectRegexPatterns(subschema, patterns: &patterns)
         }
       }
     }
@@ -290,10 +290,10 @@ struct CompiledSchema: Hashable {
   ///
   /// - Parameters:
   ///   - child: The `$id` value from the subschema (may be empty/absent).
-  ///   - parent: The parent resource's base URI (empty for root).
+  ///   - parentBaseURI: The parent resource's base URI (empty for root).
   /// - Returns: The resolved absolute URI string.
-  static func resolveRelativeID(_ child: String?, parent: String) -> String {
-    guard let child = child, !child.isEmpty else { return parent }
+  static func resolveRelativeID(_ child: String?, parentBaseURI: String) -> String {
+    guard let child = child, !child.isEmpty else { return parentBaseURI }
 
     // Absolute URI — use as-is
     if let url = URL(string: child), url.scheme != nil {
@@ -301,12 +301,12 @@ struct CompiledSchema: Hashable {
     }
 
     // Parent is empty (root with no $id) — use child as-is
-    if parent.isEmpty {
+    if parentBaseURI.isEmpty {
       return child
     }
 
     // Resolve relative URI against parent base
-    guard let base = URL(string: parent) else { return child }
+    guard let base = URL(string: parentBaseURI) else { return child }
     guard let resolved = URL(string: child, relativeTo: base)?.absoluteString else { return child }
     return resolved
   }
@@ -331,7 +331,7 @@ struct CompiledSchema: Hashable {
     // Determine the base URI for this subschema by resolving the `$id`
     // value against the parent's base URI per RFC 3986.
     let childID = schema["$id"]?.stringValue
-    let baseURI = resolveRelativeID(childID, parent: currentBaseURI)
+    let baseURI = resolveRelativeID(childID, parentBaseURI: currentBaseURI)
 
     // Ensure a resource scope exists for this base URI.
     // Duplicate $id is an authoring error per spec.
@@ -623,7 +623,7 @@ struct CompiledSchema: Hashable {
     }
 
     // Resolve the URI part relative to currentResourceURI
-    let resolvedURI = CompiledSchema.resolveRelativeID(uriPart, parent: currentResourceURI)
+    let resolvedURI = CompiledSchema.resolveRelativeID(uriPart, parentBaseURI: currentResourceURI)
 
     // Check local resources first
     if let resource = resources[resolvedURI] {
@@ -677,7 +677,7 @@ struct CompiledSchema: Hashable {
         if let target = resource.defs[head] {
           // Check if the target definition has $id and update resourceURI
           if let childID = target["$id"]?.stringValue {
-            resourceURI = CompiledSchema.resolveRelativeID(childID, parent: resourceURI)
+            resourceURI = CompiledSchema.resolveRelativeID(childID, parentBaseURI: resourceURI)
           }
           guard let ptr = try? JSONPointer(tail) else { return nil }
           return ptr.resolve(target)
@@ -687,7 +687,7 @@ struct CompiledSchema: Hashable {
         if let target = resource.defs[key] {
           // Check if the target definition has $id and update resourceURI
           if let childID = target["$id"]?.stringValue {
-            resourceURI = CompiledSchema.resolveRelativeID(childID, parent: resourceURI)
+            resourceURI = CompiledSchema.resolveRelativeID(childID, parentBaseURI: resourceURI)
           }
           return target
         }

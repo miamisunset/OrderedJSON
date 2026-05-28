@@ -7,7 +7,7 @@ import Foundation
 /// after initialization — it is never mutated.  The regex is compiled once in
 /// `init(pattern:)` and thereafter only accessed via `firstMatch(in:range:)`,
 /// which is thread-safe for read-only use.  No data races are introduced.
-final class SendableRegex: @unchecked Sendable, Hashable {
+final class LockedRegex: @unchecked Sendable, Hashable {
   let pattern: String
   let regex: NSRegularExpression
 
@@ -16,7 +16,7 @@ final class SendableRegex: @unchecked Sendable, Hashable {
     regex = try NSRegularExpression(pattern: pattern, options: [])
   }
 
-  static func == (lhs: SendableRegex, rhs: SendableRegex) -> Bool {
+  static func == (lhs: LockedRegex, rhs: LockedRegex) -> Bool {
     lhs.pattern == rhs.pattern
   }
 

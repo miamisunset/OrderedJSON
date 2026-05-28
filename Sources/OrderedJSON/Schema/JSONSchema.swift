@@ -156,7 +156,7 @@ public struct JSONSchema: Hashable, Sendable {
           // Each resource URI (including empty string for root) is resolved
           // against the file URL to form the absolute key.
           for (resourceURI, _) in compiled.resources {
-            let absoluteURI = CompiledSchema.resolveRelativeID(resourceURI, parent: url)
+            let absoluteURI = CompiledSchema.resolveRelativeID(resourceURI, parentBaseURI: url)
             remoteCompiled[absoluteURI] = compiled
           }
         } catch {
@@ -425,8 +425,8 @@ public struct JSONSchema: Hashable, Sendable {
   ///
   /// - Note: Currently unused in this PR. Intended for future use
   ///   where compiled keyword cache can accelerate validation.
-  @inline(__always) func kw(
-    _ key: String, _ subschema: JSON, _ pointer: String
+  @inline(__always) func keyword(
+    _ key: String, from subschema: JSON, at pointer: String
   ) -> JSON? {
     if let cache = compiled?.keywordCache[pointer], let v = cache[key] {
       return v
@@ -464,7 +464,7 @@ public struct JSONSchema: Hashable, Sendable {
       // Draft 7: $ref replaces the subschema, ignore $id
       resourceURI = ctx.parentResourceURI
     } else if let idVal = subschema["$id"]?.stringValue {
-      resourceURI = CompiledSchema.resolveRelativeID(idVal, parent: ctx.parentResourceURI)
+      resourceURI = CompiledSchema.resolveRelativeID(idVal, parentBaseURI: ctx.parentResourceURI)
     } else {
       resourceURI = ctx.currentResourceURI
     }
@@ -487,7 +487,7 @@ public struct JSONSchema: Hashable, Sendable {
     // If so, keywords from disabled vocabularies should be ignored.
     let vocabKeywords: Set<String>? = {
       guard let schemaStr = subschema["$schema"]?.stringValue else { return nil }
-      let resolvedURI = CompiledSchema.resolveRelativeID(schemaStr, parent: resourceURI)
+      let resolvedURI = CompiledSchema.resolveRelativeID(schemaStr, parentBaseURI: resourceURI)
       guard let compiledMeta = remoteCompiled[resolvedURI] else { return nil }
       guard
         let scopeSchema = compiledMeta.resources[""].map(\.scopeSchema)
@@ -591,7 +591,7 @@ public struct JSONSchema: Hashable, Sendable {
         )
         // Store in cache for future use.
         if let r = resolved, let cache = refCache {
-          cache.set(cacheKey, r)
+          cache.set(cacheKey, to: r)
         }
       }
       guard let resolved = resolved else {
