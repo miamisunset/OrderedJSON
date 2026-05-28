@@ -24,6 +24,8 @@ jobs:
     runs-on: macos-26
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: true
       - name: Build & Test
         # swiftpm-testing-helper may crash with SIGTRAP after all tests pass
         # (known SwiftPM bug). Capture output and check for failures manually.
