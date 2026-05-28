@@ -89,8 +89,8 @@ extension ParseCursor {
     static let backslash: UInt32 = 0x5C
     static let minus: UInt32 = 0x2D
     static let dot: UInt32 = 0x2E
-    static let e_lower: UInt32 = 0x65
-    static let E_upper: UInt32 = 0x45
+    static let eLower: UInt32 = 0x65
+    static let eUpper: UInt32 = 0x45
     static let r: UInt32 = 0x72
     static let u: UInt32 = 0x75
     static let a: UInt32 = 0x61

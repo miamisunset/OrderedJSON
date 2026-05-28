@@ -22,8 +22,8 @@ private enum UnicodeScalarHex {
   static let dot: UInt32 = 0x2E
   static let slash: UInt32 = 0x2F
   static let plus: UInt32 = 0x2B
-  static let e_lower: UInt32 = 0x65
-  static let E_upper: UInt32 = 0x45
+  static let eLower: UInt32 = 0x65
+  static let eUpper: UInt32 = 0x45
   static let r: UInt32 = 0x72
   static let u: UInt32 = 0x75
   static let a: UInt32 = 0x61
@@ -484,11 +484,11 @@ extension JSON {
         throw error(at: ctx, kind: .unexpectedToken)
       }
       idx = ctx.string.unicodeScalars.index(after: idx)
-      guard idx < end && ctx.string.unicodeScalars[idx].value == UnicodeScalarHex.u else {  // u
+      guard idx < end && ctx.string.unicodeScalars[idx].value == UnicodeScalarHex.u else {
         throw error(at: ctx, kind: .unexpectedToken)
       }
       idx = ctx.string.unicodeScalars.index(after: idx)
-      guard idx < end && ctx.string.unicodeScalars[idx].value == UnicodeScalarHex.e_lower else {  // e
+      guard idx < end && ctx.string.unicodeScalars[idx].value == UnicodeScalarHex.eLower else {
         throw error(at: ctx, kind: .unexpectedToken)
       }
       ctx.advance()
@@ -512,7 +512,7 @@ extension JSON {
       throw error(at: ctx, kind: .unexpectedToken)
     }
     idx = ctx.string.unicodeScalars.index(after: idx)
-    guard idx < end && ctx.string.unicodeScalars[idx].value == UnicodeScalarHex.e_lower else {  // e
+    guard idx < end, ctx.string.unicodeScalars[idx].value == UnicodeScalarHex.eLower else {
       throw error(at: ctx, kind: .unexpectedToken)
     }
     ctx.advance()
@@ -581,7 +581,7 @@ extension JSON {
     }
     // Exponent part
     if let s = ctx.currentScalar,
-      s.value == UnicodeScalarHex.e_lower || s.value == UnicodeScalarHex.E_upper
+      s.value == UnicodeScalarHex.eLower || s.value == UnicodeScalarHex.eUpper
     {  // e, E
       isFloat = true
       ctx.advance()
