@@ -4,7 +4,7 @@ import Testing
 
 // MARK: - Flatten tests (JSON Pointer format)
 
-@Test func flattenEmptyObject() throws {
+@Test func flattenEmptyObject() {
   let value = JSON.object([:])
   let result = value.flatten()
   // Empty objects flatten to null (matching nlohmann/json behavior)
@@ -16,7 +16,7 @@ import Testing
   #expect(dict[""] == JSON.null)
 }
 
-@Test func flattenEmptyArray() throws {
+@Test func flattenEmptyArray() {
   let value = JSON.array([])
   let result = value.flatten()
   // Empty arrays flatten to null (matching nlohmann/json behavior)
@@ -28,7 +28,7 @@ import Testing
   #expect(dict[""] == JSON.null)
 }
 
-@Test func flattenNestedEmptyObject() throws {
+@Test func flattenNestedEmptyObject() {
   let value = JSON.object([
     "a": .object([:])
   ])
@@ -40,7 +40,7 @@ import Testing
   #expect(dict["/a"] == JSON.null)
 }
 
-@Test func flattenNestedEmptyArray() throws {
+@Test func flattenNestedEmptyArray() {
   let value = JSON.object([
     "a": .array([])
   ])
@@ -52,7 +52,7 @@ import Testing
   #expect(dict["/a"] == JSON.null)
 }
 
-@Test func flattenString() throws {
+@Test func flattenString() {
   let value = JSON.string("hello")
   let result = value.flatten()
   guard case .object(let dict) = result.storage else {
@@ -63,7 +63,7 @@ import Testing
   #expect(dict[""] == JSON.string("hello"))
 }
 
-@Test func flattenNumber() throws {
+@Test func flattenNumber() {
   let value = JSON.number(.integer(42))
   let result = value.flatten()
   guard case .object(let dict) = result.storage else {
@@ -74,7 +74,7 @@ import Testing
   #expect(dict[""] == JSON.number(.integer(42)))
 }
 
-@Test func flattenBoolean() throws {
+@Test func flattenBoolean() {
   let value = JSON.boolean(true)
   let result = value.flatten()
   guard case .object(let dict) = result.storage else {
@@ -85,7 +85,7 @@ import Testing
   #expect(dict[""] == JSON.boolean(true))
 }
 
-@Test func flattenNull() throws {
+@Test func flattenNull() {
   let value = JSON.null
   let result = value.flatten()
   guard case .object(let dict) = result.storage else {
@@ -96,7 +96,7 @@ import Testing
   #expect(dict[""] == JSON.null)
 }
 
-@Test func flattenSingleLevelObject() throws {
+@Test func flattenSingleLevelObject() {
   let value = JSON.object([
     "a": JSON.string("x"),
     "b": JSON.number(.integer(1)),
@@ -111,7 +111,7 @@ import Testing
   #expect(dict["/b"] == JSON.number(.integer(1)))
 }
 
-@Test func flattenNestedObject() throws {
+@Test func flattenNestedObject() {
   let value = JSON.object([
     "a": JSON.object([
       "b": JSON.object([
@@ -128,7 +128,7 @@ import Testing
   #expect(dict["/a/b/c"] == JSON.string("deep"))
 }
 
-@Test func flattenArray() throws {
+@Test func flattenArray() {
   let value = JSON.array([
     JSON.string("a"),
     JSON.number(.integer(2)),
@@ -145,7 +145,7 @@ import Testing
   #expect(dict["/2"] == JSON.boolean(true))
 }
 
-@Test func flattenMixedNested() throws {
+@Test func flattenMixedNested() {
   let value = JSON.object([
     "a": JSON.array([
       JSON.number(.integer(1)),
@@ -164,7 +164,7 @@ import Testing
   #expect(dict["/a/1/b"] == JSON.string("nested"))
 }
 
-@Test func flattenNestedArrayInArray() throws {
+@Test func flattenNestedArrayInArray() {
   let value = JSON.array([
     JSON.array([
       JSON.string("x"),
@@ -183,7 +183,7 @@ import Testing
   #expect(dict["/1"] == JSON.string("z"))
 }
 
-@Test func flattenKeyWithSlash() throws {
+@Test func flattenKeyWithSlash() {
   // Keys containing / must be escaped as ~1
   let json = JSON.object([
     "a/b": .number(.integer(1)),
@@ -198,7 +198,7 @@ import Testing
   #expect(dict["/c"] == JSON.number(.integer(2)))
 }
 
-@Test func flattenKeyWithTilde() throws {
+@Test func flattenKeyWithTilde() {
   // Keys containing ~ must be escaped as ~0
   let json = JSON.object(["a~b": .number(.integer(1))])
   let flat = json.flatten()
@@ -209,7 +209,7 @@ import Testing
   #expect(dict["/a~0b"] == JSON.number(.integer(1)))
 }
 
-@Test func flattenKeyWithTildeAndSlash() throws {
+@Test func flattenKeyWithTildeAndSlash() {
   // Keys containing ~ and / must escape both
   let json = JSON.object(["a~/b": .number(.integer(1))])
   let flat = json.flatten()

@@ -4,7 +4,7 @@ import Foundation
 
 /// Named constants for common Unicode scalar values used in JSON parsing.
 /// Improves readability over raw hex literals throughout the parser.
-private struct UnicodeScalarHex {
+private enum UnicodeScalarHex {
   static let space: UInt32 = 0x20
   static let newline: UInt32 = 0x0A
   static let carriageReturn: UInt32 = 0x0D
@@ -21,8 +21,8 @@ private struct UnicodeScalarHex {
   static let dot: UInt32 = 0x2E
   static let slash: UInt32 = 0x2F
   static let plus: UInt32 = 0x2B
-  static let e_lower: UInt32 = 0x65
-  static let E_upper: UInt32 = 0x45
+  static let eLower: UInt32 = 0x65
+  static let eUpper: UInt32 = 0x45
   static let r: UInt32 = 0x72
   static let u: UInt32 = 0x75
   static let a: UInt32 = 0x61
@@ -161,30 +161,45 @@ extension JSON {
     var acceptMode: Bool
 
     /// The source string being parsed.
-    var string: String { cursor.string }
+    var string: String {
+      cursor.string
+    }
+
     /// Current position in the Unicode scalar view.
-    var pos: String.UnicodeScalarIndex { cursor.pos }
+    var pos: String.UnicodeScalarIndex {
+      cursor.pos
+    }
+
     /// Current line number (1-based).
-    var line: Int { cursor.line }
+    var line: Int {
+      cursor.line
+    }
+
     /// Current column number (1-based).
-    var column: Int { cursor.column }
+    var column: Int {
+      cursor.column
+    }
 
     /// Advance by one Unicode scalar, updating line/column.
-    mutating func advance() { cursor.advance() }
+    mutating func advance() {
+      cursor.advance()
+    }
 
     /// The Unicode scalar at the current position, or `nil` if at end.
-    var currentScalar: UnicodeScalar? { cursor.current }
+    var currentScalar: UnicodeScalar? {
+      cursor.current
+    }
 
     init(string: String, handler: any JSONSAXEventHandler) {
-      self.cursor = ParseCursor(string: string)
+      cursor = ParseCursor(string: string)
       self.handler = handler
-      self.acceptMode = false
+      acceptMode = false
     }
 
     init(string: String) {
-      self.cursor = ParseCursor(string: string)
-      self.handler = nil
-      self.acceptMode = true
+      cursor = ParseCursor(string: string)
+      handler = nil
+      acceptMode = true
     }
 
     /// Returns the current error data (bytes from current position onward).
@@ -291,11 +306,11 @@ extension JSON {
         return ctx.emitError(.unexpectedToken(line: ctx.line, column: ctx.column))
       }
       idx = ctx.string.unicodeScalars.index(after: idx)
-      guard idx < end && ctx.string.unicodeScalars[idx].value == UnicodeScalarHex.u else {  // u
+      guard idx < end && ctx.string.unicodeScalars[idx].value == UnicodeScalarHex.u else {
         return ctx.emitError(.unexpectedToken(line: ctx.line, column: ctx.column))
       }
       idx = ctx.string.unicodeScalars.index(after: idx)
-      guard idx < end && ctx.string.unicodeScalars[idx].value == UnicodeScalarHex.e_lower else {  // e
+      guard idx < end && ctx.string.unicodeScalars[idx].value == UnicodeScalarHex.eLower else {
         return ctx.emitError(.unexpectedToken(line: ctx.line, column: ctx.column))
       }
       ctx.advance()
@@ -318,7 +333,7 @@ extension JSON {
       return ctx.emitError(.unexpectedToken(line: ctx.line, column: ctx.column))
     }
     idx = ctx.string.unicodeScalars.index(after: idx)
-    guard idx < end && ctx.string.unicodeScalars[idx].value == UnicodeScalarHex.e_lower else {  // e
+    guard idx < end, ctx.string.unicodeScalars[idx].value == UnicodeScalarHex.eLower else {
       return ctx.emitError(.unexpectedToken(line: ctx.line, column: ctx.column))
     }
     ctx.advance()
@@ -380,7 +395,7 @@ extension JSON {
       }
     }
     if let s = ctx.currentScalar,
-      s.value == UnicodeScalarHex.e_lower || s.value == UnicodeScalarHex.E_upper
+      s.value == UnicodeScalarHex.eLower || s.value == UnicodeScalarHex.eUpper
     {  // e, E
       isFloat = true
       ctx.advance()
@@ -492,7 +507,7 @@ extension JSON {
         return ""
       }  // \\
       ctx.cursor.advance()
-      guard ctx.cursor.hasMore, ctx.cursor.current?.value == UnicodeScalarHex.u else { return "" }  // u
+      guard ctx.cursor.hasMore, ctx.cursor.current?.value == UnicodeScalarHex.u else { return "" }
       ctx.cursor.advance()
       let lowHex = ctx.cursor.readHexDigits()
       guard lowHex.count == 4, let low = UInt16(lowHex, radix: 16) else { return "" }
@@ -535,7 +550,7 @@ extension JSON {
           return false
         }  // u
         idx = ctx.string.unicodeScalars.index(after: idx)
-        guard idx < end && ctx.string.unicodeScalars[idx].value == UnicodeScalarHex.e_lower else {
+        guard idx < end && ctx.string.unicodeScalars[idx].value == UnicodeScalarHex.eLower else {
           return false
         }  // e
         ctx.advance()
@@ -561,7 +576,7 @@ extension JSON {
           return false
         }  // s
         idx = ctx.string.unicodeScalars.index(after: idx)
-        guard idx < end && ctx.string.unicodeScalars[idx].value == UnicodeScalarHex.e_lower else {
+        guard idx < end && ctx.string.unicodeScalars[idx].value == UnicodeScalarHex.eLower else {
           return false
         }  // e
         ctx.advance()
@@ -609,7 +624,7 @@ extension JSON {
         }
       }
       if let s = ctx.currentScalar,
-        s.value == UnicodeScalarHex.e_lower || s.value == UnicodeScalarHex.E_upper
+        s.value == UnicodeScalarHex.eLower || s.value == UnicodeScalarHex.eUpper
       {  // e, E
         ctx.advance()
         if let s = ctx.currentScalar,
@@ -647,7 +662,9 @@ extension JSON {
       guard let s = ctx.currentScalar, s.value == UnicodeScalarHex.comma else { break }  // ,
       ctx.advance()
     } while true
-    guard let s = ctx.currentScalar, s.value == UnicodeScalarHex.closeBrace else { return false }  // }
+    guard let s = ctx.currentScalar, s.value == UnicodeScalarHex.closeBrace else {
+      return false
+    }  // }
     ctx.advance()
     return true
   }
@@ -665,7 +682,9 @@ extension JSON {
       guard let s = ctx.currentScalar, s.value == UnicodeScalarHex.comma else { break }  // ,
       ctx.advance()
     } while true
-    guard let s = ctx.currentScalar, s.value == UnicodeScalarHex.closeBracket else { return false }  // ]
+    guard let s = ctx.currentScalar, s.value == UnicodeScalarHex.closeBracket else {
+      return false
+    }  // ]
     ctx.advance()
     return true
   }

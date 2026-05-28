@@ -92,15 +92,15 @@ private func decodeBJData(_ data: Data, _ pos: inout Int) throws -> JSON {
     return JSON.number(.integer(value))
 
   case bjdataMarkerInt16:
-    let value = Int64(Int16(bitPattern: try readBJDataUInt16(data, &pos)))
+    let value = try Int64(Int16(bitPattern: readBJDataUInt16(data, &pos)))
     return JSON.number(.integer(value))
 
   case bjdataMarkerInt32:
-    let value = Int64(Int32(bitPattern: try readBJDataUInt32(data, &pos)))
+    let value = try Int64(Int32(bitPattern: readBJDataUInt32(data, &pos)))
     return JSON.number(.integer(value))
 
   case bjdataMarkerInt64:
-    let value = Int64(bitPattern: try readBJDataUInt64(data, &pos))
+    let value = try Int64(bitPattern: readBJDataUInt64(data, &pos))
     return JSON.number(.integer(value))
 
   case bjdataMarkerUInt8:
@@ -110,20 +110,20 @@ private func decodeBJData(_ data: Data, _ pos: inout Int) throws -> JSON {
     return JSON.number(.integer(value))
 
   case bjdataMarkerUInt16:
-    return JSON.number(.integer(Int64(try readBJDataUInt16(data, &pos))))
+    return try JSON.number(.integer(Int64(readBJDataUInt16(data, &pos))))
 
   case bjdataMarkerUInt32:
-    return JSON.number(.integer(Int64(try readBJDataUInt32(data, &pos))))
+    return try JSON.number(.integer(Int64(readBJDataUInt32(data, &pos))))
 
   case bjdataMarkerUInt64:
-    return JSON.number(.integer(Int64(bitPattern: try readBJDataUInt64(data, &pos))))
+    return try JSON.number(.integer(Int64(bitPattern: readBJDataUInt64(data, &pos))))
 
   case bjdataMarkerFloat32:
-    let value = Double(Float(bitPattern: try readBJDataUInt32(data, &pos)))
+    let value = try Double(Float(bitPattern: readBJDataUInt32(data, &pos)))
     return JSON.number(.float(value))
 
   case bjdataMarkerFloat64:
-    let value = Double(bitPattern: try readBJDataUInt64(data, &pos))
+    let value = try Double(bitPattern: readBJDataUInt64(data, &pos))
     return JSON.number(.float(value))
 
   case bjdataMarkerChar:
@@ -152,7 +152,7 @@ private func decodeBJData(_ data: Data, _ pos: inout Int) throws -> JSON {
         pos += 1
         break
       }
-      elements.append(try decodeBJData(data, &pos))
+      try elements.append(decodeBJData(data, &pos))
     }
     return JSON.array(elements)
 
@@ -192,11 +192,11 @@ private func decodeBJDataStringLen(_ data: Data, _ pos: inout Int) throws -> Int
     pos += 1
     return len
   case bjdataMarkerInt16:
-    let len = Int(Int16(bitPattern: try readBJDataUInt16(data, &pos)))
+    let len = try Int(Int16(bitPattern: readBJDataUInt16(data, &pos)))
     guard len >= 0 else { throw JSONError.invalidBJData("Negative string length") }
     return len
   case bjdataMarkerInt32:
-    let len = Int(Int32(bitPattern: try readBJDataUInt32(data, &pos)))
+    let len = try Int(Int32(bitPattern: readBJDataUInt32(data, &pos)))
     guard len >= 0 else { throw JSONError.invalidBJData("Negative string length") }
     return len
   default:
@@ -245,22 +245,22 @@ private func encodeBJData(_ json: JSON, _ bytes: inout [UInt8]) {
   case .number(let num):
     switch num {
     case .integer(let value):
-      if value >= 0 && value <= 255 {
+      if value >= 0, value <= 255 {
         bytes.append(bjdataMarkerUInt8)
         bytes.append(UInt8(value))
-      } else if value >= Int64(Int8.min) && value <= Int64(Int8.max) {
+      } else if value >= Int64(Int8.min), value <= Int64(Int8.max) {
         bytes.append(bjdataMarkerInt8)
         bytes.append(UInt8(bitPattern: Int8(truncatingIfNeeded: value)))
-      } else if value >= 0 && value <= Int64(UInt16.max) {
+      } else if value >= 0, value <= Int64(UInt16.max) {
         bytes.append(bjdataMarkerUInt16)
         appendBJDataUInt16(UInt16(value), &bytes)
-      } else if value >= Int64(Int16.min) && value <= Int64(Int16.max) {
+      } else if value >= Int64(Int16.min), value <= Int64(Int16.max) {
         bytes.append(bjdataMarkerInt16)
         appendBJDataUInt16(UInt16(bitPattern: Int16(truncatingIfNeeded: value)), &bytes)
-      } else if value >= 0 && value <= Int64(UInt32.max) {
+      } else if value >= 0, value <= Int64(UInt32.max) {
         bytes.append(bjdataMarkerUInt32)
         appendBJDataUInt32(UInt32(value), &bytes)
-      } else if value >= Int64(Int32.min) && value <= Int64(Int32.max) {
+      } else if value >= Int64(Int32.min), value <= Int64(Int32.max) {
         bytes.append(bjdataMarkerInt32)
         appendBJDataUInt32(UInt32(bitPattern: Int32(truncatingIfNeeded: value)), &bytes)
       } else if value >= 0 {
@@ -274,7 +274,7 @@ private func encodeBJData(_ json: JSON, _ bytes: inout [UInt8]) {
     case .float(let value):
       let double = Double(value)
       let f32 = Float(double)
-      if double == Double(f32) && !double.isNaN && !double.isInfinite {
+      if double == Double(f32), !double.isNaN, !double.isInfinite {
         bytes.append(bjdataMarkerFloat32)
         appendBJDataUInt32(f32.bitPattern, &bytes)
       } else {
@@ -286,7 +286,7 @@ private func encodeBJData(_ json: JSON, _ bytes: inout [UInt8]) {
   case .string(let str):
     let utf8 = Data(str.utf8)
     let len = utf8.count
-    if len == 1 && str.count == 1 {
+    if len == 1, str.count == 1 {
       bytes.append(bjdataMarkerChar)
       bytes.append(contentsOf: utf8)
     } else {
@@ -313,10 +313,10 @@ private func encodeBJData(_ json: JSON, _ bytes: inout [UInt8]) {
 }
 
 private func encodeBJDataInt(_ value: Int, _ bytes: inout [UInt8]) {
-  if value >= 0 && value <= 255 {
+  if value >= 0, value <= 255 {
     bytes.append(bjdataMarkerUInt8)
     bytes.append(UInt8(value))
-  } else if value >= Int(Int16.min) && value <= Int(Int16.max) {
+  } else if value >= Int(Int16.min), value <= Int(Int16.max) {
     bytes.append(bjdataMarkerInt16)
     appendBJDataUInt16(UInt16(bitPattern: Int16(truncatingIfNeeded: value)), &bytes)
   } else {
@@ -328,7 +328,7 @@ private func encodeBJDataInt(_ value: Int, _ bytes: inout [UInt8]) {
 private func encodeBJDataString(_ str: String, _ bytes: inout [UInt8]) {
   let utf8 = Data(str.utf8)
   let len = utf8.count
-  if len == 1 && str.count == 1 {
+  if len == 1, str.count == 1 {
     bytes.append(bjdataMarkerChar)
     bytes.append(contentsOf: utf8)
   } else {
@@ -355,7 +355,8 @@ private func readBJDataUInt32(_ data: Data, _ pos: inout Int) throws -> UInt32 {
   }
   let value =
     UInt32(data[pos]) | UInt32(data[pos + 1]) << 8 | UInt32(data[pos + 2]) << 16 | UInt32(
-      data[pos + 3]) << 24
+      data[pos + 3]
+    ) << 24
   pos += 4
   return value
 }
@@ -366,8 +367,10 @@ private func readBJDataUInt64(_ data: Data, _ pos: inout Int) throws -> UInt64 {
   }
   let value =
     UInt64(data[pos]) | UInt64(data[pos + 1]) << 8 | UInt64(data[pos + 2]) << 16 | UInt64(
-      data[pos + 3]) << 24 | UInt64(data[pos + 4]) << 32 | UInt64(data[pos + 5]) << 40 | UInt64(
-      data[pos + 6]) << 48 | UInt64(data[pos + 7]) << 56
+      data[pos + 3]
+    ) << 24 | UInt64(data[pos + 4]) << 32 | UInt64(data[pos + 5]) << 40 | UInt64(
+      data[pos + 6]
+    ) << 48 | UInt64(data[pos + 7]) << 56
   pos += 8
   return value
 }

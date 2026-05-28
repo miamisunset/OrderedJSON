@@ -5,50 +5,60 @@ import Testing
 
 final class SAXCollector: JSONSAXEventHandler {
   var events: [(String, String)] = []
-  var stopAfter: Int? = nil
+  var stopAfter: Int?
   var eventCount = 0
 
   func null() -> Bool {
     record("null")
     return shouldContinue()
   }
+
   func boolean(_ value: Bool) -> Bool {
     record("boolean", "\(value)")
     return shouldContinue()
   }
+
   func integer(_ value: Int64) -> Bool {
     record("integer", "\(value)")
     return shouldContinue()
   }
-  func float(_ value: Double, string: String) -> Bool {
+
+  func float(_: Double, string: String) -> Bool {
     record("float", string)
     return shouldContinue()
   }
+
   func string(_ value: String) -> Bool {
     record("string", value)
     return shouldContinue()
   }
+
   func startObject() -> Bool {
     record("startObject")
     return shouldContinue()
   }
+
   func key(_ value: String) -> Bool {
     record("key", value)
     return shouldContinue()
   }
+
   func endObject() -> Bool {
     record("endObject")
     return shouldContinue()
   }
+
   func startArray() -> Bool {
     record("startArray")
     return shouldContinue()
   }
+
   func endArray() -> Bool {
     record("endArray")
     return shouldContinue()
   }
-  func parseError(_ error: JSONParseError, data: Data) -> Bool {
+
+  func parseError(_ error: JSONParseError, data _: Data) -> Bool {
     record("error", "\(error)")
     return false
   }
@@ -322,7 +332,7 @@ final class SAXCollector: JSONSAXEventHandler {
   #expect(JSON.accept("{\"a\" 1}") == false)
 }
 
-@Test func saxParseUnicodeEscapeFollowedByChar() throws {
+@Test func saxParseUnicodeEscapeFollowedByChar() {
   // Regression: SAX used to over-advance after \uXXXX, consuming the next character.
   // "\u0041X" should parse as "AX", not just "A".
   let collector = SAXCollector()
@@ -349,16 +359,46 @@ final class SAXCollector: JSONSAXEventHandler {
       didCall = true
       return false
     }
-    func boolean(_: Bool) -> Bool { return true }
-    func integer(_: Int64) -> Bool { return true }
-    func float(_: Double, string: String) -> Bool { return true }
-    func string(_: String) -> Bool { return true }
-    func startObject() -> Bool { return true }
-    func key(_: String) -> Bool { return true }
-    func endObject() -> Bool { return true }
-    func startArray() -> Bool { return true }
-    func endArray() -> Bool { return true }
-    func parseError(_: JSONParseError, data: Data) -> Bool { return true }
+
+    func boolean(_: Bool) -> Bool {
+      return true
+    }
+
+    func integer(_: Int64) -> Bool {
+      return true
+    }
+
+    func float(_: Double, string _: String) -> Bool {
+      return true
+    }
+
+    func string(_: String) -> Bool {
+      return true
+    }
+
+    func startObject() -> Bool {
+      return true
+    }
+
+    func key(_: String) -> Bool {
+      return true
+    }
+
+    func endObject() -> Bool {
+      return true
+    }
+
+    func startArray() -> Bool {
+      return true
+    }
+
+    func endArray() -> Bool {
+      return true
+    }
+
+    func parseError(_: JSONParseError, data _: Data) -> Bool {
+      return true
+    }
   }
   let handler = StoppingHandler()
   let ok = JSON.saxParse("null", handler: handler)
@@ -369,17 +409,48 @@ final class SAXCollector: JSONSAXEventHandler {
 @Test func saxEarlyTerminationStopParsing() {
   // Handler returns false from key() — stops mid-object
   class StoppingHandler: JSONSAXEventHandler {
-    func null() -> Bool { return true }
-    func boolean(_: Bool) -> Bool { return true }
-    func integer(_: Int64) -> Bool { return true }
-    func float(_: Double, string: String) -> Bool { return true }
-    func string(_: String) -> Bool { return true }
-    func startObject() -> Bool { return true }
-    func key(_: String) -> Bool { return false }  // stop here
-    func endObject() -> Bool { return true }
-    func startArray() -> Bool { return true }
-    func endArray() -> Bool { return true }
-    func parseError(_: JSONParseError, data: Data) -> Bool { return true }
+    func null() -> Bool {
+      return true
+    }
+
+    func boolean(_: Bool) -> Bool {
+      return true
+    }
+
+    func integer(_: Int64) -> Bool {
+      return true
+    }
+
+    func float(_: Double, string _: String) -> Bool {
+      return true
+    }
+
+    func string(_: String) -> Bool {
+      return true
+    }
+
+    func startObject() -> Bool {
+      return true
+    }
+
+    func key(_: String) -> Bool {
+      return false
+    }  // stop here
+    func endObject() -> Bool {
+      return true
+    }
+
+    func startArray() -> Bool {
+      return true
+    }
+
+    func endArray() -> Bool {
+      return true
+    }
+
+    func parseError(_: JSONParseError, data _: Data) -> Bool {
+      return true
+    }
   }
   let handler = StoppingHandler()
   let ok = JSON.saxParse(#"{"key": "value"}"#, handler: handler)

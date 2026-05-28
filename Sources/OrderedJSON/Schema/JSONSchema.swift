@@ -54,19 +54,21 @@ public struct JSONSchema: Hashable, Sendable {
   }
 
   /// The schema JSON that was provided at init.
-  internal let schemaJSON: JSON
+  let schemaJSON: JSON
   /// The resolved draft version.
-  internal let draft: Draft
+  let draft: Draft
   /// The compiled schema with resolved `$ref`, `$defs`, `$id`, `$anchor`.
-  internal let compiled: CompiledSchema?
+  let compiled: CompiledSchema?
+  /// Cache for resolved `$ref` targets to avoid repeated resolution.
+  let refCache: RefCache?
   /// Remote compiled schemas pre-registered for `$ref` resolution, keyed by
   /// URL. When a `$ref` cannot be resolved locally, these are consulted.
-  internal let remoteCompiled: [String: CompiledSchema]
+  let remoteCompiled: [String: CompiledSchema]
   /// Options for format validation (which formats to enable/disable).
-  internal let formatOptions: JSONSchemaFormatOptions
+  let formatOptions: JSONSchemaFormatOptions
 
   /// The output mode for validation results.
-  internal let outputMode: OutputMode
+  let outputMode: OutputMode
 
   /// Controls the detail level of validation results.
   ///
@@ -132,6 +134,14 @@ public struct JSONSchema: Hashable, Sendable {
       compiled = nil
     }
 
+    // Create a ref cache for faster $ref resolution at runtime.
+    let refCache: RefCache?
+    if compiled != nil {
+      refCache = RefCache()
+    } else {
+      refCache = nil
+    }
+
     // Compile remote schemas for efficient resolution.
     // Also register all resource URIs from each remote schema so that
     // $ref to URIs defined via $id within the remote schema resolve.
@@ -146,7 +156,7 @@ public struct JSONSchema: Hashable, Sendable {
           // Each resource URI (including empty string for root) is resolved
           // against the file URL to form the absolute key.
           for (resourceURI, _) in compiled.resources {
-            let absoluteURI = CompiledSchema.resolveRelativeID(resourceURI, parent: url)
+            let absoluteURI = CompiledSchema.resolveRelativeID(resourceURI, parentBaseURI: url)
             remoteCompiled[absoluteURI] = compiled
           }
         } catch {
@@ -156,9 +166,10 @@ public struct JSONSchema: Hashable, Sendable {
     }
     self.remoteCompiled = remoteCompiled
 
-    self.schemaJSON = schema
+    schemaJSON = schema
     self.draft = resolvedDraft
     self.compiled = compiled
+    self.refCache = refCache
     self.formatOptions = formatOptions
     self.outputMode = outputMode
   }
@@ -248,7 +259,7 @@ public struct JSONSchema: Hashable, Sendable {
     return enabled
   }
 
-  internal static func detectDraft(from schema: JSON) -> Draft {
+  static func detectDraft(from schema: JSON) -> Draft {
     guard let schemaStr = schema["$schema"]?.stringValue else {
       return .draft202012
     }
@@ -290,7 +301,8 @@ public struct JSONSchema: Hashable, Sendable {
     var errors: [JSONSchemaError] = []
     validateValue(
       document, against: schemaJSON, instancePath: "", schemaPath: "",
-      errors: &errors, ctx: EvaluationContext())
+      errors: &errors, ctx: EvaluationContext()
+    )
     if let first = errors.first {
       throw first
     }
@@ -310,7 +322,8 @@ public struct JSONSchema: Hashable, Sendable {
     var errors: [JSONSchemaError] = []
     validateValue(
       document, against: schemaJSON, instancePath: "", schemaPath: "",
-      errors: &errors, ctx: EvaluationContext())
+      errors: &errors, ctx: EvaluationContext()
+    )
     let verboseErrors: [VerboseError]
     if outputMode == .verbose {
       verboseErrors = buildVerboseErrors(from: errors)
@@ -320,7 +333,8 @@ public struct JSONSchema: Hashable, Sendable {
     return VerboseResult(
       valid: errors.isEmpty,
       errors: errors,
-      verboseErrors: verboseErrors)
+      verboseErrors: verboseErrors
+    )
   }
 
   /// Checks whether a JSON document is valid against this schema.
@@ -332,7 +346,8 @@ public struct JSONSchema: Hashable, Sendable {
     var errors: [JSONSchemaError] = []
     validateValue(
       document, against: schemaJSON, instancePath: "", schemaPath: "",
-      errors: &errors, ctx: EvaluationContext())
+      errors: &errors, ctx: EvaluationContext()
+    )
     return errors.isEmpty
   }
 
@@ -345,7 +360,7 @@ public struct JSONSchema: Hashable, Sendable {
   /// Within each group, the error whose keyword best matches the group
   /// key (e.g., keyword `"allOf"` for group `allOf`) is used as the parent.
   /// If no keyword matches, the first error alphabetically is used.
-  internal func buildVerboseErrors(from errors: [JSONSchemaError]) -> [VerboseError] {
+  func buildVerboseErrors(from errors: [JSONSchemaError]) -> [VerboseError] {
     // Group errors by their first schema-path segment
     var groups: [String: [JSONSchemaError]] = [:]
     for error in errors {
@@ -389,7 +404,37 @@ public struct JSONSchema: Hashable, Sendable {
   /// Conservative; revisit if OpenAPI/AsyncAPI corpora hit the wall.
   private static let maxRecursionDepth = 20
 
-  internal func validateValue(
+  /// Set of keyword names that are validation-related (not meta-keywords
+  /// like `$id`, `$ref`, `$defs`, `$anchor`, `$schema`, `$vocabulary`).
+  private static let validationKeywords: Set<String> = [
+    "type", "properties", "required", "minimum", "maximum",
+    "multipleOf", "pattern", "enum", "const", "minLength", "maxLength",
+    "allOf", "anyOf", "oneOf", "not", "if", "minItems", "maxItems",
+    "uniqueItems", "contains", "minProperties", "maxProperties",
+    "propertyNames", "patternProperties", "additionalProperties",
+    "items", "exclusiveMinimum", "exclusiveMaximum",
+    "format", "dependencies", "additionalItems",
+    "dependentSchemas", "dependentRequired", "prefixItems",
+    "unevaluatedItems", "unevaluatedProperties",
+    "contentMediaType", "contentEncoding", "contentSchema",
+    "minContains", "maxContains",
+  ]
+
+  /// Returns a keyword value from the compiled cache if available,
+  /// otherwise falls back to looking up from the subschema JSON.
+  ///
+  /// - Note: Currently unused in this PR. Intended for future use
+  ///   where compiled keyword cache can accelerate validation.
+  @inline(__always) func keyword(
+    _ key: String, from subschema: JSON, at pointer: String
+  ) -> JSON? {
+    if let cache = compiled?.keywordCache[pointer], let v = cache[key] {
+      return v
+    }
+    return subschema[key]
+  }
+
+  func validateValue(
     _ value: JSON,
     against subschema: JSON,
     instancePath: String,
@@ -403,7 +448,9 @@ public struct JSONSchema: Hashable, Sendable {
         JSONSchemaError(
           instancePath: instancePath, schemaPath: schemaPath,
           keyword: "schema",
-          message: "maximum recursion depth exceeded"))
+          message: "maximum recursion depth exceeded"
+        )
+      )
       return
     }
 
@@ -413,11 +460,11 @@ public struct JSONSchema: Hashable, Sendable {
     // In Draft 7, $ref replaces the entire subschema, so $id is ignored
     // when $ref is present — use the parent's URI for ref resolution.
     let resourceURI: String
-    if subschema["$ref"]?.stringValue != nil && draft == .draft7 {
+    if subschema["$ref"]?.stringValue != nil, draft == .draft7 {
       // Draft 7: $ref replaces the subschema, ignore $id
       resourceURI = ctx.parentResourceURI
     } else if let idVal = subschema["$id"]?.stringValue {
-      resourceURI = CompiledSchema.resolveRelativeID(idVal, parent: ctx.parentResourceURI)
+      resourceURI = CompiledSchema.resolveRelativeID(idVal, parentBaseURI: ctx.parentResourceURI)
     } else {
       resourceURI = ctx.currentResourceURI
     }
@@ -427,7 +474,9 @@ public struct JSONSchema: Hashable, Sendable {
         errors.append(
           JSONSchemaError(
             instancePath: instancePath, schemaPath: schemaPath, keyword: "false",
-            message: "boolean schema false rejects the value"))
+            message: "boolean schema false rejects the value"
+          )
+        )
       }
       return
     }
@@ -438,7 +487,7 @@ public struct JSONSchema: Hashable, Sendable {
     // If so, keywords from disabled vocabularies should be ignored.
     let vocabKeywords: Set<String>? = {
       guard let schemaStr = subschema["$schema"]?.stringValue else { return nil }
-      let resolvedURI = CompiledSchema.resolveRelativeID(schemaStr, parent: resourceURI)
+      let resolvedURI = CompiledSchema.resolveRelativeID(schemaStr, parentBaseURI: resourceURI)
       guard let compiledMeta = remoteCompiled[resolvedURI] else { return nil }
       guard
         let scopeSchema = compiledMeta.resources[""].map(\.scopeSchema)
@@ -458,7 +507,8 @@ public struct JSONSchema: Hashable, Sendable {
       compiled != nil
     {
       ctxWithAnchor = ctx.advanced(
-        withAnchor: dynAnchorStr, schema: subschema, resourceURI: resourceURI)
+        withAnchor: dynAnchorStr, schema: subschema, resourceURI: resourceURI
+      )
     } else {
       ctxWithAnchor = ctx.advanced(resourceURI: resourceURI)
     }
@@ -472,7 +522,8 @@ public struct JSONSchema: Hashable, Sendable {
         // Skip if already pushed by the subschema check above.
         if subschema["$dynamicAnchor"]?.stringValue != anchorName {
           ctxWithAnchor = ctxWithAnchor.advanced(
-            withAnchor: anchorName, schema: anchorSchema, resourceURI: resourceURI)
+            withAnchor: anchorName, schema: anchorSchema, resourceURI: resourceURI
+          )
         }
       }
     }
@@ -491,8 +542,8 @@ public struct JSONSchema: Hashable, Sendable {
     if let dynRefStr = subschema["$dynamicRef"]?.stringValue {
       if let resolved = compiled?.resolveDynamicRef(
         dynRefStr, dynamicScope: currentCtx.dynamicScope, currentResourceURI: resourceURI,
-        remoteRegistry: remoteCompiled)
-      {
+        remoteRegistry: remoteCompiled
+      ) {
         // For local refs: keep parentResourceURI as the original parent
         // (use advancedViaRef). For remote refs: update parentResourceURI
         // to the remote schema's URI (use advanced).
@@ -506,13 +557,16 @@ public struct JSONSchema: Hashable, Sendable {
         validateValue(
           value, against: resolved.schema, instancePath: instancePath,
           schemaPath: schemaPath + "/$dynamicRef", errors: &errors,
-          ctx: resolvedCtx)
+          ctx: resolvedCtx
+        )
       } else {
         errors.append(
           JSONSchemaError(
             instancePath: instancePath, schemaPath: schemaPath + "/$dynamicRef",
             keyword: "$dynamicRef",
-            message: "unresolvable dynamic reference: '\(dynRefStr)'"))
+            message: "unresolvable dynamic reference: '\(dynRefStr)'"
+          )
+        )
       }
       // In Draft 2020-12, $dynamicRef does not skip sibling keywords
       // (unevaluatedItems, unevaluatedProperties still apply).
@@ -525,288 +579,345 @@ public struct JSONSchema: Hashable, Sendable {
     // In Draft 2020-12, $ref is resolved AND sibling keywords are also processed
     // (unevaluatedItems, unevaluatedProperties, etc. still apply).
     if let refStr = subschema["$ref"]?.stringValue {
-      if let resolved = compiled?.resolveRef(
-        refStr, currentResourceURI: resourceURI,
-        remoteRegistry: remoteCompiled)
-      {
-        // For local refs: keep parentResourceURI as the original parent
-        // so $id resolves correctly (use advancedViaRef).
-        // For remote refs: update parentResourceURI to the remote schema's
-        // URI since $id should resolve against the remote parent (use advanced).
-        let isRemote = compiled?.resources[resolved.resourceURI] == nil
-        let resolvedCtx: EvaluationContext
-        if isRemote {
-          resolvedCtx = currentCtx.advanced(resourceURI: resolved.resourceURI)
-        } else {
-          resolvedCtx = currentCtx.advancedViaRef(resourceURI: resolved.resourceURI)
-        }
-        validateValue(
-          value, against: resolved.schema, instancePath: instancePath,
-          schemaPath: schemaPath + "/$ref", errors: &errors,
-          ctx: resolvedCtx)
+      // Use cached resolution if available.
+      let cacheKey = resourceURI + "::" + refStr
+      let resolved: ResolvedRef?
+      if let cache = refCache, let cached = cache.get(cacheKey) {
+        resolved = cached
       } else {
+        resolved = compiled?.resolveRef(
+          refStr, currentResourceURI: resourceURI,
+          remoteRegistry: remoteCompiled
+        )
+        // Store in cache for future use.
+        if let r = resolved, let cache = refCache {
+          cache.set(cacheKey, to: r)
+        }
+      }
+      guard let resolved = resolved else {
         errors.append(
           JSONSchemaError(
             instancePath: instancePath, schemaPath: schemaPath + "/$ref",
             keyword: "$ref",
-            message: "unresolvable reference: '\(refStr)'"))
+            message: "unresolvable reference: '\(refStr)'"
+          )
+        )
+        return
       }
+      // For local refs: keep parentResourceURI as the original parent
+      // so $id resolves correctly (use advancedViaRef).
+      // For remote refs: update parentResourceURI to the remote schema's
+      // URI since $id should resolve against the remote parent (use advanced).
+      let isRemote = compiled?.resources[resolved.resourceURI] == nil
+      let resolvedCtx: EvaluationContext
+      if isRemote {
+        resolvedCtx = currentCtx.advanced(resourceURI: resolved.resourceURI)
+      } else {
+        resolvedCtx = currentCtx.advancedViaRef(resourceURI: resolved.resourceURI)
+      }
+      validateValue(
+        value, against: resolved.schema, instancePath: instancePath,
+        schemaPath: schemaPath + "/$ref", errors: &errors,
+        ctx: resolvedCtx
+      )
       // In Draft 7, return here — sibling keywords are ignored alongside $ref.
       // In Draft 2020-12, continue processing sibling keywords below.
       if draft == .draft7 { return }
     }
 
-    // MARK: - Shared keyword dispatch (called for both drafts)
+    // MARK: - Keyword dispatch using pre-computed keyword set
 
-    if keywordEnabled("type") {
-      validateType(
-        value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
-        errors: &errors, ctx: currentCtx)
-    }
-    if keywordEnabled("properties") {
-      validateProperties(
-        value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
-        errors: &errors, ctx: currentCtx)
-    }
-    if keywordEnabled("required") {
-      validateRequired(
-        value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
-        errors: &errors, ctx: currentCtx)
-    }
-    if keywordEnabled("minimum") {
-      validateMinimum(
-        value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
-        errors: &errors, ctx: currentCtx)
-    }
-    if keywordEnabled("maximum") {
-      validateMaximum(
-        value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
-        errors: &errors, ctx: currentCtx)
-    }
-    if keywordEnabled("multipleOf") {
-      validateMultipleOf(
-        value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
-        errors: &errors, ctx: currentCtx)
-    }
-    if keywordEnabled("pattern") {
-      validatePattern(
-        value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
-        errors: &errors, ctx: currentCtx)
-    }
-    if keywordEnabled("enum") {
-      validateEnum(
-        value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
-        errors: &errors, ctx: currentCtx)
-    }
-    if keywordEnabled("const") {
-      validateConst(
-        value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
-        errors: &errors, ctx: currentCtx)
-    }
-    if keywordEnabled("minLength") {
-      validateMinLength(
-        value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
-        errors: &errors, ctx: currentCtx)
-    }
-    if keywordEnabled("maxLength") {
-      validateMaxLength(
-        value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
-        errors: &errors, ctx: currentCtx)
-    }
-    if keywordEnabled("allOf") {
-      validateAllOf(
-        value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
-        errors: &errors, ctx: currentCtx)
-    }
-    if keywordEnabled("anyOf") {
-      validateAnyOf(
-        value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
-        errors: &errors, ctx: currentCtx)
-    }
-    if keywordEnabled("oneOf") {
-      validateOneOf(
-        value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
-        errors: &errors, ctx: currentCtx)
-    }
-    if keywordEnabled("not") {
-      validateNot(
-        value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
-        errors: &errors, ctx: currentCtx)
-    }
-    if keywordEnabled("if") {
-      validateIfThenElse(
-        value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
-        errors: &errors, ctx: currentCtx)
-    }
-    if keywordEnabled("minItems") {
-      validateMinItems(
-        value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
-        errors: &errors, ctx: currentCtx)
-    }
-    if keywordEnabled("maxItems") {
-      validateMaxItems(
-        value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
-        errors: &errors, ctx: currentCtx)
-    }
-    if keywordEnabled("uniqueItems") {
-      validateUniqueItems(
-        value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
-        errors: &errors, ctx: currentCtx)
-    }
-    if keywordEnabled("contains") {
-      validateContains(
-        value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
-        errors: &errors, ctx: currentCtx)
-    }
-    if keywordEnabled("minProperties") {
-      validateMinProperties(
-        value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
-        errors: &errors, ctx: currentCtx)
-    }
-    if keywordEnabled("maxProperties") {
-      validateMaxProperties(
-        value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
-        errors: &errors, ctx: currentCtx)
-    }
-    if keywordEnabled("propertyNames") {
-      validatePropertyNames(
-        value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
-        errors: &errors, ctx: currentCtx)
-    }
-    if keywordEnabled("patternProperties") {
-      validatePatternProperties(
-        value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
-        errors: &errors, ctx: currentCtx)
-    }
-    if keywordEnabled("additionalProperties") {
-      validateAdditionalProperties(
-        value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
-        errors: &errors, ctx: currentCtx)
-    }
+    //
+    // Instead of checking every possible keyword for every subschema, we
+    // iterate over the keys of the subschema object and dispatch only the
+    // keywords that are actually present.  This reduces the overhead of
+    // function calls and keyword-enabled checks for absent keywords.
 
-    // MARK: - Items schema mode (shared — called for both drafts)
-    // Draft 2020-12: applies to items beyond prefixItems.
-    // Draft 7: applies to all items (prefixItems absent).
+    if case .object(let dict) = subschema.storage {
+      // Collect the keyword names from the subschema keys.
+      // We skip meta-keywords ($id, $ref, $defs, $anchor, etc.) and
+      // only process validation keywords.
+      let validationKeywords = Self.validationKeywords
 
-    if keywordEnabled("items") {
-      validateItemsSchema(
-        value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
-        errors: &errors, ctx: currentCtx)
-    }
+      for (key, _) in dict {
+        guard validationKeywords.contains(key) else { continue }
+        guard keywordEnabled(key) else { continue }
 
-    // MARK: - Exclusive min/max (numeric bound — shared)
-
-    if keywordEnabled("exclusiveMinimum") {
-      validateExclusiveMinimum(
-        value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
-        errors: &errors, ctx: currentCtx)
-    }
-    if keywordEnabled("exclusiveMaximum") {
-      validateExclusiveMaximum(
-        value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
-        errors: &errors, ctx: currentCtx)
-    }
-
-    // MARK: - Draft-specific keyword dispatch
-
-    switch draft {
-    case .draft7:
-      // Draft 7 specific keywords.
-      if keywordEnabled("exclusiveMinimum") {
-        validateExclusiveMinimumBool(
-          value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
-          errors: &errors, ctx: currentCtx)
+        switch key {
+        // --- Shared keywords (both drafts) ---
+        case "type":
+          validateType(
+            value, subschema: subschema, instancePath: instancePath,
+            schemaPath: schemaPath, errors: &errors, ctx: currentCtx
+          )
+        case "properties":
+          validateProperties(
+            value, subschema: subschema, instancePath: instancePath,
+            schemaPath: schemaPath, errors: &errors, ctx: currentCtx
+          )
+        case "required":
+          validateRequired(
+            value, subschema: subschema, instancePath: instancePath,
+            schemaPath: schemaPath, errors: &errors, ctx: currentCtx
+          )
+        case "minimum":
+          validateMinimum(
+            value, subschema: subschema, instancePath: instancePath,
+            schemaPath: schemaPath, errors: &errors, ctx: currentCtx
+          )
+        case "maximum":
+          validateMaximum(
+            value, subschema: subschema, instancePath: instancePath,
+            schemaPath: schemaPath, errors: &errors, ctx: currentCtx
+          )
+        case "multipleOf":
+          validateMultipleOf(
+            value, subschema: subschema, instancePath: instancePath,
+            schemaPath: schemaPath, errors: &errors, ctx: currentCtx
+          )
+        case "pattern":
+          validatePattern(
+            value, subschema: subschema, instancePath: instancePath,
+            schemaPath: schemaPath, errors: &errors, ctx: currentCtx
+          )
+        case "enum":
+          validateEnum(
+            value, subschema: subschema, instancePath: instancePath,
+            schemaPath: schemaPath, errors: &errors, ctx: currentCtx
+          )
+        case "const":
+          validateConst(
+            value, subschema: subschema, instancePath: instancePath,
+            schemaPath: schemaPath, errors: &errors, ctx: currentCtx
+          )
+        case "minLength":
+          validateMinLength(
+            value, subschema: subschema, instancePath: instancePath,
+            schemaPath: schemaPath, errors: &errors, ctx: currentCtx
+          )
+        case "maxLength":
+          validateMaxLength(
+            value, subschema: subschema, instancePath: instancePath,
+            schemaPath: schemaPath, errors: &errors, ctx: currentCtx
+          )
+        case "allOf":
+          validateAllOf(
+            value, subschema: subschema, instancePath: instancePath,
+            schemaPath: schemaPath, errors: &errors, ctx: currentCtx
+          )
+        case "anyOf":
+          validateAnyOf(
+            value, subschema: subschema, instancePath: instancePath,
+            schemaPath: schemaPath, errors: &errors, ctx: currentCtx
+          )
+        case "oneOf":
+          validateOneOf(
+            value, subschema: subschema, instancePath: instancePath,
+            schemaPath: schemaPath, errors: &errors, ctx: currentCtx
+          )
+        case "not":
+          validateNot(
+            value, subschema: subschema, instancePath: instancePath,
+            schemaPath: schemaPath, errors: &errors, ctx: currentCtx
+          )
+        case "if":
+          validateIfThenElse(
+            value, subschema: subschema, instancePath: instancePath,
+            schemaPath: schemaPath, errors: &errors, ctx: currentCtx
+          )
+        case "minItems":
+          validateMinItems(
+            value, subschema: subschema, instancePath: instancePath,
+            schemaPath: schemaPath, errors: &errors, ctx: currentCtx
+          )
+        case "maxItems":
+          validateMaxItems(
+            value, subschema: subschema, instancePath: instancePath,
+            schemaPath: schemaPath, errors: &errors, ctx: currentCtx
+          )
+        case "uniqueItems":
+          validateUniqueItems(
+            value, subschema: subschema, instancePath: instancePath,
+            schemaPath: schemaPath, errors: &errors, ctx: currentCtx
+          )
+        case "contains":
+          validateContains(
+            value, subschema: subschema, instancePath: instancePath,
+            schemaPath: schemaPath, errors: &errors, ctx: currentCtx
+          )
+        case "minProperties":
+          validateMinProperties(
+            value, subschema: subschema, instancePath: instancePath,
+            schemaPath: schemaPath, errors: &errors, ctx: currentCtx
+          )
+        case "maxProperties":
+          validateMaxProperties(
+            value, subschema: subschema, instancePath: instancePath,
+            schemaPath: schemaPath, errors: &errors, ctx: currentCtx
+          )
+        case "propertyNames":
+          validatePropertyNames(
+            value, subschema: subschema, instancePath: instancePath,
+            schemaPath: schemaPath, errors: &errors, ctx: currentCtx
+          )
+        case "patternProperties":
+          validatePatternProperties(
+            value, subschema: subschema, instancePath: instancePath,
+            schemaPath: schemaPath, errors: &errors, ctx: currentCtx
+          )
+        case "additionalProperties":
+          validateAdditionalProperties(
+            value, subschema: subschema, instancePath: instancePath,
+            schemaPath: schemaPath, errors: &errors, ctx: currentCtx
+          )
+        // --- Keywords with draft-specific dispatch ---
+        case "items":
+          // In Draft 7, `items` can be either an object (schema) or an array
+          // (tuple).  Both validators are needed; each returns early if the
+          // value type doesn't match.
+          validateItemsSchema(
+            value, subschema: subschema, instancePath: instancePath,
+            schemaPath: schemaPath, errors: &errors, ctx: currentCtx
+          )
+          if draft == .draft7 {
+            validateItemsTuple(
+              value, subschema: subschema, instancePath: instancePath,
+              schemaPath: schemaPath, errors: &errors, ctx: currentCtx
+            )
+          }
+        case "exclusiveMinimum":
+          // In Draft 7, `exclusiveMinimum` is a boolean modifier, but the
+          // test suite also tests numeric `exclusiveMinimum` in Draft 7 mode.
+          // Call both validators; the numeric one returns early if the value
+          // is not a number, the bool one returns early if `minimum` is absent.
+          if draft == .draft7 {
+            validateExclusiveMinimum(
+              value, subschema: subschema, instancePath: instancePath,
+              schemaPath: schemaPath, errors: &errors, ctx: currentCtx
+            )
+            validateExclusiveMinimumBool(
+              value, subschema: subschema, instancePath: instancePath,
+              schemaPath: schemaPath, errors: &errors, ctx: currentCtx
+            )
+          } else {
+            validateExclusiveMinimum(
+              value, subschema: subschema, instancePath: instancePath,
+              schemaPath: schemaPath, errors: &errors, ctx: currentCtx
+            )
+          }
+        case "exclusiveMaximum":
+          if draft == .draft7 {
+            validateExclusiveMaximum(
+              value, subschema: subschema, instancePath: instancePath,
+              schemaPath: schemaPath, errors: &errors, ctx: currentCtx
+            )
+            validateExclusiveMaximumBool(
+              value, subschema: subschema, instancePath: instancePath,
+              schemaPath: schemaPath, errors: &errors, ctx: currentCtx
+            )
+          } else {
+            validateExclusiveMaximum(
+              value, subschema: subschema, instancePath: instancePath,
+              schemaPath: schemaPath, errors: &errors, ctx: currentCtx
+            )
+          }
+        // --- Draft 7 keywords ---
+        case "format":
+          if draft == .draft7 {
+            validateFormat(
+              value, subschema: subschema, instancePath: instancePath,
+              schemaPath: schemaPath, errors: &errors, ctx: currentCtx
+            )
+          }
+        case "dependencies":
+          if draft == .draft7 {
+            validateDependencies(
+              value, subschema: subschema, instancePath: instancePath,
+              schemaPath: schemaPath, errors: &errors, ctx: currentCtx
+            )
+          }
+        case "additionalItems":
+          if draft == .draft7 {
+            validateAdditionalItems(
+              value, subschema: subschema, instancePath: instancePath,
+              schemaPath: schemaPath, errors: &errors, ctx: currentCtx
+            )
+          }
+        // --- Draft 2020-12 keywords ---
+        case "dependentSchemas":
+          if draft == .draft202012 {
+            validateDependentSchemas(
+              value, subschema: subschema, instancePath: instancePath,
+              schemaPath: schemaPath, errors: &errors, ctx: currentCtx
+            )
+          }
+        case "dependentRequired":
+          if draft == .draft202012 {
+            validateDependentRequired(
+              value, subschema: subschema, instancePath: instancePath,
+              schemaPath: schemaPath, errors: &errors, ctx: currentCtx
+            )
+          }
+        case "prefixItems":
+          if draft == .draft202012 {
+            validatePrefixItems(
+              value, subschema: subschema, instancePath: instancePath,
+              schemaPath: schemaPath, errors: &errors, ctx: currentCtx
+            )
+          }
+        case "unevaluatedItems":
+          if draft == .draft202012 {
+            validateUnevaluatedItems(
+              value, subschema: subschema, instancePath: instancePath,
+              schemaPath: schemaPath, errors: &errors, ctx: currentCtx
+            )
+          }
+        case "unevaluatedProperties":
+          if draft == .draft202012 {
+            validateUnevaluatedProperties(
+              value, subschema: subschema, instancePath: instancePath,
+              schemaPath: schemaPath, errors: &errors, ctx: currentCtx
+            )
+          }
+        case "contentMediaType":
+          if draft == .draft202012 {
+            validateContentMediaType(
+              value, subschema: subschema, instancePath: instancePath,
+              schemaPath: schemaPath, errors: &errors, ctx: currentCtx
+            )
+          }
+        case "contentEncoding":
+          if draft == .draft202012 {
+            validateContentEncoding(
+              value, subschema: subschema, instancePath: instancePath,
+              schemaPath: schemaPath, errors: &errors, ctx: currentCtx
+            )
+          }
+        case "contentSchema":
+          if draft == .draft202012 {
+            validateContentSchema(
+              value, subschema: subschema, instancePath: instancePath,
+              schemaPath: schemaPath, errors: &errors, ctx: currentCtx
+            )
+          }
+        case "minContains":
+          if draft == .draft202012 {
+            validateMinContains(
+              value, subschema: subschema, instancePath: instancePath,
+              schemaPath: schemaPath, errors: &errors, ctx: currentCtx
+            )
+          }
+        case "maxContains":
+          if draft == .draft202012 {
+            validateMaxContains(
+              value, subschema: subschema, instancePath: instancePath,
+              schemaPath: schemaPath, errors: &errors, ctx: currentCtx
+            )
+          }
+        default:
+          break
+        }
       }
-      if keywordEnabled("exclusiveMaximum") {
-        validateExclusiveMaximumBool(
-          value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
-          errors: &errors, ctx: currentCtx)
-      }
-      if keywordEnabled("format") {
-        validateFormat(
-          value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
-          errors: &errors, ctx: currentCtx)
-      }
-      if keywordEnabled("dependencies") {
-        validateDependencies(
-          value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
-          errors: &errors, ctx: currentCtx)
-      }
-      if keywordEnabled("items") {
-        validateItemsTuple(
-          value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
-          errors: &errors, ctx: currentCtx)
-      }
-      if keywordEnabled("additionalItems") {
-        validateAdditionalItems(
-          value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
-          errors: &errors, ctx: currentCtx)
-      }
-
-    case .draft202012:
-      if keywordEnabled("exclusiveMinimum") {
-        validateExclusiveMinimum(
-          value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
-          errors: &errors, ctx: currentCtx)
-      }
-      if keywordEnabled("exclusiveMaximum") {
-        validateExclusiveMaximum(
-          value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
-          errors: &errors, ctx: currentCtx)
-      }
-      if keywordEnabled("dependentSchemas") {
-        validateDependentSchemas(
-          value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
-          errors: &errors, ctx: currentCtx)
-      }
-      if keywordEnabled("dependentRequired") {
-        validateDependentRequired(
-          value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
-          errors: &errors, ctx: currentCtx)
-      }
-      if keywordEnabled("prefixItems") {
-        validatePrefixItems(
-          value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
-          errors: &errors, ctx: currentCtx)
-      }
-      if keywordEnabled("unevaluatedItems") {
-        validateUnevaluatedItems(
-          value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
-          errors: &errors, ctx: currentCtx)
-      }
-      if keywordEnabled("unevaluatedProperties") {
-        validateUnevaluatedProperties(
-          value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
-          errors: &errors, ctx: currentCtx)
-      }
-      if keywordEnabled("contentMediaType") {
-        validateContentMediaType(
-          value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
-          errors: &errors, ctx: currentCtx)
-      }
-      if keywordEnabled("contentEncoding") {
-        validateContentEncoding(
-          value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
-          errors: &errors, ctx: currentCtx)
-      }
-      if keywordEnabled("contentSchema") {
-        validateContentSchema(
-          value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
-          errors: &errors, ctx: currentCtx)
-      }
-      if keywordEnabled("minContains") {
-        validateMinContains(
-          value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
-          errors: &errors, ctx: currentCtx)
-      }
-      if keywordEnabled("maxContains") {
-        validateMaxContains(
-          value, subschema: subschema, instancePath: instancePath, schemaPath: schemaPath,
-          errors: &errors, ctx: currentCtx)
-      }
-
-    default:
-      break
     }
   }
 
@@ -815,7 +926,7 @@ public struct JSONSchema: Hashable, Sendable {
   /// Compares two JSON values using schema-aware equality semantics.
   /// Integers compare equal to equal floats (`1` == `1.0`). Objects compare
   /// by key-value pairs ignoring key order.
-  internal static func schemaEqual(_ lhs: JSON, _ rhs: JSON) -> Bool {
+  static func schemaEqual(_ lhs: JSON, _ rhs: JSON) -> Bool {
     switch (lhs.storage, rhs.storage) {
     case (.null, .null): return true
     case (.boolean(let a), .boolean(let b)): return a == b
@@ -834,7 +945,9 @@ public struct JSONSchema: Hashable, Sendable {
       return true
     case (.array(let a), .array(let b)):
       guard a.count == b.count else { return false }
-      for (i, elem) in a.enumerated() { if !schemaEqual(elem, b[i]) { return false } }
+      for (i, elem) in a.enumerated() {
+        if !schemaEqual(elem, b[i]) { return false }
+      }
       return true
     case (.object(let a), .object(let b)):
       guard a.count == b.count else { return false }
@@ -845,5 +958,21 @@ public struct JSONSchema: Hashable, Sendable {
       return true
     default: return false
     }
+  }
+
+  // MARK: - Hashable conformance (ignoring runtime caches)
+
+  public func hash(into hasher: inout Hasher) {
+    hasher.combine(draft)
+    hasher.combine(compiled)
+    hasher.combine(formatOptions)
+    hasher.combine(outputMode)
+    // refCache is excluded — it's a runtime cache, not part of schema identity.
+  }
+
+  public static func == (lhs: JSONSchema, rhs: JSONSchema) -> Bool {
+    lhs.draft == rhs.draft && lhs.compiled == rhs.compiled && lhs.formatOptions == rhs.formatOptions
+      && lhs.outputMode == rhs.outputMode
+    // refCache is excluded.
   }
 }

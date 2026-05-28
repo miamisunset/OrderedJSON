@@ -16,18 +16,18 @@ import Foundation
 /// validate strictly (date, time, email, hostname, duration).
 public enum JSONSchemaFormat: String, CaseIterable, Sendable, Hashable {
   case dateTime = "date-time"
-  case date = "date"
-  case time = "time"
-  case duration = "duration"
-  case email = "email"
-  case hostname = "hostname"
-  case ipv4 = "ipv4"
-  case ipv6 = "ipv6"
-  case uuid = "uuid"
-  case uri = "uri"
+  case date
+  case time
+  case duration
+  case email
+  case hostname
+  case ipv4
+  case ipv6
+  case uuid
+  case uri
   case uriReference = "uri-reference"
   case jsonPointer = "json-pointer"
-  case regex = "regex"
+  case regex
 
   /// Bit index used for `JSONSchemaFormatOptions.FormatSet` bitmask.
   public var bitIndex: UInt16 {

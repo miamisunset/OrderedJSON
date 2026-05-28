@@ -207,7 +207,7 @@ private func decodeMsgPackBin(_ data: Data, _ pos: inout Int, _ sizeLen: Int) th
 private func decodeMsgPackArray(_ data: Data, _ pos: inout Int, _ count: Int) throws -> JSON {
   var elements: [JSON] = []
   for _ in 0..<count {
-    elements.append(try decodeMsgPack(data, &pos))
+    try elements.append(decodeMsgPack(data, &pos))
   }
   return JSON.array(elements)
 }
@@ -237,17 +237,17 @@ private func encodeMsgPack(_ json: JSON, _ bytes: inout [UInt8]) {
   case .number(let num):
     switch num {
     case .integer(let value):
-      if value >= 0 && value <= 127 {
+      if value >= 0, value <= 127 {
         bytes.append(UInt8(value))
-      } else if value < 0 && value >= -32 {
+      } else if value < 0, value >= -32 {
         bytes.append(UInt8(bitPattern: Int8(truncatingIfNeeded: value)))
-      } else if value >= 0 && value <= 0xFF {
+      } else if value >= 0, value <= 0xFF {
         bytes.append(0xCC)
         bytes.append(UInt8(value))
-      } else if value >= 0 && value <= 0xFFFF {
+      } else if value >= 0, value <= 0xFFFF {
         bytes.append(0xCD)
         appendUInt16(UInt16(value), &bytes)
-      } else if value >= 0 && value <= 0xFFFF_FFFF {
+      } else if value >= 0, value <= 0xFFFF_FFFF {
         bytes.append(0xCE)
         appendUInt32(UInt32(value), &bytes)
       } else if value >= 0 {
@@ -270,7 +270,7 @@ private func encodeMsgPack(_ json: JSON, _ bytes: inout [UInt8]) {
     case .float(let value):
       let double = Double(value)
       let f32 = Float(double)
-      if double == Double(f32) && !double.isNaN && !double.isInfinite {
+      if double == Double(f32), !double.isNaN, !double.isInfinite {
         bytes.append(0xCA)
         appendUInt32(f32.bitPattern, &bytes)
       } else {
@@ -366,15 +366,16 @@ private func readUInt32(_ data: Data, _ pos: inout Int) -> UInt32 {
 private func readUInt64(_ data: Data, _ pos: inout Int) -> UInt64 {
   let value =
     UInt64(data[pos]) << 56 | UInt64(data[pos + 1]) << 48 | UInt64(data[pos + 2]) << 40 | UInt64(
-      data[pos + 3]) << 32 | UInt64(data[pos + 4]) << 24 | UInt64(data[pos + 5]) << 16 | UInt64(
-      data[pos + 6]) << 8 | UInt64(data[pos + 7])
+      data[pos + 3]
+    ) << 32 | UInt64(data[pos + 4]) << 24 | UInt64(data[pos + 5]) << 16 | UInt64(
+      data[pos + 6]
+    ) << 8 | UInt64(data[pos + 7])
   pos += 8
   return value
 }
 
 private func readInt64(_ data: Data, _ pos: inout Int) -> Int64 {
-  let value = Int64(bitPattern: readUInt64(data, &pos))
-  return value
+  return Int64(bitPattern: readUInt64(data, &pos))
 }
 
 private func appendUInt16(_ value: UInt16, _ bytes: inout [UInt8]) {

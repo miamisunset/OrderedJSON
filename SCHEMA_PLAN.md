@@ -449,17 +449,40 @@ Quick schema generation for debugging or documentation.
 
 ---
 
-## Phase 10 — Performance Optimization
+## Phase 10 — Performance Optimization (In Progress)
 
 **Goal**: Fast validation through compiled schemas and caching.
 
-### Optimizations
+### Completed Optimizations
 
-- **Compiled keyword tree**: Pre-parse schema into keyword nodes at init time, not during validation
-- **Cached `$ref` resolution**: Resolve once, reuse
-- **Short-circuit**: `allOf`/`anyOf`/`if` short-circuit when possible
-- **Property whitelist**: Pre-compute which properties are covered by `properties`/`patternProperties` for `additionalProperties`/`unevaluatedProperties` checks
-- **Regex pre-compilation**: Compile `pattern`/`patternProperties` regexes at init time
+- **Keyword dispatch loop**: Replaced the long sequence of `if keywordEnabled("...")`
+  checks with a single loop over the keys of the subschema object. Only keywords
+  that are actually present in the schema are dispatched, reducing function call
+  overhead and `keywordEnabled` checks for absent keywords. Draft-specific
+  dispatch is handled within each case (e.g., `items` calls both tuple and
+  schema validators for Draft 7).
+
+### Completed Optimizations
+
+- **Keyword dispatch loop**: Replaced the long sequence of `if keywordEnabled("...")`
+  checks with a single loop over the keys of the subschema object.
+- **Regex pre-compilation**: `pattern` and `patternProperties` regex strings are
+  compiled into `NSRegularExpression` objects at schema init time and stored in
+  `CompiledSchema.precompiledPatterns`. Validators use the cached regex instead
+  of compiling on each validation call.
+- **Short-circuit**: `allOf` stops after first failure; `oneOf` stops after
+  second match; `anyOf` already stopped after first match.
+- **Cached `$ref` resolution**: A runtime cache (`RefCache`) avoids repeated
+  resolution of the same `$ref` string within the same resource URI.
+- **Keyword cache**: Pre-computed dictionary of keyword values per subschema,
+  keyed by JSON pointer, stored in `CompiledSchema.keywordCache`. Validators
+  can look up keywords directly without JSON dictionary lookups.
+
+### Planned Optimizations
+
+- **Property whitelist**: Pre-compute which properties are covered by
+  `properties`/`patternProperties` for `additionalProperties`/`unevaluatedProperties`
+  checks (deferred due to regression in Draft 2020-12 tests)
 
 ---
 

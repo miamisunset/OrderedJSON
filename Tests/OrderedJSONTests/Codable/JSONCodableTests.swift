@@ -99,7 +99,9 @@ import Testing
   let json = try encoder.encode(
     Person(
       name: "Alice",
-      address: Address(city: "NYC", zip: "10001")))
+      address: Address(city: "NYC", zip: "10001")
+    )
+  )
   #expect(json["name"] == .string("Alice"))
   #expect(json["address"]?.isObject == true)
   #expect(json["address"]?["city"] == .string("NYC"))
@@ -202,7 +204,8 @@ import Testing
   ])
   let wrapped = JSONWithExtras(
     value: Person(name: "Alice", age: 30),
-    extras: extras)
+    extras: extras
+  )
   let encoder = JSONEncoder()
   let data = try encoder.encode(wrapped)
   let decoder = OrderedJSONDecoder()
@@ -233,6 +236,7 @@ import Testing
     enum CodingKeys: String, CodingKey {
       case x, y
     }
+
     init(from decoder: Decoder) throws {
       let container = try decoder.container(keyedBy: CodingKeys.self)
       x = try container.decode(String.self, forKey: .x)
@@ -256,14 +260,14 @@ import Testing
   }
   let json = JSON.object([
     "name": .string("Alice"),
-    "birth": .number(.float(1234567890.0)),  // seconds since 1970
+    "birth": .number(.float(1_234_567_890.0)),  // seconds since 1970
     "extra": .string("extra_key"),
   ])
   var decoder = OrderedJSONDecoder()
   decoder.dateDecodingStrategy = .secondsSince1970
   let decoded = try decoder.decode(JSONWithExtras<Person>.self, from: json)
   #expect(decoded.value.name == "Alice")
-  #expect(decoded.value.birth.timeIntervalSince1970 == 1234567890.0)
+  #expect(decoded.value.birth.timeIntervalSince1970 == 1_234_567_890.0)
   #expect(decoded.extras["extra"] == .string("extra_key"))
 }
 
@@ -449,8 +453,8 @@ extension JSON {
 }
 
 @Test func requireUInt16Success() throws {
-  let json = JSON.number(.integer(42_000))
-  #expect(try json.requireUInt16() == 42_000)
+  let json = JSON.number(.integer(42000))
+  #expect(try json.requireUInt16() == 42000)
 }
 
 @Test func requireUInt32Success() throws {
@@ -727,12 +731,12 @@ extension JSON {
     let x: UInt16
   }
   let encoder = OrderedJSONEncoder()
-  let json = try encoder.encode(Value(x: 42_000))
-  #expect(json["x"] == .number(.integer(42_000)))
+  let json = try encoder.encode(Value(x: 42000))
+  #expect(json["x"] == .number(.integer(42000)))
 
   let decoder = OrderedJSONDecoder()
   let back = try decoder.decode(Value.self, from: json)
-  #expect(back.x == 42_000)
+  #expect(back.x == 42000)
 }
 
 @Test func encodeDecodeUInt32() throws {
@@ -869,7 +873,8 @@ extension JSON {
   }
   let original = Person(
     name: "Alice",
-    address: Address(city: "NYC", zip: "10001"))
+    address: Address(city: "NYC", zip: "10001")
+  )
   let encoder = OrderedJSONEncoder()
   let json = try encoder.encode(original)
   let jsonString = json.dump(indent: -1)
@@ -893,7 +898,8 @@ extension JSON {
     func encode(to encoder: Encoder) throws {
       var container = encoder.container(keyedBy: CodingKeys.self)
       var nested = container.nestedContainer(
-        keyedBy: InnerKeys.self, forKey: .inner)
+        keyedBy: InnerKeys.self, forKey: .inner
+      )
       try nested.encode(inner.x, forKey: .x)
     }
 
@@ -963,7 +969,7 @@ extension JSON {
   }
   let jsonString = #"{"z": "1", "a": "2", "m": "3"}"#
   let decoder = OrderedJSONDecoder()
-  let _ = try decoder.decode(Ordered.self, from: jsonString)
+  _ = try decoder.decode(Ordered.self, from: jsonString)
 }
 
 // MARK: - JSONWithExtras: extras must be object
@@ -974,7 +980,8 @@ extension JSON {
   }
   let wrapped = JSONWithExtras(
     value: Person(name: "Alice"),
-    extras: .null)
+    extras: .null
+  )
   let encoder = JSONEncoder()
   #expect {
     try encoder.encode(wrapped)
@@ -1022,6 +1029,7 @@ extension JSON {
       var container = encoder.container(keyedBy: CodingKeys.self)
       try container.encode(baseValue, forKey: .baseValue)
     }
+
     enum CodingKeys: CodingKey {
       case baseValue
     }
@@ -1242,7 +1250,7 @@ extension JSON {
   struct Container: Codable {
     let url: URL
   }
-  let url = URL(string: "https://example.com/path")!
+  let url = try #require(URL(string: "https://example.com/path"))
   let encoder = OrderedJSONEncoder()
   let json = try encoder.encode(Container(url: url))
   #expect(json["url"] == .string(url.absoluteString))
@@ -1270,7 +1278,7 @@ extension JSON {
   struct Container: Codable {
     let amount: Decimal
   }
-  let decimal = Decimal(string: "3.14159")!
+  let decimal = try #require(Decimal(string: "3.14159"))
   let encoder = OrderedJSONEncoder()
   let json = try encoder.encode(Container(amount: decimal))
   #expect(json["amount"]?.isString == true)
@@ -1285,7 +1293,7 @@ extension JSON {
   struct Container: Codable {
     let amount: Decimal
   }
-  let decimal = Decimal(string: "3.14159")!
+  let decimal = try #require(Decimal(string: "3.14159"))
   var encoder = OrderedJSONEncoder()
   encoder.decimalEncodingStrategy = .asNumber
   let json = try encoder.encode(Container(amount: decimal))
@@ -1302,7 +1310,7 @@ extension JSON {
     let amount: Decimal
   }
   // A Decimal with exponent that overflows Double to infinity
-  let huge = Decimal(string: "1e400")!
+  let huge = Decimal(sign: .plus, exponent: 400, significand: 1)
   var encoder = OrderedJSONEncoder()
   encoder.decimalEncodingStrategy = .asNumber
   // Should throw EncodingError, not crash
@@ -1318,7 +1326,7 @@ extension JSON {
   let date = Date(timeIntervalSince1970: 42)
   var encoder = OrderedJSONEncoder()
   encoder.dateEncodingStrategy = .custom { d, _ in
-    return .object(["epoch": .number(.integer(Int64(d.timeIntervalSince1970)))])
+    .object(["epoch": .number(.integer(Int64(d.timeIntervalSince1970)))])
   }
   let json = try encoder.encode(Container(timestamp: date))
   #expect(json["timestamp"]?.isObject == true)
@@ -1326,7 +1334,7 @@ extension JSON {
 
   var decoder = OrderedJSONDecoder()
   decoder.dateDecodingStrategy = .custom { json, _ in
-    return Date(timeIntervalSince1970: try json["epoch"]!.requireDouble())
+    try Date(timeIntervalSince1970: json["epoch"]!.requireDouble())
   }
   let back = try decoder.decode(Container.self, from: json)
   #expect(back.timestamp.timeIntervalSince1970 == 42)
@@ -1339,14 +1347,14 @@ extension JSON {
   let original = Data([0x01, 0x02])
   var encoder = OrderedJSONEncoder()
   encoder.dataEncodingStrategy = .custom { d, _ in
-    return .number(.integer(Int64(d.count)))
+    .number(.integer(Int64(d.count)))
   }
   let json = try encoder.encode(Container(data: original))
   #expect(json["data"] == .number(.integer(2)))
 
   var decoder = OrderedJSONDecoder()
-  decoder.dataDecodingStrategy = .custom { json, _ in
-    return Data([0x01, 0x02])
+  decoder.dataDecodingStrategy = .custom { _, _ in
+    Data([0x01, 0x02])
   }
   let back = try decoder.decode(Container.self, from: json)
   #expect(back.data == original)
@@ -1477,7 +1485,7 @@ extension JSON {
   encoder.dateEncodingStrategy = .deferredToDate
   encoder.decimalEncodingStrategy = .asString
   let date = Date(timeIntervalSince1970: 100)
-  let decimal = Decimal(string: "2.71828")!
+  let decimal = try #require(Decimal(string: "2.71828"))
   let json = try encoder.encode(Outer(timestamp: date, config: decimal))
   // Date should use Date's own encoding (float), Decimal should be string
   #expect(json["timestamp"]?.isFloat == true)
@@ -1500,11 +1508,11 @@ extension JSON {
   }
   var decoder = OrderedJSONDecoder()
   decoder.dateDecodingStrategy = .secondsSince1970
-  let json = JSON.object(["dates": .array([.number(.float(1_000)), .number(.float(2_000))])])
+  let json = JSON.object(["dates": .array([.number(.float(1000)), .number(.float(2000))])])
   let back = try decoder.decode(Container.self, from: json)
   #expect(back.dates.count == 2)
-  #expect(back.dates[0].timeIntervalSince1970 == 1_000)
-  #expect(back.dates[1].timeIntervalSince1970 == 2_000)
+  #expect(back.dates[0].timeIntervalSince1970 == 1000)
+  #expect(back.dates[1].timeIntervalSince1970 == 2000)
 }
 
 // MARK: - Decodable overflow protection
@@ -1559,7 +1567,7 @@ extension JSON {
   let json = JSON.number(.float(Double.nan))
   let encoder = JSONEncoder()
   let data = try encoder.encode(json)
-  let string = String(data: data, encoding: .utf8)!
+  let string = try #require(String(data: data, encoding: .utf8))
   #expect(string == "null" || string == "[null]")
 }
 
@@ -1568,7 +1576,7 @@ extension JSON {
   let json = JSON.number(.float(Double.infinity))
   let encoder = JSONEncoder()
   let data = try encoder.encode(json)
-  let string = String(data: data, encoding: .utf8)!
+  let string = try #require(String(data: data, encoding: .utf8))
   #expect(string == "null" || string == "[null]")
 }
 

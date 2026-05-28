@@ -33,7 +33,8 @@ extension JSON {
     var string = ""
     serializeJSONPretty(
       self, indent: indent, indentChar: indentChar, depth: 0, ensureAscii: ensureAscii,
-      into: &string)
+      into: &string
+    )
     return string
   }
 
@@ -93,7 +94,8 @@ extension JSON {
           string += innerPad
           serializeJSONPretty(
             el, indent: indent, indentChar: indentChar, depth: depth + 1, ensureAscii: ensureAscii,
-            into: &string)
+            into: &string
+          )
         }
         string += "\n"
         string += pad
@@ -113,7 +115,8 @@ extension JSON {
           string += ": "
           serializeJSONPretty(
             value, indent: indent, indentChar: indentChar, depth: depth + 1,
-            ensureAscii: ensureAscii, into: &string)
+            ensureAscii: ensureAscii, into: &string
+          )
         }
         string += "\n"
         string += pad

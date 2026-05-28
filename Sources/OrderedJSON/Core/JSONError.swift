@@ -47,10 +47,14 @@ public struct JSONParseError: Error, CustomStringConvertible, Hashable, Sendable
     case depthExceeded(line: Int, column: Int, depth: Int, maxDepth: Int)
   }
 
-  public init(_ kind: Kind) { self.kind = kind }
+  public init(_ kind: Kind) {
+    self.kind = kind
+  }
 
   /// Creates an "unexpected end" error.
-  public static func unexpectedEnd() -> JSONParseError { JSONParseError(.unexpectedEnd) }
+  public static func unexpectedEnd() -> JSONParseError {
+    JSONParseError(.unexpectedEnd)
+  }
 
   /// Creates an "unexpected token" error at the given line and column.
   public static func unexpectedToken(line: Int, column: Int) -> JSONParseError {

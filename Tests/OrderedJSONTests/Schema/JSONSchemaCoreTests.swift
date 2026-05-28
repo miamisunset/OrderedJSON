@@ -7,7 +7,6 @@ import Testing
 
 @Suite("JSONSchema creation")
 struct JSONSchemaCreationTests {
-
   @Test("creates schema from valid object")
   func createValidSchema() throws {
     let schema: JSON = .object([
@@ -24,7 +23,7 @@ struct JSONSchemaCreationTests {
   func nonObjectSchema() throws {
     let schema: JSON = .string("not a schema")
     #expect(throws: JSONSchemaError.self) {
-      let _ = try JSONSchema(schema: schema)
+      _ = try JSONSchema(schema: schema)
     }
   }
 
@@ -35,7 +34,7 @@ struct JSONSchemaCreationTests {
       "pattern": .string("[invalid"),
     ])
     #expect(throws: JSONSchemaError.self) {
-      let _ = try JSONSchema(schema: schema)
+      _ = try JSONSchema(schema: schema)
     }
   }
 
@@ -85,10 +84,9 @@ struct JSONSchemaCreationTests {
 
 @Suite("JSONSchema result and error")
 struct JSONSchemaResultTests {
-
   @Test("result — valid is true when no errors")
-  func resultValidTrue() {
-    let schema = try! JSONSchema(schema: .object([:]))
+  func resultValidTrue() throws {
+    let schema = try JSONSchema(schema: .object([:]))
     let result = schema.validation(of: .string("hello"))
     #expect(result.valid)
     #expect(result.errors.isEmpty)
@@ -106,7 +104,7 @@ struct JSONSchemaResultTests {
   func errorDescription() throws {
     let schema = try JSONSchema(schema: .object(["type": .string("number")]))
     let result = schema.validation(of: .string("hello"))
-    let desc = String(describing: result.errors.first!)
+    let desc = try String(describing: #require(result.errors.first))
     #expect(desc.contains("type"))
     #expect(desc.contains("expected"))
   }
@@ -132,7 +130,6 @@ struct JSONSchemaResultTests {
 
 @Suite("JSONSchema output mode")
 struct JSONSchemaOutputModeTests {
-
   @Test("OutputMode — basic is default")
   func outputModeDefault() throws {
     let schema = try JSONSchema(schema: .object(["type": .string("string")]))
@@ -143,38 +140,43 @@ struct JSONSchemaOutputModeTests {
   func outputModeVerbose() throws {
     let schema = try JSONSchema(
       schema: .object(["type": .string("string")]),
-      outputMode: .verbose)
+      outputMode: .verbose
+    )
     #expect(schema.outputMode == .verbose)
   }
 
   @Test("JSONSchemaError — failedValue and parentSchema are nil by default")
-  func errorFailedValueNil() throws {
+  func errorFailedValueNil() {
     let error = JSONSchemaError(
       instancePath: "", schemaPath: "/type", keyword: "type",
-      message: "expected string")
+      message: "expected string"
+    )
     #expect(error.failedValue == nil)
     #expect(error.parentSchema == nil)
   }
 
   @Test("JSONSchemaError — failedValue and parentSchema can be set")
-  func errorFailedValueSet() throws {
+  func errorFailedValueSet() {
     let error = JSONSchemaError(
       instancePath: "", schemaPath: "/type", keyword: "type",
       message: "expected string",
       failedValue: .string("hello"),
-      parentSchema: .object(["type": .string("number")]))
+      parentSchema: .object(["type": .string("number")])
+    )
     #expect(error.failedValue == .string("hello"))
     #expect(error.parentSchema == .object(["type": .string("number")]))
   }
 
   @Test("JSONSchemaError — Hashable with failedValue and parentSchema")
-  func errorHashableWithOptional() throws {
+  func errorHashableWithOptional() {
     let e1 = JSONSchemaError(
       instancePath: "", schemaPath: "/type", keyword: "type",
-      message: "test", failedValue: .string("x"), parentSchema: nil)
+      message: "test", failedValue: .string("x"), parentSchema: nil
+    )
     let e2 = JSONSchemaError(
       instancePath: "", schemaPath: "/type", keyword: "type",
-      message: "test", failedValue: .string("x"), parentSchema: nil)
+      message: "test", failedValue: .string("x"), parentSchema: nil
+    )
     #expect(e1 == e2)
     #expect(e1.hashValue == e2.hashValue)
   }
@@ -193,7 +195,8 @@ struct JSONSchemaOutputModeTests {
   func verboseResultVerbose() throws {
     let schema = try JSONSchema(
       schema: .object(["type": .string("number")]),
-      outputMode: .verbose)
+      outputMode: .verbose
+    )
     let result = schema.validation(of: .string("hello"))
     #expect(!result.valid)
     #expect(result.errors.count == 1)
@@ -220,10 +223,11 @@ struct JSONSchemaOutputModeTests {
   }
 
   @Test("VerboseError — description without children")
-  func verboseErrorDescription() throws {
+  func verboseErrorDescription() {
     let error = JSONSchemaError(
       instancePath: "", schemaPath: "/type", keyword: "type",
-      message: "expected number")
+      message: "expected number"
+    )
     let verbose = VerboseError(error: error)
     let desc = String(describing: verbose)
     #expect(desc.contains("type"))
@@ -231,13 +235,15 @@ struct JSONSchemaOutputModeTests {
   }
 
   @Test("VerboseError — description with children")
-  func verboseErrorDescriptionWithChildren() throws {
+  func verboseErrorDescriptionWithChildren() {
     let parent = JSONSchemaError(
       instancePath: "", schemaPath: "/allOf", keyword: "allOf",
-      message: "not all subschemas matched")
+      message: "not all subschemas matched"
+    )
     let child = JSONSchemaError(
       instancePath: "", schemaPath: "/allOf/0/type", keyword: "type",
-      message: "expected string")
+      message: "expected string"
+    )
     let verbose = VerboseError(error: parent, children: [VerboseError(error: child)])
     let desc = String(describing: verbose)
     #expect(desc.contains("allOf"))
@@ -254,7 +260,8 @@ struct JSONSchemaOutputModeTests {
           .object(["minimum": .number(.integer(100))]),
         ])
       ]),
-      outputMode: .verbose)
+      outputMode: .verbose
+    )
     let result = schema.validation(of: JSON.number(.integer(42)))
     #expect(!result.valid)
     // allOf produces errors grouped under /allOf
@@ -262,7 +269,9 @@ struct JSONSchemaOutputModeTests {
     // The parent error should have keyword "allOf" (matched by group key)
     #expect(result.verboseErrors[0].error.keyword == "allOf")
     // There should be child errors for the second failing subschema
-    #expect(result.verboseErrors[0].children.count == 1)
+    // With short-circuit optimization, only the first failing subschema
+    // produces an error — the second is never validated.
+    #expect(result.verboseErrors[0].children.count == 0)
   }
 
   @Test("buildVerboseErrors — keyword mismatch falls back to first error")
@@ -271,10 +280,12 @@ struct JSONSchemaOutputModeTests {
     // but neither has keyword "foo". Should use first alphabetically.
     let e1 = JSONSchemaError(
       instancePath: "", schemaPath: "/foo/bar", keyword: "bar",
-      message: "bar failed")
+      message: "bar failed"
+    )
     let e2 = JSONSchemaError(
       instancePath: "", schemaPath: "/foo/baz", keyword: "baz",
-      message: "baz failed")
+      message: "baz failed"
+    )
     let schema = try JSONSchema(schema: .object([:]))
     let verbose = schema.buildVerboseErrors(from: [e1, e2])
     #expect(verbose.count == 1)
@@ -285,7 +296,8 @@ struct JSONSchemaOutputModeTests {
   func buildVerboseErrorsSingle() throws {
     let schema = try JSONSchema(
       schema: JSON.object(["type": .string("number")]),
-      outputMode: .verbose)
+      outputMode: .verbose
+    )
     let result = schema.validation(of: JSON.string("hello"))
     #expect(result.verboseErrors.count == 1)
     #expect(result.verboseErrors[0].children.isEmpty)
@@ -296,7 +308,6 @@ struct JSONSchemaOutputModeTests {
 
 @Suite("JSONSchema throwing and predicate API")
 struct JSONSchemaThrowingAPITests {
-
   @Test("validate — valid returns true")
   func validateValid() throws {
     let schema = try JSONSchema(schema: .object(["type": .string("string")]))
@@ -329,7 +340,8 @@ struct JSONSchemaThrowingAPITests {
       schema: .object([
         "type": .string("number"),
         "minimum": .number(.integer(100)),
-      ]))
+      ])
+    )
     #expect(throws: JSONSchemaError.self) {
       try schema.validate(.number(.integer(5)))
     }
@@ -340,7 +352,6 @@ struct JSONSchemaThrowingAPITests {
 
 @Suite("JSONSchema integration")
 struct JSONSchemaIntegrationTests {
-
   @Test("full person schema — valid")
   func personValid() throws {
     let schema = try JSONSchema(
@@ -355,7 +366,8 @@ struct JSONSchemaIntegrationTests {
           ]),
         ]),
         "required": .array([.string("name"), .string("age")]),
-      ]))
+      ])
+    )
 
     let person: JSON = .object([
       "name": .string("Alice"),
@@ -378,7 +390,8 @@ struct JSONSchemaIntegrationTests {
           ]),
         ]),
         "required": .array([.string("name"), .string("age")]),
-      ]))
+      ])
+    )
 
     let person: JSON = .object(["name": .string("Alice")])
     let result = schema.validation(of: person)
@@ -400,7 +413,8 @@ struct JSONSchemaIntegrationTests {
           ]),
         ]),
         "required": .array([.string("name"), .string("age")]),
-      ]))
+      ])
+    )
 
     let person: JSON = .object([
       "name": .string("Alice"),
@@ -425,7 +439,8 @@ struct JSONSchemaIntegrationTests {
           ]),
         ]),
         "required": .array([.string("name"), .string("age")]),
-      ]))
+      ])
+    )
 
     let person: JSON = .object([
       "name": .string("Alice"),
@@ -452,7 +467,6 @@ struct JSONSchemaIntegrationTests {
 
 @Suite("JSONSchema boolean schemas")
 struct JSONSchemaBooleanTests {
-
   @Test("true schema — accepts everything")
   func trueSchema() throws {
     let schema = try JSONSchema(schema: .boolean(true))
@@ -488,7 +502,6 @@ struct JSONSchemaBooleanTests {
 
 @Suite("JSONSchema review edge cases")
 struct JSONSchemaReviewEdgeCasesTests {
-
   @Test("not — with false boolean subschema (passes everything)")
   func notWithFalseSchema() throws {
     let schema = try JSONSchema(schema: .object(["not": .boolean(false)]))
@@ -511,7 +524,8 @@ struct JSONSchemaReviewEdgeCasesTests {
         "dependentSchemas": .object([
           "credit_card": .boolean(false)
         ])
-      ]))
+      ])
+    )
     #expect(schema.validation(of: .object(["name": .string("Alice")])).valid)
     let result = schema.validation(of: .object(["credit_card": .string("1234")]))
     #expect(!result.valid)
@@ -524,7 +538,8 @@ struct JSONSchemaReviewEdgeCasesTests {
       schema: .object([
         "if": .object(["type": .string("string")]),
         "then": .boolean(false),
-      ]))
+      ])
+    )
     #expect(!schema.validation(of: .string("hello")).valid)
     #expect(schema.validation(of: .number(.integer(42))).valid)
   }
@@ -576,7 +591,8 @@ struct JSONSchemaReviewEdgeCasesTests {
             ])
           ]),
         ])
-      ]))
+      ])
+    )
     #expect(schema.validation(of: .number(.integer(42))).valid)
     #expect(!schema.validation(of: .number(.integer(5))).valid)
   }

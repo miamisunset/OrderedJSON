@@ -6,7 +6,7 @@ import OrderedCollections
 /// The result of resolving a `$ref` or `$dynamicRef` pointer.
 /// Carries the resolved schema JSON along with the resource URI to use
 /// for subsequent ref resolution within that schema.
-internal struct ResolvedRef: Hashable, Sendable {
+struct ResolvedRef: Hashable {
   /// The resolved schema JSON (the target of the ref).
   let schema: JSON
   /// The resource URI to use for further ref resolution within `schema`.
@@ -17,7 +17,7 @@ internal struct ResolvedRef: Hashable, Sendable {
 // MARK: - Resource scope
 
 /// Annotations scoped to a single base URI (established by `$id`).
-internal struct ResourceScope: Hashable, Sendable {
+struct ResourceScope: Hashable {
   /// The base URI for this resource (the `$id` value, or empty for root).
   var baseURI: String
   /// The schema JSON node where this resource was declared.
@@ -33,47 +33,244 @@ internal struct ResourceScope: Hashable, Sendable {
 
 // MARK: - Compiled schema
 
-/// A compiled JSON Schema with per-resource (`$id`-scoped) annotation tables.
-///
-/// Compilation walks the raw schema JSON once at init time:
-/// - Identifies embedded resources via `$id` keywords
-/// - Collects `$defs`, `$anchor`, `$dynamicAnchor` per resource
-/// - The root resource (no `$id`) uses an empty-string key
-///
-/// ### Relative `$id` resolution
-///
-/// Per Draft 2020-12 / RFC 3986, a nested `$id` value is resolved against
-/// its parent resource's base URI to form an absolute URI. For example:
-///
-/// ```json
-/// {
-///   "$id": "https://example.com/root",
-///   "properties": {
-///     "child": { "$id": "child", ... }
-///   }
-/// }
-/// ```
-///
-/// The child resource's base URI becomes `https://example.com/child`.
-/// A subsequent `$ref: "https://example.com/child#"` will match.
-internal struct CompiledSchema: Hashable, Sendable {
+// A compiled JSON Schema with per-resource (`$id`-scoped) annotation tables.
+//
+// Compilation walks the raw schema JSON once at init time:
+// - Identifies embedded resources via `$id` keywords
+// - Collects `$defs`, `$anchor`, `$dynamicAnchor` per resource
+// - The root resource (no `$id`) uses an empty-string key
+//
+// ### Relative `$id` resolution
+//
+// Per Draft 2020-12 / RFC 3986, a nested `$id` value is resolved against
+// its parent resource's base URI to form an absolute URI. For example:
+//
+// ```json
+// {
+//   "$id": "https://example.com/root",
+//   "properties": {
+//     "child": { "$id": "child", ... }
+//   }
+// }
+// ```
+//
+// The child resource's base URI becomes `https://example.com/child`.
+// A subsequent `$ref: "https://example.com/child#"` will match.
+
+struct CompiledSchema: Hashable {
   /// The raw schema JSON (kept for un-compiled keyword access).
   let schemaJSON: JSON
   /// Per-resource annotation tables, keyed by base URI (empty string for root).
   let resources: OrderedDictionary<String, ResourceScope>
+  /// Pre-compiled regex patterns for `pattern` and `patternProperties` keywords.
+  /// Key is the pattern string; value is a thread-safe regex wrapper.
+  let precompiledPatterns: [String: LockedRegex]
+  /// Cache of keyword values per subschema, keyed by JSON pointer.
+  ///
+  /// - Warning: This cache is built **before** `$ref` resolution.  For
+  ///   subschemas that are resolved via `$ref`, the cache will contain the
+  ///   raw keyword values from the `$ref` node itself (which is just a
+  ///   `$ref` string), not the resolved target's keywords.  The `kw`
+  ///   function falls back to `subschema[key]` for those nodes, so the
+  ///   cache provides no benefit for `$ref`-targeted subschemas.
+  ///   Consider building the keyword cache **after** `$ref` resolution,
+  ///   or at least caching resolved keyword values.
+  let keywordCache: [String: [String: JSON]]
 
   /// Creates a compiled schema from raw JSON.
   /// - Parameter schema: The raw schema JSON.
   /// - Throws: `JSONSchemaError` if duplicate anchors are found.
   init(schema: JSON) throws {
-    self.schemaJSON = schema
-    self.resources = try CompiledSchema.collectResources(from: schema)
+    schemaJSON = schema
+    resources = try CompiledSchema.collectResources(from: schema)
+    precompiledPatterns = CompiledSchema.compilePatterns(from: schema)
+    keywordCache = CompiledSchema.buildKeywordCache(from: schema)
+  }
+
+  /// Keyword names whose values may be subschemas to recurse into for
+  /// pattern collection and keyword cache building.
+  private static let subschemaKeywords: [String] = [
+    "items", "allOf", "anyOf", "oneOf", "not", "if", "then", "else",
+    "contains", "additionalProperties", "unevaluatedProperties",
+    "additionalItems", "unevaluatedItems", "contentSchema",
+  ]
+
+  /// Walks the schema tree and pre-compiles all `pattern` and `patternProperties`
+  /// regex strings into `NSRegularExpression` objects.
+  private static func compilePatterns(from schema: JSON) -> [String: LockedRegex] {
+    var patterns: [String: LockedRegex] = [:]
+    collectRegexPatterns(schema, patterns: &patterns)
+    return patterns
+  }
+
+  // MARK: - Keyword cache
+
+  /// Walks the schema tree and builds a dictionary mapping each subschema's
+  /// JSON pointer to its keyword values (excluding `$ref` which is resolved).
+  private static func buildKeywordCache(from schema: JSON) -> [String: [String: JSON]] {
+    var cache: [String: [String: JSON]] = [:]
+    buildKeywordCacheRecursive(schema, pointer: "", cache: &cache)
+    return cache
+  }
+
+  /// Maximum recursion depth for `buildKeywordCacheRecursive`.
+  /// Prevents stack overflow from deeply nested schemas.
+  private static let keywordCacheMaxDepth = 100
+
+  private static func buildKeywordCacheRecursive(
+    _ value: JSON, pointer: String, cache: inout [String: [String: JSON]],
+    depth: Int = 0
+  ) {
+    // Depth guard — prevent stack overflow from extremely nested schemas
+    guard depth < keywordCacheMaxDepth else { return }
+    guard value.isObject else { return }
+    // Collect all keyword values from this subschema.
+    var keywords: [String: JSON] = [:]
+    if case .object(let dict) = value.storage {
+      for (k, v) in dict {
+        keywords[k] = v
+      }
+    }
+    cache[pointer] = keywords
+    // Recurse into properties (object properties) and items (array items).
+    if let properties = value["properties"], properties.isObject {
+      if case .object(let props) = properties.storage {
+        for (key, sub) in props {
+          let childPointer = pointer.isEmpty ? "/properties/" + key : pointer + "/properties/" + key
+          buildKeywordCacheRecursive(sub, pointer: childPointer, cache: &cache, depth: depth + 1)
+        }
+      }
+    }
+    if let items = value["items"], items.isObject {
+      // Single schema items
+      buildKeywordCacheRecursive(
+        items, pointer: pointer + "/items", cache: &cache, depth: depth + 1)
+    } else if let itemsArr = value["items"], itemsArr.isArray {
+      // Tuple array items
+      for (i, item) in itemsArr.enumerated() {
+        let childPointer = pointer + "/items/" + String(i)
+        buildKeywordCacheRecursive(item, pointer: childPointer, cache: &cache, depth: depth + 1)
+      }
+    }
+    // Recurse into $defs / definitions
+    if let defs = value["$defs"], defs.isObject {
+      if case .object(let defDict) = defs.storage {
+        for (key, def) in defDict {
+          let childPointer = pointer + "/$defs/" + key
+          buildKeywordCacheRecursive(def, pointer: childPointer, cache: &cache, depth: depth + 1)
+        }
+      }
+    }
+    if let defs = value["definitions"], defs.isObject {
+      if case .object(let defDict) = defs.storage {
+        for (key, def) in defDict {
+          let childPointer = pointer + "/definitions/" + key
+          buildKeywordCacheRecursive(def, pointer: childPointer, cache: &cache, depth: depth + 1)
+        }
+      }
+    }
+    // Recurse into patternProperties (each value is a subschema)
+    if let pp = value["patternProperties"], pp.isObject {
+      if case .object(let patternDict) = pp.storage {
+        for (pattern, sub) in patternDict {
+          let childPointer = pointer + "/patternProperties/" + pattern
+          buildKeywordCacheRecursive(sub, pointer: childPointer, cache: &cache, depth: depth + 1)
+        }
+      }
+    }
+    // Recurse into additionalProperties / unevaluatedProperties (if schema)
+    if let ap = value["additionalProperties"], ap.isObject {
+      buildKeywordCacheRecursive(
+        ap, pointer: pointer + "/additionalProperties", cache: &cache, depth: depth + 1)
+    }
+    if let up = value["unevaluatedProperties"], up.isObject {
+      buildKeywordCacheRecursive(
+        up, pointer: pointer + "/unevaluatedProperties", cache: &cache, depth: depth + 1)
+    }
+    // Recurse into composition keywords (allOf, anyOf, oneOf, not, if, then, else)
+    for comp in ["allOf", "anyOf", "oneOf"] {
+      if let arr = value[comp], arr.isArray {
+        for (i, sub) in arr.enumerated() {
+          let childPointer = pointer + "/" + comp + "/" + String(i)
+          buildKeywordCacheRecursive(sub, pointer: childPointer, cache: &cache, depth: depth + 1)
+        }
+      }
+    }
+    if let not = value["not"], not.isObject {
+      buildKeywordCacheRecursive(not, pointer: pointer + "/not", cache: &cache, depth: depth + 1)
+    }
+    if let ifSub = value["if"], ifSub.isObject {
+      buildKeywordCacheRecursive(ifSub, pointer: pointer + "/if", cache: &cache, depth: depth + 1)
+    }
+    if let thenSub = value["then"], thenSub.isObject {
+      buildKeywordCacheRecursive(
+        thenSub, pointer: pointer + "/then", cache: &cache, depth: depth + 1)
+    }
+    if let elseSub = value["else"], elseSub.isObject {
+      buildKeywordCacheRecursive(
+        elseSub, pointer: pointer + "/else", cache: &cache, depth: depth + 1)
+    }
+  }
+
+  private static func collectRegexPatterns(_ value: JSON, patterns: inout [String: LockedRegex]) {
+    guard value.isObject else { return }
+    // Check for `pattern` keyword
+    if let patternStr = value["pattern"]?.stringValue,
+      patterns[patternStr] == nil,
+      let regex = try? LockedRegex(pattern: patternStr)
+    {
+      patterns[patternStr] = regex
+    }
+    // Check for `patternProperties` keyword — it's an object whose keys are patterns
+    if let pp = value["patternProperties"], pp.isObject {
+      if case .object(let dict) = pp.storage {
+        for (patternStr, _) in dict {
+          if patterns[patternStr] == nil,
+            let regex = try? LockedRegex(pattern: patternStr)
+          {
+            patterns[patternStr] = regex
+          }
+        }
+      }
+    }
+    // Recurse into subschemas
+    if let properties = value["properties"], properties.isObject {
+      if case .object(let dict) = properties.storage {
+        for (_, subschema) in dict {
+          collectRegexPatterns(subschema, patterns: &patterns)
+        }
+      }
+    }
+    for keyword in Self.subschemaKeywords {
+      if let subschema = value[keyword], subschema.isObject {
+        collectRegexPatterns(subschema, patterns: &patterns)
+      }
+      if let arr = value[keyword], arr.isArray {
+        for item in arr where item.isObject {
+          collectRegexPatterns(item, patterns: &patterns)
+        }
+      }
+    }
+    if let defs = value["$defs"], defs.isObject {
+      if case .object(let dict) = defs.storage {
+        for (_, subschema) in dict {
+          collectRegexPatterns(subschema, patterns: &patterns)
+        }
+      }
+    }
+    if let defs = value["definitions"], defs.isObject {
+      if case .object(let dict) = defs.storage {
+        for (_, subschema) in dict {
+          collectRegexPatterns(subschema, patterns: &patterns)
+        }
+      }
+    }
   }
 
   /// Returns the root resource scope (empty-string key).
   /// - Parameter resources: The resources dictionary.
   /// - Returns: The root `ResourceScope`.
-  internal static func rootResource(_ resources: OrderedDictionary<String, ResourceScope>)
+  static func rootResource(_ resources: OrderedDictionary<String, ResourceScope>)
     -> ResourceScope?
   {
     return resources[""]
@@ -93,10 +290,10 @@ internal struct CompiledSchema: Hashable, Sendable {
   ///
   /// - Parameters:
   ///   - child: The `$id` value from the subschema (may be empty/absent).
-  ///   - parent: The parent resource's base URI (empty for root).
+  ///   - parentBaseURI: The parent resource's base URI (empty for root).
   /// - Returns: The resolved absolute URI string.
-  internal static func resolveRelativeID(_ child: String?, parent: String) -> String {
-    guard let child = child, !child.isEmpty else { return parent }
+  static func resolveRelativeID(_ child: String?, parentBaseURI: String) -> String {
+    guard let child = child, !child.isEmpty else { return parentBaseURI }
 
     // Absolute URI — use as-is
     if let url = URL(string: child), url.scheme != nil {
@@ -104,12 +301,12 @@ internal struct CompiledSchema: Hashable, Sendable {
     }
 
     // Parent is empty (root with no $id) — use child as-is
-    if parent.isEmpty {
+    if parentBaseURI.isEmpty {
       return child
     }
 
     // Resolve relative URI against parent base
-    guard let base = URL(string: parent) else { return child }
+    guard let base = URL(string: parentBaseURI) else { return child }
     guard let resolved = URL(string: child, relativeTo: base)?.absoluteString else { return child }
     return resolved
   }
@@ -134,7 +331,7 @@ internal struct CompiledSchema: Hashable, Sendable {
     // Determine the base URI for this subschema by resolving the `$id`
     // value against the parent's base URI per RFC 3986.
     let childID = schema["$id"]?.stringValue
-    let baseURI = resolveRelativeID(childID, parent: currentBaseURI)
+    let baseURI = resolveRelativeID(childID, parentBaseURI: currentBaseURI)
 
     // Ensure a resource scope exists for this base URI.
     // Duplicate $id is an authoring error per spec.
@@ -167,7 +364,8 @@ internal struct CompiledSchema: Hashable, Sendable {
             resources[baseURI]?.defs[key] = value
           }
           try collectResourcesRecursive(
-            value, resources: &resources, currentBaseURI: baseURI)
+            value, resources: &resources, currentBaseURI: baseURI
+          )
         }
       }
     }
@@ -178,7 +376,8 @@ internal struct CompiledSchema: Hashable, Sendable {
             resources[baseURI]?.defs[key] = value
           }
           try collectResourcesRecursive(
-            value, resources: &resources, currentBaseURI: baseURI)
+            value, resources: &resources, currentBaseURI: baseURI
+          )
         }
       }
     }
@@ -217,7 +416,8 @@ internal struct CompiledSchema: Hashable, Sendable {
       if case .object(let dict) = properties.storage {
         for (_, propSchema) in dict {
           try collectResourcesRecursive(
-            propSchema, resources: &resources, currentBaseURI: baseURI)
+            propSchema, resources: &resources, currentBaseURI: baseURI
+          )
         }
       } else {
         preconditionFailure("properties.isObject true but storage not .object")
@@ -227,12 +427,14 @@ internal struct CompiledSchema: Hashable, Sendable {
     // items / prefixItems
     if let items = schema["items"], items.isObject {
       try collectResourcesRecursive(
-        items, resources: &resources, currentBaseURI: baseURI)
+        items, resources: &resources, currentBaseURI: baseURI
+      )
     }
     if let prefixItems = schema["prefixItems"], prefixItems.isArray {
       for item in prefixItems where item.isObject {
         try collectResourcesRecursive(
-          item, resources: &resources, currentBaseURI: baseURI)
+          item, resources: &resources, currentBaseURI: baseURI
+        )
       }
     }
 
@@ -241,25 +443,30 @@ internal struct CompiledSchema: Hashable, Sendable {
       if let subschemas = schema[keyword], subschemas.isArray {
         for sub in subschemas where sub.isObject {
           try collectResourcesRecursive(
-            sub, resources: &resources, currentBaseURI: baseURI)
+            sub, resources: &resources, currentBaseURI: baseURI
+          )
         }
       }
     }
     if let notSchema = schema["not"], notSchema.isObject {
       try collectResourcesRecursive(
-        notSchema, resources: &resources, currentBaseURI: baseURI)
+        notSchema, resources: &resources, currentBaseURI: baseURI
+      )
     }
     if let ifSchema = schema["if"], ifSchema.isObject {
       try collectResourcesRecursive(
-        ifSchema, resources: &resources, currentBaseURI: baseURI)
+        ifSchema, resources: &resources, currentBaseURI: baseURI
+      )
     }
     if let thenSchema = schema["then"], thenSchema.isObject {
       try collectResourcesRecursive(
-        thenSchema, resources: &resources, currentBaseURI: baseURI)
+        thenSchema, resources: &resources, currentBaseURI: baseURI
+      )
     }
     if let elseSchema = schema["else"], elseSchema.isObject {
       try collectResourcesRecursive(
-        elseSchema, resources: &resources, currentBaseURI: baseURI)
+        elseSchema, resources: &resources, currentBaseURI: baseURI
+      )
     }
 
     // patternProperties
@@ -267,7 +474,8 @@ internal struct CompiledSchema: Hashable, Sendable {
       if case .object(let patternDict) = pp.storage {
         for (_, patternSchema) in patternDict {
           try collectResourcesRecursive(
-            patternSchema, resources: &resources, currentBaseURI: baseURI)
+            patternSchema, resources: &resources, currentBaseURI: baseURI
+          )
         }
       } else {
         preconditionFailure("patternProperties.isObject true but storage not .object")
@@ -277,33 +485,39 @@ internal struct CompiledSchema: Hashable, Sendable {
     // contains
     if let containsSchema = schema["contains"], containsSchema.isObject {
       try collectResourcesRecursive(
-        containsSchema, resources: &resources, currentBaseURI: baseURI)
+        containsSchema, resources: &resources, currentBaseURI: baseURI
+      )
     }
 
     // additionalProperties / unevaluatedProperties
     if let ap = schema["additionalProperties"], ap.isObject {
       try collectResourcesRecursive(
-        ap, resources: &resources, currentBaseURI: baseURI)
+        ap, resources: &resources, currentBaseURI: baseURI
+      )
     }
     if let up = schema["unevaluatedProperties"], up.isObject {
       try collectResourcesRecursive(
-        up, resources: &resources, currentBaseURI: baseURI)
+        up, resources: &resources, currentBaseURI: baseURI
+      )
     }
 
     // additionalItems / unevaluatedItems
     if let ai = schema["additionalItems"], ai.isObject {
       try collectResourcesRecursive(
-        ai, resources: &resources, currentBaseURI: baseURI)
+        ai, resources: &resources, currentBaseURI: baseURI
+      )
     }
     if let ui = schema["unevaluatedItems"], ui.isObject {
       try collectResourcesRecursive(
-        ui, resources: &resources, currentBaseURI: baseURI)
+        ui, resources: &resources, currentBaseURI: baseURI
+      )
     }
 
     // propertyNames
     if let pn = schema["propertyNames"], pn.isObject {
       try collectResourcesRecursive(
-        pn, resources: &resources, currentBaseURI: baseURI)
+        pn, resources: &resources, currentBaseURI: baseURI
+      )
     }
 
     // dependentSchemas
@@ -311,7 +525,8 @@ internal struct CompiledSchema: Hashable, Sendable {
       if case .object(let depDict) = depSchemas.storage {
         for (_, depSchema) in depDict {
           try collectResourcesRecursive(
-            depSchema, resources: &resources, currentBaseURI: baseURI)
+            depSchema, resources: &resources, currentBaseURI: baseURI
+          )
         }
       } else {
         preconditionFailure("dependentSchemas.isObject true but storage not .object")
@@ -384,8 +599,8 @@ internal struct CompiledSchema: Hashable, Sendable {
         // resource key (e.g., $id: "#detached" creates resource "<uri>#detached")
         if let matched = resolveFragmentByResource(
           fragmentPart, in: resources,
-          currentURI: currentResourceURI)
-        {
+          currentURI: currentResourceURI
+        ) {
           return matched
         }
         var fragURI = currentResourceURI
@@ -399,7 +614,8 @@ internal struct CompiledSchema: Hashable, Sendable {
         guard
           let schema = resolveFragment(
             fragmentPart, in: remoteCompiled,
-            resourceURI: &fragURI)
+            resourceURI: &fragURI
+          )
         else { return nil }
         return ResolvedRef(schema: schema, resourceURI: fragURI)
       }
@@ -407,16 +623,16 @@ internal struct CompiledSchema: Hashable, Sendable {
     }
 
     // Resolve the URI part relative to currentResourceURI
-    let resolvedURI = CompiledSchema.resolveRelativeID(uriPart, parent: currentResourceURI)
+    let resolvedURI = CompiledSchema.resolveRelativeID(uriPart, parentBaseURI: currentResourceURI)
 
     // Check local resources first
     if let resource = resources[resolvedURI] {
       // For non-pointer fragments, check if fragment matches a resource key
-      if !fragmentPart.isEmpty && !fragmentPart.hasPrefix("/") {
+      if !fragmentPart.isEmpty, !fragmentPart.hasPrefix("/") {
         if let matched = resolveFragmentByResource(
           fragmentPart, in: resources,
-          currentURI: resolvedURI)
-        {
+          currentURI: resolvedURI
+        ) {
           return matched
         }
       }
@@ -461,7 +677,7 @@ internal struct CompiledSchema: Hashable, Sendable {
         if let target = resource.defs[head] {
           // Check if the target definition has $id and update resourceURI
           if let childID = target["$id"]?.stringValue {
-            resourceURI = CompiledSchema.resolveRelativeID(childID, parent: resourceURI)
+            resourceURI = CompiledSchema.resolveRelativeID(childID, parentBaseURI: resourceURI)
           }
           guard let ptr = try? JSONPointer(tail) else { return nil }
           return ptr.resolve(target)
@@ -471,7 +687,7 @@ internal struct CompiledSchema: Hashable, Sendable {
         if let target = resource.defs[key] {
           // Check if the target definition has $id and update resourceURI
           if let childID = target["$id"]?.stringValue {
-            resourceURI = CompiledSchema.resolveRelativeID(childID, parent: resourceURI)
+            resourceURI = CompiledSchema.resolveRelativeID(childID, parentBaseURI: resourceURI)
           }
           return target
         }
@@ -566,7 +782,8 @@ internal struct CompiledSchema: Hashable, Sendable {
     // Step 1: resolve as normal $ref
     guard
       let initialRef = resolveRef(
-        pointer, currentResourceURI: currentResourceURI, remoteRegistry: remoteRegistry)
+        pointer, currentResourceURI: currentResourceURI, remoteRegistry: remoteRegistry
+      )
     else { return nil }
 
     // Check if the resolved schema has a $dynamicAnchor that matches

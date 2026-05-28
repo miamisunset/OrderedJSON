@@ -61,7 +61,7 @@ private func decodeBSONDocument(_ data: Data, _ pos: inout Int) throws -> JSON {
     throw JSONError.invalidBSON("Unexpected end of BSON document")
   }
 
-  let docLen = Int(try readBSONInt32(data, &pos))
+  let docLen = try Int(readBSONInt32(data, &pos))
   guard docLen >= 5 else {
     throw JSONError.invalidBSON("Document length too small")
   }
@@ -97,9 +97,12 @@ private func decodeBSONElement(_ data: Data, _ pos: inout Int) throws -> (String
     return (key, JSON.number(.float(Double(bitPattern: bits))))
 
   case 0x02:  // UTF-8 string
-    let len = Int(try readBSONInt32(data, &pos))
+    let len = try Int(readBSONInt32(data, &pos))
     guard len > 0, pos + len <= data.count else {
       throw JSONError.invalidBSON("String length exceeds data")
+    }
+    guard data[pos + len - 1] == 0 else {
+      throw JSONError.invalidBSON("String missing null terminator")
     }
     let body = data[pos..<pos + len - 1]  // -1 for null terminator
     pos += len
@@ -117,11 +120,11 @@ private func decodeBSONElement(_ data: Data, _ pos: inout Int) throws -> (String
     return (key, arr)
 
   case 0x05:  // Binary data
-    let len = Int(try readBSONInt32(data, &pos))
+    let len = try Int(readBSONInt32(data, &pos))
     guard len >= 0, pos + 1 + len <= data.count else {
       throw JSONError.invalidBSON("Binary length exceeds data")
     }
-    let _ = data[pos]  // subtype byte (safe: pos < data.count from guard)
+    _ = data[pos]  // subtype byte (safe: pos < data.count from guard)
     pos += 1
     let body = data[pos..<pos + len]
     pos += len
@@ -136,11 +139,11 @@ private func decodeBSONElement(_ data: Data, _ pos: inout Int) throws -> (String
     return (key, JSON.null)
 
   case 0x10:  // int32
-    let value = Int64(try readBSONInt32(data, &pos))
+    let value = try Int64(readBSONInt32(data, &pos))
     return (key, JSON.number(.integer(value)))
 
   case 0x12:  // int64
-    let value = Int64(bitPattern: try readBSONUInt64(data, &pos))
+    let value = try Int64(bitPattern: readBSONUInt64(data, &pos))
     return (key, JSON.number(.integer(value)))
 
   default:
@@ -153,7 +156,7 @@ private func decodeBSONArray(_ data: Data, _ pos: inout Int) throws -> JSON {
     throw JSONError.invalidBSON("Unexpected end of BSON array")
   }
 
-  let docLen = Int(try readBSONInt32(data, &pos))
+  let docLen = try Int(readBSONInt32(data, &pos))
   guard docLen >= 5 else {
     throw JSONError.invalidBSON("Array length too small")
   }
@@ -254,7 +257,7 @@ private func encodeBSONElement(_ key: String, _ json: JSON, _ bytes: inout [UInt
   case .number(let num):
     switch num {
     case .integer(let value):
-      if value >= Int64(Int32.min) && value <= Int64(Int32.max) {
+      if value >= Int64(Int32.min), value <= Int64(Int32.max) {
         bytes.append(0x10)  // int32
         encodeBSONCString(key, &bytes)
         appendBSONInt32(Int32(truncatingIfNeeded: value), &bytes)
@@ -306,15 +309,15 @@ private func encodeBSONCString(_ str: String, _ bytes: inout [UInt8]) {
 
 private func readBSONInt32(_ data: Data, _ pos: inout Int) throws -> Int32 {
   // Bounds check happens in readBSONUInt32
-  let value = Int32(bitPattern: try readBSONUInt32(data, &pos))
-  return value
+  return try Int32(bitPattern: readBSONUInt32(data, &pos))
 }
 
 private func readBSONUInt32(_ data: Data, _ pos: inout Int) throws -> UInt32 {
   guard pos + 4 <= data.count else { throw JSONError.invalidBSON("Unexpected end of BSON data") }
   let value =
     UInt32(data[pos]) | UInt32(data[pos + 1]) << 8 | UInt32(data[pos + 2]) << 16 | UInt32(
-      data[pos + 3]) << 24
+      data[pos + 3]
+    ) << 24
   pos += 4
   return value
 }
@@ -323,8 +326,10 @@ private func readBSONUInt64(_ data: Data, _ pos: inout Int) throws -> UInt64 {
   guard pos + 8 <= data.count else { throw JSONError.invalidBSON("Unexpected end of BSON data") }
   let value =
     UInt64(data[pos]) | UInt64(data[pos + 1]) << 8 | UInt64(data[pos + 2]) << 16 | UInt64(
-      data[pos + 3]) << 24 | UInt64(data[pos + 4]) << 32 | UInt64(data[pos + 5]) << 40 | UInt64(
-      data[pos + 6]) << 48 | UInt64(data[pos + 7]) << 56
+      data[pos + 3]
+    ) << 24 | UInt64(data[pos + 4]) << 32 | UInt64(data[pos + 5]) << 40 | UInt64(
+      data[pos + 6]
+    ) << 48 | UInt64(data[pos + 7]) << 56
   pos += 8
   return value
 }

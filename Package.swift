@@ -36,7 +36,8 @@ let package = Package(
     ),
     .testTarget(
       name: "OrderedJSONTests",
-      dependencies: ["OrderedJSON"]
+      dependencies: ["OrderedJSON"],
+      resources: [.process("Schema/JSONSchemaTestSuite/metaschemas.json")]
     ),
   ],
   swiftLanguageModes: [.v6]

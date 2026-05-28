@@ -62,7 +62,8 @@ private func runTestSuite(draftDir: String, draft: JSONSchema.Draft) throws {
       do {
         schema = try JSONSchema(
           schema: schemaJSON, draft: draft,
-          remoteSchemas: remoteSchemas)
+          remoteSchemas: remoteSchemas
+        )
       } catch {
         continue
       }
@@ -90,7 +91,8 @@ private func runTestSuite(draftDir: String, draft: JSONSchema.Draft) throws {
   }
 
   let pct = String(
-    format: "%.1f", Double(passed) / Double(total) * 100)
+    format: "%.1f", Double(passed) / Double(total) * 100
+  )
   let msg = "\(draftDir): \(passed)/\(total) passed (\(pct)%)"
 
   if failures.isEmpty {
@@ -101,7 +103,8 @@ private func runTestSuite(draftDir: String, draft: JSONSchema.Draft) throws {
     let suffix = remaining > 0 ? "\n  ... and \(remaining) more" : ""
     #expect(
       passed == total,
-      Comment(rawValue: "\(msg)\n  \(failures.count) failures:\n  \(top)\(suffix)"))
+      Comment(rawValue: "\(msg)\n  \(failures.count) failures:\n  \(top)\(suffix)")
+    )
   }
 }
 
@@ -124,7 +127,8 @@ private func loadRemoteSchemas(from remotesDir: URL) -> [String: JSON] {
 
   guard
     let enumerator = FileManager.default.enumerator(
-      at: remotesDir, includingPropertiesForKeys: [])
+      at: remotesDir, includingPropertiesForKeys: []
+    )
   else { return result }
 
   for case let fileURL as URL in enumerator {

@@ -13,8 +13,8 @@ public struct JSONSchemaFormatOptions: Hashable, Sendable {
 
   /// Creates a new format options struct with all formats enabled.
   public init() {
-    self.enabledFormats = .all
-    self.disabledFormats = FormatSet()
+    enabledFormats = .all
+    disabledFormats = FormatSet()
   }
 
   /// Returns `true` if the given format should be validated.
@@ -44,7 +44,9 @@ public struct JSONSchemaFormatOptions: Hashable, Sendable {
     public static let all = FormatSet(mask: 0xFFFF)
 
     /// No formats enabled.
-    public init() { self.mask = 0 }
+    public init() {
+      mask = 0
+    }
 
     /// Creates a set containing the given formats.
     public init(_ formats: [JSONSchemaFormat]) {
@@ -52,7 +54,7 @@ public struct JSONSchemaFormatOptions: Hashable, Sendable {
       for f in formats {
         m |= 1 << f.bitIndex
       }
-      self.mask = m
+      mask = m
     }
 
     /// Returns `true` if the given format is in this set.

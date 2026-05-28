@@ -121,7 +121,8 @@ extension JSON {
 
     for (key, value) in entries {
       let segments = key.split(separator: "/", omittingEmptySubsequences: false).map(
-        String.init)
+        String.init
+      )
       // If the first segment is empty (key starts with "/"), drop it.
       // Otherwise keep all segments.
       var parts =

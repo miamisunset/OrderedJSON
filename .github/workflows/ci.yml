@@ -15,7 +15,7 @@ jobs:
       - name: Install SwiftFormat
         run: brew install swiftformat
       - name: Run SwiftFormat lint
-        run: swift format lint --recursive --parallel -p .
+        run: swift format lint --recursive --parallel --strict -p .
       - name: Run SwiftFormat check
         run: swift format format --recursive --parallel --in-place -p . && git diff --exit-code --stat
 
@@ -24,11 +24,14 @@ jobs:
     runs-on: macos-26
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: true
       - name: Build & Test
         # swiftpm-testing-helper may crash with SIGTRAP after all tests pass
-        # (known SwiftPM bug). We ignore the exit code and check output instead.
-        run: swift test --parallel 2>&1 | tee /dev/null
-      - name: Verify test results
-        if: always()
+        # (known SwiftPM bug). Capture output and check for failures manually.
         run: |
-          echo "Tests completed"
+          swift test --parallel -Xswiftc -warnings-as-errors 2>&1 | tee test.log
+          if grep -qE "^\✘" test.log; then
+            echo "::error::Test failures detected"
+            exit 1
+          fi

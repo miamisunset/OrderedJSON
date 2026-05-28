@@ -125,7 +125,8 @@ extension JSON: Decodable {
         codingPath: decoder.codingPath,
         debugDescription:
           "Unsupported JSON value type: expected string, number, boolean, or null",
-        underlyingError: lastKeyedError ?? lastArrayError)
+        underlyingError: lastKeyedError ?? lastArrayError
+      )
       throw DecodingError.dataCorrupted(ctx)
     }
   }

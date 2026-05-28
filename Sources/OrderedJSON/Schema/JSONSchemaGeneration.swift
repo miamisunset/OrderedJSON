@@ -24,7 +24,6 @@ import OrderedCollections
 ///   that captures the exact shape of a single instance, this is sufficient;
 ///   for production schemas you should review and add semantic keywords.
 public enum JSONSchemaGeneration {
-
   /// Generates a JSON Schema (as a `JSON` value) that describes the given
   /// JSON instance.
   ///
@@ -120,28 +119,38 @@ public enum JSONSchemaGeneration {
     // items: false ensures no items beyond the tuple length are allowed.
   }
 
+  private enum PrimitiveKind: UInt8 {
+    case null = 0
+    case boolean = 1
+    case integer = 2
+    case float = 3
+    case string = 4
+    case array = 5
+    case object = 6
+  }
+
   /// Returns a simple classification of a JSON value for fast homogeneity
   /// checks.  Values that are not primitive (arrays, objects) all map to
   /// "complex" so that they always fall through to the full comparison.
-  private static func primitiveKind(_ value: JSON) -> UInt8 {
+  private static func primitiveKind(_ value: JSON) -> PrimitiveKind {
     switch value.storage {
     case .null:
-      return 0
+      return .null
     case .boolean:
-      return 1
+      return .boolean
     case .number(let n):
       switch n {
       case .integer:
-        return 2
+        return .integer
       case .float:
-        return 3
+        return .float
       }
     case .string:
-      return 4
+      return .string
     case .array:
-      return 5
+      return .array
     case .object:
-      return 6
+      return .object
     }
   }
 
@@ -175,7 +184,6 @@ public enum JSONSchemaGeneration {
 // MARK: - JSON extension
 
 extension JSON {
-
   /// Infers a JSON Schema that describes this JSON instance.
   ///
   /// The returned schema is a compiled `JSONSchema` object that can be

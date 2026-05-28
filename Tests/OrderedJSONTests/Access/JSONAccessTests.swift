@@ -143,26 +143,26 @@ import Testing
   #expect(JSON.array([])["key"] == nil)
 }
 
-@Test func subscriptKeySet() throws {
+@Test func subscriptKeySet() {
   var obj = JSON.object(["a": JSON.string("x")])
   obj["a"] = JSON.number(.integer(42))
   #expect(obj["a"] == JSON.number(.integer(42)))
 }
 
-@Test func subscriptKeySetNewKey() throws {
+@Test func subscriptKeySetNewKey() {
   var obj = JSON.object(["a": JSON.string("x")])
   obj["b"] = JSON.number(.integer(42))
   #expect(obj["b"] == JSON.number(.integer(42)))
 }
 
-@Test func subscriptKeyRemove() throws {
+@Test func subscriptKeyRemove() {
   var obj = JSON.object(["a": JSON.string("x"), "b": JSON.number(.integer(1))])
   obj["a"] = nil
   #expect(obj["a"] == nil)
   #expect(obj.count == 1)
 }
 
-@Test func subscriptKeySetNonObject() throws {
+@Test func subscriptKeySetNonObject() {
   var str = JSON.string("hello")
   str["key"] = JSON.number(.integer(42))  // silently ignored
   #expect(str == JSON.string("hello"))
@@ -181,13 +181,13 @@ import Testing
   #expect(JSON.string("hello")[0] == nil)
 }
 
-@Test func subscriptIndexSet() throws {
+@Test func subscriptIndexSet() {
   var arr = JSON.array([JSON.string("a"), JSON.number(.integer(1))])
   arr[0] = JSON.string("b")
   #expect(arr[0] == JSON.string("b"))
 }
 
-@Test func subscriptIndexRemove() throws {
+@Test func subscriptIndexRemove() {
   var arr = JSON.array([JSON.string("a"), JSON.number(.integer(1)), JSON.boolean(true)])
   arr[1] = nil
   #expect(arr.count == 2)
@@ -195,7 +195,7 @@ import Testing
   #expect(arr[1] == JSON.boolean(true))
 }
 
-@Test func subscriptIndexSetNonArray() throws {
+@Test func subscriptIndexSetNonArray() {
   var obj = JSON.object(["a": JSON.string("x")])
   obj[0] = JSON.string("b")  // silently ignored
   #expect(obj == JSON.object(["a": JSON.string("x")]))
@@ -303,7 +303,8 @@ let indexOutOfBoundsNeg = JSONError.indexOutOfBounds(-1)
       == JSON.object([
         "name": JSON.string("Alice"),
         "age": JSON.number(.integer(30)),
-      ]))
+      ])
+  )
   #expect(obj.user.name == JSON.string("Alice"))
   #expect(obj.user.age == JSON.number(.integer(30)))
   #expect(obj.role == JSON.string("admin"))

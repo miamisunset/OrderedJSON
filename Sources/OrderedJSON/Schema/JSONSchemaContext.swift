@@ -11,7 +11,7 @@ import Foundation
 /// footgun pattern that PR #34 (recursionDepth) and PR #36
 /// (currentResourceURI) hit. Consolidating into one struct ensures that
 /// a single `ctx` parameter carries all of them.
-internal struct EvaluationContext: Sendable {
+struct EvaluationContext {
   /// Current recursion depth (incremented at each `validateValue` call).
   var recursionDepth: Int
   /// The base URI of the resource scope currently being validated.
@@ -38,9 +38,9 @@ internal struct EvaluationContext: Sendable {
   ) {
     self.recursionDepth = recursionDepth
     self.currentResourceURI = currentResourceURI
-    self.parentResourceURI = currentResourceURI
+    parentResourceURI = currentResourceURI
     self.dynamicScope = dynamicScope
-    self.enabledKeywords = nil
+    enabledKeywords = nil
   }
 
   func advanced() -> EvaluationContext {
@@ -92,7 +92,7 @@ internal struct EvaluationContext: Sendable {
 /// A single `$dynamicAnchor` frame on the dynamic scope stack.
 /// Named tuple that carries `name` and `schema`, enabling `Equatable`/`Hashable`
 /// conformance for future memoization.
-internal struct DynamicAnchorFrame: Sendable, Hashable {
+struct DynamicAnchorFrame: Hashable {
   let name: String
   let schema: JSON
 }

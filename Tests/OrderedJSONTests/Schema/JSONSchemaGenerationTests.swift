@@ -5,7 +5,6 @@ import Testing
 
 /// Tests for JSON Schema generation from JSON instances (Phase 9).
 @Suite("JSON Schema generation tests") struct JSONSchemaGenerationTests {
-
   // MARK: - Primitive types
 
   @Test("null value generates type: null schema")
@@ -68,7 +67,7 @@ import Testing
   // MARK: - Array
 
   @Test("empty array generates type: array with items: any")
-  func testEmptyArray() throws {
+  func emptyArray() throws {
     let j: JSON = .array([])
     let schema = try j.schema()
     #expect(schema.validation(of: j).valid)
@@ -82,7 +81,7 @@ import Testing
   }
 
   @Test("homogeneous array generates items schema matching element type")
-  func testHomogeneousArray() throws {
+  func homogeneousArray() throws {
     let j: JSON = .array([.number(.integer(1)), .number(.integer(2)), .number(.integer(3))])
     let schema = try j.schema()
     #expect(schema.validation(of: j).valid)
@@ -95,7 +94,7 @@ import Testing
   }
 
   @Test("heterogeneous array generates prefixItems with items: false")
-  func testHeterogeneousArray() throws {
+  func heterogeneousArray() throws {
     let j: JSON = .array([.number(.integer(1)), .string("two"), .boolean(true)])
     let schema = try j.schema()
     #expect(schema.validation(of: j).valid)
@@ -106,7 +105,8 @@ import Testing
     #expect(
       schema.validation(
         of: .array([.number(.integer(1)), .string("two"), .boolean(true), .number(.integer(99))])
-      ).valid == false)
+      ).valid == false
+    )
 
     let schemaJSON = JSONSchemaGeneration.generate(from: j)
     #expect(schemaJSON["type"] == .string("array"))
@@ -146,7 +146,7 @@ import Testing
   }
 
   @Test("object with null value generates null type property")
-  func testObjectWithNullValue() throws {
+  func objectWithNullValue() throws {
     let dict: OrderedDictionary<String, JSON> = [
       "data": .null
     ]
@@ -160,7 +160,7 @@ import Testing
   }
 
   @Test("object with array values generates nested array schema")
-  func testObjectWithArrayValues() throws {
+  func objectWithArrayValues() throws {
     let dict: OrderedDictionary<String, JSON> = [
       "list": .array([.number(.integer(1)), .number(.integer(2))])
     ]
@@ -178,7 +178,7 @@ import Testing
   // MARK: - Round-trip
 
   @Test("round-trip: generated schema validates original document")
-  func testRoundTrip() throws {
+  func roundTrip() throws {
     // Generate a schema from a document, then validate that document
     let doc: JSON = .object([
       "id": .number(.integer(1)),
@@ -194,7 +194,7 @@ import Testing
   }
 
   @Test("nested object generates nested properties with required")
-  func testNestedObject() throws {
+  func nestedObject() throws {
     let nested: JSON = .object([
       "outer": .object([
         "inner": .string("value")

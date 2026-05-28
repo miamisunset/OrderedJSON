@@ -5,7 +5,7 @@ import OrderedCollections
 
 /// Named constants for common Unicode scalar values used in JSON parsing.
 /// Improves readability over raw hex literals throughout the parser.
-private struct UnicodeScalarHex {
+private enum UnicodeScalarHex {
   static let space: UInt32 = 0x20
   static let newline: UInt32 = 0x0A
   static let carriageReturn: UInt32 = 0x0D
@@ -22,8 +22,8 @@ private struct UnicodeScalarHex {
   static let dot: UInt32 = 0x2E
   static let slash: UInt32 = 0x2F
   static let plus: UInt32 = 0x2B
-  static let e_lower: UInt32 = 0x65
-  static let E_upper: UInt32 = 0x45
+  static let eLower: UInt32 = 0x65
+  static let eUpper: UInt32 = 0x45
   static let r: UInt32 = 0x72
   static let u: UInt32 = 0x75
   static let a: UInt32 = 0x61
@@ -171,7 +171,7 @@ extension JSON {
   // MARK: - Internal parse context
 
   /// Tracks parser state: cursor position, depth, and options.
-  internal struct ParseContext {
+  struct ParseContext {
     /// Shared position cursor.
     var cursor: ParseCursor
     /// Parser options.
@@ -180,29 +180,44 @@ extension JSON {
     var depth: Int
 
     /// The source string being parsed.
-    var string: String { cursor.string }
+    var string: String {
+      cursor.string
+    }
+
     /// Current position in the Unicode scalar view.
-    var pos: String.UnicodeScalarIndex { cursor.pos }
+    var pos: String.UnicodeScalarIndex {
+      cursor.pos
+    }
+
     /// Current line number (1-based).
-    var line: Int { cursor.line }
+    var line: Int {
+      cursor.line
+    }
+
     /// Current column number (1-based).
-    var column: Int { cursor.column }
+    var column: Int {
+      cursor.column
+    }
 
     /// Advance by one Unicode scalar, updating line/column.
-    mutating func advance() { cursor.advance() }
+    mutating func advance() {
+      cursor.advance()
+    }
 
     /// The Unicode scalar at the current position, or `nil` if at end.
-    var currentScalar: UnicodeScalar? { cursor.current }
+    var currentScalar: UnicodeScalar? {
+      cursor.current
+    }
 
     /// Creates a parse context from a source string.
     init(
       string: String, pos: String.UnicodeScalarIndex,
       options: ParserOptions, line: Int, column: Int, depth: Int
     ) {
-      self.cursor = ParseCursor(string: string)
-      self.cursor.pos = pos
-      self.cursor.line = line
-      self.cursor.column = column
+      cursor = ParseCursor(string: string)
+      cursor.pos = pos
+      cursor.line = line
+      cursor.column = column
       self.options = options
       self.depth = depth
     }
@@ -230,7 +245,8 @@ extension JSON {
     case .depthExceeded:
       return JSONParseError.depthExceeded(
         line: ctx.line, column: ctx.column,
-        depth: ctx.depth, maxDepth: ctx.options.maxDepth)
+        depth: ctx.depth, maxDepth: ctx.options.maxDepth
+      )
     }
   }
 
@@ -326,7 +342,7 @@ extension JSON {
     }
     var elements: [JSON] = []
     repeat {
-      elements.append(try parseValue(&ctx))
+      try elements.append(parseValue(&ctx))
       skipWhitespace(&ctx)
       guard let s = ctx.currentScalar, s.value == UnicodeScalarHex.comma else { break }  // ,
       ctx.advance()
@@ -350,7 +366,7 @@ extension JSON {
   // MARK: - String
 
   private static func parseStringValue(_ ctx: inout ParseContext) throws -> JSON {
-    return .string(try parseString(&ctx))
+    return try .string(parseString(&ctx))
   }
 
   private static func parseString(_ ctx: inout ParseContext) throws -> String {
@@ -468,11 +484,11 @@ extension JSON {
         throw error(at: ctx, kind: .unexpectedToken)
       }
       idx = ctx.string.unicodeScalars.index(after: idx)
-      guard idx < end && ctx.string.unicodeScalars[idx].value == UnicodeScalarHex.u else {  // u
+      guard idx < end && ctx.string.unicodeScalars[idx].value == UnicodeScalarHex.u else {
         throw error(at: ctx, kind: .unexpectedToken)
       }
       idx = ctx.string.unicodeScalars.index(after: idx)
-      guard idx < end && ctx.string.unicodeScalars[idx].value == UnicodeScalarHex.e_lower else {  // e
+      guard idx < end && ctx.string.unicodeScalars[idx].value == UnicodeScalarHex.eLower else {
         throw error(at: ctx, kind: .unexpectedToken)
       }
       ctx.advance()
@@ -496,7 +512,7 @@ extension JSON {
       throw error(at: ctx, kind: .unexpectedToken)
     }
     idx = ctx.string.unicodeScalars.index(after: idx)
-    guard idx < end && ctx.string.unicodeScalars[idx].value == UnicodeScalarHex.e_lower else {  // e
+    guard idx < end, ctx.string.unicodeScalars[idx].value == UnicodeScalarHex.eLower else {
       throw error(at: ctx, kind: .unexpectedToken)
     }
     ctx.advance()
@@ -565,7 +581,7 @@ extension JSON {
     }
     // Exponent part
     if let s = ctx.currentScalar,
-      s.value == UnicodeScalarHex.e_lower || s.value == UnicodeScalarHex.E_upper
+      s.value == UnicodeScalarHex.eLower || s.value == UnicodeScalarHex.eUpper
     {  // e, E
       isFloat = true
       ctx.advance()
@@ -589,7 +605,7 @@ extension JSON {
     // Substring slice on UnicodeScalar indices.
     let numString = String(ctx.string.unicodeScalars[start..<ctx.pos])
     if isFloat {
-      return .number(.float(try parseDouble(numString, line: startLine, column: startColumn)))
+      return try .number(.float(parseDouble(numString, line: startLine, column: startColumn)))
     }
     if let intValue = Int64(numString) {
       return .number(.integer(intValue))

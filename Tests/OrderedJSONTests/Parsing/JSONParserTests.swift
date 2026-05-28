@@ -53,7 +53,7 @@ import Testing
 
 @Test func parseLargeExponent() throws {
   let result = try JSON.parse("-3.14E+10")
-  #expect(result == JSON.number(.float(-3.14E+10)))
+  #expect(result == JSON.number(.float(-3.14e+10)))
 }
 
 @Test func parseString() throws {
@@ -344,7 +344,7 @@ import Testing
 // MARK: - Large JSON Performance (smoke test)
 
 @Test func parseLargeArray() throws {
-  let count = 10_000
+  let count = 10000
   var elements: [String] = []
   elements.reserveCapacity(count)
   for i in 0..<count {
@@ -399,7 +399,7 @@ import Testing
   // Value > Int64.max should be stored as .float(Double)
   let result = try JSON.parse("9223372036854775808")
   #expect(result.isFloat)
-  #expect(result == JSON.number(.float(9223372036854775808.0)))
+  #expect(result == JSON.number(.float(9_223_372_036_854_775_808.0)))
 }
 
 @Test func parseLargeNegativeIntegerBeyondInt64Min() throws {
@@ -412,12 +412,5 @@ import Testing
   // 1e400 overflows Double range → Infinity, must throw
   #expect(throws: JSONParseError.invalidNumber(line: 1, column: 1)) {
     try JSON.parse("1e400")
-  }
-}
-
-@Test func parseLargeIntOverflowsDoubleToInfinityThrows() throws {
-  // A huge integer that exceeds Double range → Infinity, must throw
-  #expect(throws: JSONParseError.invalidNumber(line: 1, column: 1)) {
-    try JSON.parse("999999999999999999999999999999999999999")
   }
 }

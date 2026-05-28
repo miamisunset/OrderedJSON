@@ -301,7 +301,9 @@ private func appendBE(_ value: UInt64, to bytes: inout [UInt8]) {
 @Test func msgPackString8() throws {
   // Build raw bytes for string with 0xD9 marker (len=32)
   var bytes: [UInt8] = [0xD9, 32]
-  for _ in 0..<32 { bytes.append(0x61) }  // "a" * 32
+  for _ in 0..<32 {
+    bytes.append(0x61)
+  }  // "a" * 32
   let data = Data(bytes)
   let decoded = try JSON.fromMsgPack(data)
   #expect(decoded == JSON.string(String(repeating: "a", count: 32)))
@@ -310,7 +312,9 @@ private func appendBE(_ value: UInt64, to bytes: inout [UInt8]) {
 @Test func msgPackString16() throws {
   // Build raw bytes for string with 0xDA marker (len=256)
   var bytes: [UInt8] = [0xDA, 0x01, 0x00]
-  for _ in 0..<256 { bytes.append(0x61) }
+  for _ in 0..<256 {
+    bytes.append(0x61)
+  }
   let data = Data(bytes)
   let decoded = try JSON.fromMsgPack(data)
   #expect(decoded == JSON.string(String(repeating: "a", count: 256)))
@@ -319,7 +323,9 @@ private func appendBE(_ value: UInt64, to bytes: inout [UInt8]) {
 @Test func msgPackString32() throws {
   // Build raw bytes for string with 0xDB marker (len=100)
   var bytes: [UInt8] = [0xDB, 0x00, 0x00, 0x00, 0x64]
-  for _ in 0..<100 { bytes.append(0x61) }
+  for _ in 0..<100 {
+    bytes.append(0x61)
+  }
   let data = Data(bytes)
   let decoded = try JSON.fromMsgPack(data)
   #expect(decoded == JSON.string(String(repeating: "a", count: 100)))
@@ -359,7 +365,9 @@ private func appendBE(_ value: UInt64, to bytes: inout [UInt8]) {
 
 @Test func msgPackEncodeLargeArray() throws {
   var arr: [JSON] = []
-  for idx in 0..<20 { arr.append(JSON.number(.integer(Int64(idx)))) }
+  for idx in 0..<20 {
+    arr.append(JSON.number(.integer(Int64(idx))))
+  }
   let json = JSON.array(arr)
   let data = json.toMsgPack()
   let decoded = try JSON.fromMsgPack(data)
@@ -368,7 +376,9 @@ private func appendBE(_ value: UInt64, to bytes: inout [UInt8]) {
 
 @Test func msgPackEncodeLargeObject() throws {
   var dict = OrderedDictionary<String, JSON>()
-  for idx in 0..<20 { dict["k\(idx)"] = JSON.number(.integer(Int64(idx))) }
+  for idx in 0..<20 {
+    dict["k\(idx)"] = JSON.number(.integer(Int64(idx)))
+  }
   let json = JSON.object(dict)
   let data = json.toMsgPack()
   let decoded = try JSON.fromMsgPack(data)
@@ -708,7 +718,7 @@ private func appendBE(_ value: UInt64, to bytes: inout [UInt8]) {
 @Test func cborHalfFloat() throws {
   // CBOR half-precision float (additional info 25)
   // 1.5 encoded as half-float: 0x3E, 0x80 = 0b0 01111 1000000000 = 1.5
-  let bytes: [UInt8] = [0xFA, 0x3E, 0x80]  // major 7, info 25, value=0x3E80
+  let bytes: [UInt8] = [0xF9, 0x3E, 0x80]  // major 7, info 25, value=0x3E80
   let data = Data(bytes)
   let decoded = try JSON.fromCBOR(data)
   #expect(decoded.isNumber)
@@ -733,7 +743,7 @@ private func appendBE(_ value: UInt64, to bytes: inout [UInt8]) {
   #expect(throws: JSONError.self) { try JSON.fromCBOR(data) }
 }
 
-@Test func cborUnknownMajorType() throws {
+@Test func cborUnknownMajorType() {
   // CBOR only defines major types 0-7; the default case is unreachable
   // but we can verify it exists by testing with a marker that has no handler
   // The reserved info case is tested in cborReservedInfo
@@ -741,7 +751,7 @@ private func appendBE(_ value: UInt64, to bytes: inout [UInt8]) {
 
 @Test func cborHalfFloatDenormalized() throws {
   // Half-float denormalized value (exp=0)
-  let bytes: [UInt8] = [0xFA, 0x00, 0x01]  // major 7, info 25, value=0x0001 (min denormalized)
+  let bytes: [UInt8] = [0xF9, 0x00, 0x01]  // major 7, info 25, value=0x0001 (min denormalized)
   let data = Data(bytes)
   let decoded = try JSON.fromCBOR(data)
   #expect(decoded.isNumber)
@@ -749,7 +759,7 @@ private func appendBE(_ value: UInt64, to bytes: inout [UInt8]) {
 
 @Test func cborHalfFloatInf() throws {
   // Half-float infinity (exp=31, mant=0)
-  let bytes: [UInt8] = [0xFA, 0xFC, 0x00]  // major 7, info 25, value=0xFC00 (-inf)
+  let bytes: [UInt8] = [0xF9, 0xFC, 0x00]  // major 7, info 25, value=0xFC00 (-inf)
   let data = Data(bytes)
   let decoded = try JSON.fromCBOR(data)
   #expect(decoded.isNumber)
@@ -757,7 +767,7 @@ private func appendBE(_ value: UInt64, to bytes: inout [UInt8]) {
 
 @Test func cborHalfFloatNaN() throws {
   // Half-float NaN (exp=31, mant!=0)
-  let bytes: [UInt8] = [0xFA, 0xFE, 0x00]  // major 7, info 25, value=0xFE00 (NaN)
+  let bytes: [UInt8] = [0xF9, 0xFE, 0x00]  // major 7, info 25, value=0xFE00 (NaN)
   let data = Data(bytes)
   let decoded = try JSON.fromCBOR(data)
   #expect(decoded.isNumber)
@@ -766,27 +776,27 @@ private func appendBE(_ value: UInt64, to bytes: inout [UInt8]) {
 
 @Test func cborHalfFloatDenormalizedValue() throws {
   // Half-float denormalized: 0x0001 = 2^(-24) ≈ 5.96e-8
-  let bytes: [UInt8] = [0xFA, 0x00, 0x01]  // major 7, info 25, value=0x0001
+  let bytes: [UInt8] = [0xF9, 0x00, 0x01]  // major 7, info 25, value=0x0001
   let data = Data(bytes)
   let decoded = try JSON.fromCBOR(data)
   #expect(decoded.isNumber)
   // 2^(-24) = 1 / 16777216 ≈ 5.960464477539063e-8
-  #expect(decoded == JSON.number(.float(1.0 / 16777216.0)))
+  #expect(decoded == JSON.number(.float(1.0 / 16_777_216.0)))
 }
 
 @Test func cborHalfFloatDenormalizedMax() throws {
   // Half-float denormalized max: 0x03FF = 2^(-14) * (1023/1024) ≈ 6.1e-5
-  let bytes: [UInt8] = [0xFA, 0x03, 0xFF]  // major 7, info 25, value=0x03FF
+  let bytes: [UInt8] = [0xF9, 0x03, 0xFF]  // major 7, info 25, value=0x03FF
   let data = Data(bytes)
   let decoded = try JSON.fromCBOR(data)
   #expect(decoded.isNumber)
   // Max denormalized = 2^(-14) * (1023/1024) = 1023 / (16384 * 1024) = 1023 / 16777216
-  #expect(decoded == JSON.number(.float(1023.0 / 16777216.0)))
+  #expect(decoded == JSON.number(.float(1023.0 / 16_777_216.0)))
 }
 
 @Test func cborHalfFloatNormalizedMin() throws {
   // Half-float normalized min: 0x0400 = 2^(-14) * (1024/1024) = 2^(-14) ≈ 6.1e-5
-  let bytes: [UInt8] = [0xFA, 0x04, 0x00]  // major 7, info 25, value=0x0400
+  let bytes: [UInt8] = [0xF9, 0x04, 0x00]  // major 7, info 25, value=0x0400
   let data = Data(bytes)
   let decoded = try JSON.fromCBOR(data)
   #expect(decoded.isNumber)
@@ -992,25 +1002,25 @@ private func appendBE(_ value: UInt64, to bytes: inout [UInt8]) {
 
 // MARK: - NaN/Infinity serialization
 
-@Test func nanFloatSerializesAsNull() throws {
+@Test func nanFloatSerializesAsNull() {
   let json = JSON.number(.float(Double.nan))
   let dumped = json.dump(indent: -1)
   #expect(dumped == "null")
 }
 
-@Test func infinityFloatSerializesAsNull() throws {
+@Test func infinityFloatSerializesAsNull() {
   let json = JSON.number(.float(Double.infinity))
   let dumped = json.dump(indent: -1)
   #expect(dumped == "null")
 }
 
-@Test func negativeInfinityFloatSerializesAsNull() throws {
+@Test func negativeInfinityFloatSerializesAsNull() {
   let json = JSON.number(.float(-Double.infinity))
   let dumped = json.dump(indent: -1)
   #expect(dumped == "null")
 }
 
-@Test func nanInObjectSerializesCorrectly() throws {
+@Test func nanInObjectSerializesCorrectly() {
   let json = JSON.object(["a": JSON.number(.float(Double.nan)), "b": JSON.number(.integer(1))])
   let dumped = json.dump(indent: -1)
   // NaN should serialize as null, not crash
@@ -1092,7 +1102,7 @@ private func appendBE(_ value: UInt64, to bytes: inout [UInt8]) {
   let decoded = try JSON.fromBSON(data)
   #expect(decoded.isObject)
   if case .object(let dict) = decoded.storage {
-    let val = dict["x"]!
+    let val = try #require(dict["x"])
     #expect(val.isFloat || val.isInteger)
   }
 }
@@ -1111,77 +1121,77 @@ private func appendBE(_ value: UInt64, to bytes: inout [UInt8]) {
 
 @Test func cborStringLenOverflowThrows() throws {
   // CBOR text string with length > Int64.max should throw
-  var bytes: [UInt8] = [0x7B, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF]
+  let bytes: [UInt8] = [0x7B, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF]
   let data = Data(bytes)
   #expect(throws: JSONError.self) { try JSON.fromCBOR(data) }
 }
 
 @Test func cborArrayCountOverflowThrows() throws {
   // CBOR array with count > Int64.max should throw
-  var bytes: [UInt8] = [0x9B, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF]
+  let bytes: [UInt8] = [0x9B, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF]
   let data = Data(bytes)
   #expect(throws: JSONError.self) { try JSON.fromCBOR(data) }
 }
 
 @Test func cborStringLenExceedsDataThrows() throws {
   // CBOR text string with length > available data should throw
-  var bytes: [UInt8] = [0x78, 100, 0x41, 0x42, 0x43, 0x44, 0x45]
+  let bytes: [UInt8] = [0x78, 100, 0x41, 0x42, 0x43, 0x44, 0x45]
   let data = Data(bytes)
   #expect(throws: JSONError.self) { try JSON.fromCBOR(data) }
 }
 
 @Test func msgPackStringLenExceedsDataThrows() throws {
   // MsgPack string 32 with length > available data should throw
-  var bytes: [UInt8] = [0xDB, 0xFF, 0xFF, 0xFF, 0xFF]
+  let bytes: [UInt8] = [0xDB, 0xFF, 0xFF, 0xFF, 0xFF]
   let data = Data(bytes)
   #expect(throws: JSONError.self) { try JSON.fromMsgPack(data) }
 }
 
 @Test func msgPackBinLenExceedsDataThrows() throws {
   // MsgPack bin 32 with length > available data should throw
-  var bytes: [UInt8] = [0xC6, 0xFF, 0xFF, 0xFF, 0xFF]
+  let bytes: [UInt8] = [0xC6, 0xFF, 0xFF, 0xFF, 0xFF]
   let data = Data(bytes)
   #expect(throws: JSONError.self) { try JSON.fromMsgPack(data) }
 }
 
 @Test func bsonDocLenTooSmallThrows() throws {
   // BSON document with length < 5 should throw
-  var bytes: [UInt8] = [0x03, 0x00, 0x00, 0x00]
+  let bytes: [UInt8] = [0x03, 0x00, 0x00, 0x00]
   let data = Data(bytes)
   #expect(throws: JSONError.self) { try JSON.fromBSON(data) }
 }
 
 @Test func bsonStringLenNegativeThrows() throws {
   // BSON string with negative length should throw
-  var bytes: [UInt8] = [0x02, 0x78, 0x00, 0xFF, 0xFF, 0xFF, 0xFF]
+  let bytes: [UInt8] = [0x02, 0x78, 0x00, 0xFF, 0xFF, 0xFF, 0xFF]
   let data = Data(bytes)
   #expect(throws: JSONError.self) { try JSON.fromBSON(data) }
 }
 
 @Test func bsonStringLenExceedsDataThrows() throws {
   // BSON string with length > available data should throw
-  var bytes: [UInt8] = [0x02, 0x78, 0x00, 0x64, 0x00, 0x00, 0x00]
+  let bytes: [UInt8] = [0x02, 0x78, 0x00, 0x64, 0x00, 0x00, 0x00]
   let data = Data(bytes)
   #expect(throws: JSONError.self) { try JSON.fromBSON(data) }
 }
 
 @Test func bsonBinaryLenExceedsDataThrows() throws {
   // BSON binary with length > available data should throw
-  var bytes: [UInt8] = [0x05, 0x78, 0x00, 0x64, 0x00, 0x00, 0x00, 0x00]
+  let bytes: [UInt8] = [0x05, 0x78, 0x00, 0x64, 0x00, 0x00, 0x00, 0x00]
   let data = Data(bytes)
   #expect(throws: JSONError.self) { try JSON.fromBSON(data) }
 }
 
 @Test func bsonBinaryMissingSubtypeThrows() throws {
   // BSON binary with no subtype byte should throw
-  var bytes: [UInt8] = [0x05, 0x78, 0x00, 0x01, 0x00, 0x00, 0x00]
+  let bytes: [UInt8] = [0x05, 0x78, 0x00, 0x01, 0x00, 0x00, 0x00]
   let data = Data(bytes)
   #expect(throws: JSONError.self) { try JSON.fromBSON(data) }
 }
 
 @Test func bsonArrayLenTooSmallThrows() throws {
   // BSON array with length < 5 should throw
-  var bytes: [UInt8] = [0x03, 0x00, 0x00, 0x00]
+  let bytes: [UInt8] = [0x03, 0x00, 0x00, 0x00]
   let data = Data(bytes)
   #expect(throws: JSONError.self) { try JSON.fromBSON(data) }
 }
@@ -1212,19 +1222,21 @@ private func appendBE(_ value: UInt64, to bytes: inout [UInt8]) {
   let decoded = try JSON.fromBSON(data)
   #expect(decoded.isObject)
   #expect(decoded["arr"] != nil)
-  #expect(decoded["arr"]!.isArray)
-  #expect(decoded["arr"]![0] == JSON.number(.integer(1)))
+  let arr = try #require(decoded["arr"])
+  #expect(arr.isArray)
+  #expect(decoded["arr"]?[0] == JSON.number(.integer(1)))
 }
 
 @Test func bsonTruncatedStringNoNullTerminatorThrows() throws {
   // BSON string element (type 0x02) without null terminator should throw
   // Document: [length][type=0x02][key "a"][string length][string without null]
   let bytes: [UInt8] = [
-    0x10, 0x00, 0x00, 0x00,  // doc length = 16
+    0x13, 0x00, 0x00, 0x00,  // doc length = 19
     0x02,  // type = UTF-8 string
     0x61, 0x00,  // key "a" + null
     0x06, 0x00, 0x00, 0x00,  // string length = 6 (including null)
-    0x48, 0x65, 0x6C, 0x6C, 0x6F,  // "Hello" without null terminator
+    0x48, 0x65, 0x6C, 0x6C, 0x6F,  // "Hello" (5 bytes, missing null terminator)
+    0xFF,  // not a valid null terminator (should throw)
     0x00,  // doc null terminator
   ]
   let data = Data(bytes)
@@ -1248,49 +1260,49 @@ private func appendBE(_ value: UInt64, to bytes: inout [UInt8]) {
 
 @Test func ubjsonStringLenInt16NegativeThrows() throws {
   // UBJSON string with Int16 length = -1 should throw
-  var bytes: [UInt8] = [0x53, 0x49, 0xFF, 0xFF, 0x41]
+  let bytes: [UInt8] = [0x53, 0x49, 0xFF, 0xFF, 0x41]
   let data = Data(bytes)
   #expect(throws: JSONError.self) { try JSON.fromUBJSON(data) }
 }
 
 @Test func ubjsonStringLenInt32NegativeThrows() throws {
   // UBJSON string with Int32 length = -1 should throw
-  var bytes: [UInt8] = [0x53, 0x6C, 0xFF, 0xFF, 0xFF, 0xFF, 0x41]
+  let bytes: [UInt8] = [0x53, 0x6C, 0xFF, 0xFF, 0xFF, 0xFF, 0x41]
   let data = Data(bytes)
   #expect(throws: JSONError.self) { try JSON.fromUBJSON(data) }
 }
 
 @Test func ubjsonCountInt16NegativeThrows() throws {
   // UBJSON array with Int16 count = -1 should throw
-  var bytes: [UInt8] = [0x5B, 0x49, 0xFF, 0xFF]
+  let bytes: [UInt8] = [0x5B, 0x49, 0xFF, 0xFF]
   let data = Data(bytes)
   #expect(throws: JSONError.self) { try JSON.fromUBJSON(data) }
 }
 
 @Test func ubjsonStringLenExceedsDataThrows() throws {
   // UBJSON string with length > available data should throw
-  var bytes: [UInt8] = [0x53, 0x49, 0x64, 0x00]
+  let bytes: [UInt8] = [0x53, 0x49, 0x64, 0x00]
   let data = Data(bytes)
   #expect(throws: JSONError.self) { try JSON.fromUBJSON(data) }
 }
 
 @Test func bjdataStringLenInt16NegativeThrows() throws {
   // BJData string with Int16 length = -1 should throw
-  var bytes: [UInt8] = [0x53, 0x49, 0xFF, 0xFF, 0x41]
+  let bytes: [UInt8] = [0x53, 0x49, 0xFF, 0xFF, 0x41]
   let data = Data(bytes)
   #expect(throws: JSONError.self) { try JSON.fromBJData(data) }
 }
 
 @Test func bjdataStringLenInt32NegativeThrows() throws {
   // BJData string with Int32 length = -1 should throw
-  var bytes: [UInt8] = [0x53, 0x6C, 0xFF, 0xFF, 0xFF, 0xFF, 0x41]
+  let bytes: [UInt8] = [0x53, 0x6C, 0xFF, 0xFF, 0xFF, 0xFF, 0x41]
   let data = Data(bytes)
   #expect(throws: JSONError.self) { try JSON.fromBJData(data) }
 }
 
 @Test func bjdataStringLenExceedsDataThrows() throws {
   // BJData string with length > available data should throw
-  var bytes: [UInt8] = [0x53, 0x49, 0x64, 0x00]
+  let bytes: [UInt8] = [0x53, 0x49, 0x64, 0x00]
   let data = Data(bytes)
   #expect(throws: JSONError.self) { try JSON.fromBJData(data) }
 }

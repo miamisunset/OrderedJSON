@@ -1,7 +1,6 @@
 import OrderedCollections
 
 extension JSON {
-
   // MARK: - Object Builder
 
   /// A fluent builder for constructing JSON objects with ordered key-value pairs.
@@ -293,7 +292,9 @@ extension JSON {
     }
 
     /// Returns the current number of key-value pairs in the builder.
-    public var count: Int { dict.count }
+    public var count: Int {
+      dict.count
+    }
 
     /// Builds and returns the final JSON object value.
     /// May be called multiple times; each call returns a snapshot of the current state.
@@ -507,7 +508,8 @@ extension JSON {
     public func addIfPresent(_ value: UInt?) -> Self {
       if let v = value {
         elements.append(
-          v <= UInt(Int64.max) ? .number(.integer(Int64(v))) : .number(.float(Double(v))))
+          v <= UInt(Int64.max) ? .number(.integer(Int64(v))) : .number(.float(Double(v)))
+        )
       }
       return self
     }
@@ -519,7 +521,8 @@ extension JSON {
     public func addIfPresent(_ value: UInt64?) -> Self {
       if let v = value {
         elements.append(
-          v <= UInt64(Int64.max) ? .number(.integer(Int64(v))) : .number(.float(Double(v))))
+          v <= UInt64(Int64.max) ? .number(.integer(Int64(v))) : .number(.float(Double(v)))
+        )
       }
       return self
     }
@@ -591,7 +594,9 @@ extension JSON {
     }
 
     /// Returns the current number of elements in the builder.
-    public var count: Int { elements.count }
+    public var count: Int {
+      elements.count
+    }
 
     /// Builds and returns the final JSON array value.
     /// May be called multiple times; each call returns a snapshot of the current state.

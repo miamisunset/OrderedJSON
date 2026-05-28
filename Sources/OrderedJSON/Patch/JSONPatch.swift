@@ -196,7 +196,8 @@ extension JSON {
           throw JSONError.formatError("Array index out of bounds")
         }
         let updatedChild = try traverseAndSet(
-          arr[idx], segments: segments, index: index + 1, value: value, isAdd: isAdd)
+          arr[idx], segments: segments, index: index + 1, value: value, isAdd: isAdd
+        )
         var copy = arr
         copy[idx] = updatedChild
         return .array(copy)
@@ -213,7 +214,8 @@ extension JSON {
           throw JSONError.formatError("Key not found: \(segment)")
         }
         let updatedChild = try traverseAndSet(
-          child, segments: segments, index: index + 1, value: value, isAdd: isAdd)
+          child, segments: segments, index: index + 1, value: value, isAdd: isAdd
+        )
         dict[segment] = updatedChild
         return .object(dict)
       }
@@ -308,7 +310,8 @@ extension JSON {
           .object([
             "op": .string("remove"),
             "path": .string(opPath),
-          ]))
+          ])
+        )
       }
 
       for key in targetKeys {
@@ -323,7 +326,8 @@ extension JSON {
                   "op": .string("replace"),
                   "path": .string(opPath),
                   "value": tv,
-                ]))
+                ])
+              )
             }
           }
         } else {
@@ -332,7 +336,8 @@ extension JSON {
               "op": .string("add"),
               "path": .string(opPath),
               "value": t[key]!,
-            ]))
+            ])
+          )
         }
       }
 
@@ -349,7 +354,8 @@ extension JSON {
                 "op": .string("replace"),
                 "path": .string(opPath),
                 "value": t[i],
-              ]))
+              ])
+            )
           }
         }
       }
@@ -360,7 +366,8 @@ extension JSON {
             .object([
               "op": .string("remove"),
               "path": .string(opPath),
-            ]))
+            ])
+          )
         }
       }
       if t.count > minCount {
@@ -371,7 +378,8 @@ extension JSON {
               "op": .string("add"),
               "path": .string(opPath),
               "value": t[i],
-            ]))
+            ])
+          )
         }
       }
 
@@ -382,7 +390,8 @@ extension JSON {
           "op": .string("replace"),
           "path": .string(targetPath),
           "value": target,
-        ]))
+        ])
+      )
     }
   }
 }

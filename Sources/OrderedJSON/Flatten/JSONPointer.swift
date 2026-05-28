@@ -63,8 +63,8 @@ public struct JSONPointer: Hashable, Sendable {
       if segment == "-" { continue }  // "-" is a special token, not an index
       // RFC 6901 §4 ABNF: array-index = %x30 / ( %x31-39 *(%x30-39) ) — ASCII-only.
       // Use ASCII digit check to avoid false positives on non-ASCII digits (Arabic-Indic, full-width).
-      let isAsciiDigits = segment.unicodeScalars.allSatisfy { ($0 >= "0" && $0 <= "9") }
-      if isAsciiDigits && segment.hasPrefix("0") && segment.count > 1 {
+      let isAsciiDigits = segment.unicodeScalars.allSatisfy { $0 >= "0" && $0 <= "9" }
+      if isAsciiDigits, segment.hasPrefix("0"), segment.count > 1 {
         throw JSONPointerError.leadingZero(segment)
       }
     }
@@ -213,7 +213,7 @@ extension JSON {
   ///   - json: The JSON value to modify (in-out).
   ///   - parts: The remaining path segments.
   ///   - value: The value to set at the leaf.
-  internal static func setJSONPointerPath(into json: inout JSON, parts: [String], value: JSON) {
+  static func setJSONPointerPath(into json: inout JSON, parts: [String], value: JSON) {
     guard let first = parts.first else {
       json = value
       return

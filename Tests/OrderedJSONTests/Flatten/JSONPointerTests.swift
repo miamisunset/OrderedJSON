@@ -265,7 +265,7 @@ import Testing
   let json = JSON.object(["a": JSON.string("x")])
   let ptr = try JSONPointer("/missing")
   #expect {
-    let _ = try ptr.resolveOrThrow(json)
+    _ = try ptr.resolveOrThrow(json)
   } throws: { error in
     guard let ptrErr = error as? JSONPointerError else { return false }
     return ptrErr == .missingValue("/missing")
@@ -276,7 +276,7 @@ import Testing
   let json = JSON.array([JSON.string("a")])
   let ptr = try JSONPointer("/5")
   #expect {
-    let _ = try ptr.resolveOrThrow(json)
+    _ = try ptr.resolveOrThrow(json)
   } throws: { error in
     guard let ptrErr = error as? JSONPointerError else { return false }
     return ptrErr == .missingValue("/5")
@@ -287,7 +287,7 @@ import Testing
   let json = JSON.string("scalar")
   let ptr = try JSONPointer("/foo")
   #expect {
-    let _ = try ptr.resolveOrThrow(json)
+    _ = try ptr.resolveOrThrow(json)
   } throws: { error in
     guard let ptrErr = error as? JSONPointerError else { return false }
     return ptrErr == .missingValue("/foo")
@@ -298,7 +298,7 @@ import Testing
   let json = JSON.array([JSON.string("a")])
   let ptr = try JSONPointer("/-")
   #expect {
-    let _ = try ptr.resolveOrThrow(json)
+    _ = try ptr.resolveOrThrow(json)
   } throws: { error in
     guard let ptrErr = error as? JSONPointerError else { return false }
     return ptrErr == .missingValue("/-")

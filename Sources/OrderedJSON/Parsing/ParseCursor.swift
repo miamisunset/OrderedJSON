@@ -12,7 +12,7 @@ import Foundation
 ///
 /// Used by both the tree-building parser (`JSONParser`) and the
 /// SAX/callback parser (`JSONSAX`) to avoid duplicating position management.
-internal struct ParseCursor {
+struct ParseCursor {
   /// The source string being parsed.
   let string: String
   /// Current position in the Unicode scalar view.
@@ -25,9 +25,9 @@ internal struct ParseCursor {
   /// Creates a cursor positioned at the start of `string`.
   init(string: String) {
     self.string = string
-    self.pos = string.unicodeScalars.startIndex
-    self.line = 1
-    self.column = 1
+    pos = string.unicodeScalars.startIndex
+    line = 1
+    column = 1
   }
 
   /// Advance by one Unicode scalar, updating line/column.
@@ -43,7 +43,9 @@ internal struct ParseCursor {
   }
 
   /// Returns `true` if there are more Unicode scalars to read.
-  var hasMore: Bool { pos < string.unicodeScalars.endIndex }
+  var hasMore: Bool {
+    pos < string.unicodeScalars.endIndex
+  }
 
   /// The Unicode scalar at the current position, or `nil` if at end.
   var current: UnicodeScalar? {
@@ -72,7 +74,7 @@ extension ParseCursor {
 
   /// Named constants for common Unicode scalar values used in JSON parsing.
   /// Improves readability over raw hex literals throughout the parser.
-  fileprivate struct UnicodeScalarHex {
+  fileprivate enum UnicodeScalarHex {
     static let space: UInt32 = 0x20
     static let newline: UInt32 = 0x0A
     static let carriageReturn: UInt32 = 0x0D
@@ -87,8 +89,8 @@ extension ParseCursor {
     static let backslash: UInt32 = 0x5C
     static let minus: UInt32 = 0x2D
     static let dot: UInt32 = 0x2E
-    static let e_lower: UInt32 = 0x65
-    static let E_upper: UInt32 = 0x45
+    static let eLower: UInt32 = 0x65
+    static let eUpper: UInt32 = 0x45
     static let r: UInt32 = 0x72
     static let u: UInt32 = 0x75
     static let a: UInt32 = 0x61

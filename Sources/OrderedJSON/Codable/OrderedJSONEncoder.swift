@@ -20,7 +20,7 @@ public struct OrderedJSONEncoder {
 
   /// Creates a new encoder with default options.
   public init() {
-    self.userInfo = [:]
+    userInfo = [:]
   }
 
   public func encode<T: Encodable>(_ value: T) throws -> JSON {
@@ -28,7 +28,8 @@ public struct OrderedJSONEncoder {
       userInfo: userInfo,
       dateEncodingStrategy: dateEncodingStrategy,
       dataEncodingStrategy: dataEncodingStrategy,
-      decimalEncodingStrategy: decimalEncodingStrategy)
+      decimalEncodingStrategy: decimalEncodingStrategy
+    )
     try value.encode(to: impl)
     return impl.json
   }
@@ -86,7 +87,10 @@ final class _ObjectReference {
 /// Reference wrapper for an array — allows shared mutation.
 final class _ArrayReference {
   var elements: [JSON] = []
-  var count: Int { elements.count }
+  var count: Int {
+    elements.count
+  }
+
   init() {}
 }
 
@@ -134,7 +138,7 @@ final class _JSONEncodeImpl: Encoder {
     self.decimalEncodingStrategy = decimalEncodingStrategy
   }
 
-  func container<Key: CodingKey>(keyedBy keyType: Key.Type) -> KeyedEncodingContainer<Key> {
+  func container<Key: CodingKey>(keyedBy _: Key.Type) -> KeyedEncodingContainer<Key> {
     let ref = _ObjectReference()
     objectRef = ref
     return KeyedEncodingContainer(_JSONKeyedEncodingContainer<Key>(impl: self, ref: ref))
@@ -199,7 +203,8 @@ private func encodeDate(
     let impl = _JSONEncodeImpl(
       dateEncodingStrategy: dateEncodingStrategy,
       dataEncodingStrategy: dataEncodingStrategy,
-      decimalEncodingStrategy: decimalEncodingStrategy)
+      decimalEncodingStrategy: decimalEncodingStrategy
+    )
     impl.codingPath = codingPath
     try date.encode(to: impl)
     return impl.json
@@ -217,7 +222,8 @@ private func encodeDate(
     let impl = _JSONEncodeImpl(
       dateEncodingStrategy: dateEncodingStrategy,
       dataEncodingStrategy: dataEncodingStrategy,
-      decimalEncodingStrategy: decimalEncodingStrategy)
+      decimalEncodingStrategy: decimalEncodingStrategy
+    )
     impl.codingPath = codingPath
     return try closure(date, impl)
   }
@@ -235,7 +241,8 @@ private func encodeData(
     let impl = _JSONEncodeImpl(
       dateEncodingStrategy: dateEncodingStrategy,
       dataEncodingStrategy: dataEncodingStrategy,
-      decimalEncodingStrategy: decimalEncodingStrategy)
+      decimalEncodingStrategy: decimalEncodingStrategy
+    )
     try data.encode(to: impl)
     return impl.json
   case .base64:
@@ -244,7 +251,8 @@ private func encodeData(
     let impl = _JSONEncodeImpl(
       dateEncodingStrategy: dateEncodingStrategy,
       dataEncodingStrategy: dataEncodingStrategy,
-      decimalEncodingStrategy: decimalEncodingStrategy)
+      decimalEncodingStrategy: decimalEncodingStrategy
+    )
     return try closure(data, impl)
   }
 }
@@ -268,7 +276,9 @@ private func encodeDecimal(_ decimal: Decimal, with strategy: DecimalEncodingStr
         EncodingError.Context(
           codingPath: [],
           debugDescription:
-            "Decimal value overflows Double range and cannot be represented as a JSON number"))
+            "Decimal value overflows Double range and cannot be represented as a JSON number"
+        )
+      )
     }
     if Decimal(string: "\(Int64(double))") == decimal && double == Double(Int64(double)) {
       return .number(.integer(Int64(double)))
@@ -287,7 +297,7 @@ final class _JSONKeyedEncodingContainer<Key: CodingKey>: KeyedEncodingContainerP
   init(impl: _JSONEncodeImpl, ref: _ObjectReference, pathPrefix: [CodingKey] = []) {
     self.impl = impl
     self.ref = ref
-    self.codingPath = pathPrefix
+    codingPath = pathPrefix
   }
 
   func encode(_ value: JSON, forKey key: Key) throws {
@@ -302,7 +312,8 @@ final class _JSONKeyedEncodingContainer<Key: CodingKey>: KeyedEncodingContainerP
         date, with: impl.dateEncodingStrategy, codingPath: codingPath + [key],
         dateEncodingStrategy: impl.dateEncodingStrategy,
         dataEncodingStrategy: impl.dataEncodingStrategy,
-        decimalEncodingStrategy: impl.decimalEncodingStrategy)
+        decimalEncodingStrategy: impl.decimalEncodingStrategy
+      )
       impl.syncKeyed()
       return
     }
@@ -311,7 +322,8 @@ final class _JSONKeyedEncodingContainer<Key: CodingKey>: KeyedEncodingContainerP
         data, with: impl.dataEncodingStrategy,
         dateEncodingStrategy: impl.dateEncodingStrategy,
         dataEncodingStrategy: impl.dataEncodingStrategy,
-        decimalEncodingStrategy: impl.decimalEncodingStrategy)
+        decimalEncodingStrategy: impl.decimalEncodingStrategy
+      )
       impl.syncKeyed()
       return
     }
@@ -336,7 +348,8 @@ final class _JSONKeyedEncodingContainer<Key: CodingKey>: KeyedEncodingContainerP
       userInfo: impl.userInfo,
       dateEncodingStrategy: impl.dateEncodingStrategy,
       dataEncodingStrategy: impl.dataEncodingStrategy,
-      decimalEncodingStrategy: impl.decimalEncodingStrategy)
+      decimalEncodingStrategy: impl.decimalEncodingStrategy
+    )
     child.codingPath = codingPath + [key]
     try value.encode(to: child)
     ref.dict[key.stringValue] = child.json
@@ -422,7 +435,9 @@ final class _JSONKeyedEncodingContainer<Key: CodingKey>: KeyedEncodingContainerP
         value,
         EncodingError.Context(
           codingPath: codingPath + [key],
-          debugDescription: "UInt64 value \(value) overflows Int64"))
+          debugDescription: "UInt64 value \(value) overflows Int64"
+        )
+      )
     }
     ref.dict[key.stringValue] = .number(.integer(i))
     impl.syncKeyed()
@@ -431,7 +446,7 @@ final class _JSONKeyedEncodingContainer<Key: CodingKey>: KeyedEncodingContainerP
   // MARK: - Nested containers
 
   func nestedContainer<NestedKey: CodingKey>(
-    keyedBy keyType: NestedKey.Type,
+    keyedBy _: NestedKey.Type,
     forKey key: Key
   ) -> KeyedEncodingContainer<NestedKey> {
     let childRef = _ObjectReference()
@@ -439,7 +454,8 @@ final class _JSONKeyedEncodingContainer<Key: CodingKey>: KeyedEncodingContainerP
       userInfo: impl.userInfo,
       dateEncodingStrategy: impl.dateEncodingStrategy,
       dataEncodingStrategy: impl.dataEncodingStrategy,
-      decimalEncodingStrategy: impl.decimalEncodingStrategy)
+      decimalEncodingStrategy: impl.decimalEncodingStrategy
+    )
     childImpl.codingPath = codingPath + [key]
     childImpl.objectRef = childRef
     childImpl.parentRef = ref
@@ -449,7 +465,9 @@ final class _JSONKeyedEncodingContainer<Key: CodingKey>: KeyedEncodingContainerP
     impl.syncKeyed()
     return KeyedEncodingContainer(
       _JSONKeyedEncodingContainer<NestedKey>(
-        impl: childImpl, ref: childRef, pathPrefix: codingPath + [key]))
+        impl: childImpl, ref: childRef, pathPrefix: codingPath + [key]
+      )
+    )
   }
 
   func nestedUnkeyedContainer(forKey key: Key) -> UnkeyedEncodingContainer {
@@ -458,7 +476,8 @@ final class _JSONKeyedEncodingContainer<Key: CodingKey>: KeyedEncodingContainerP
       userInfo: impl.userInfo,
       dateEncodingStrategy: impl.dateEncodingStrategy,
       dataEncodingStrategy: impl.dataEncodingStrategy,
-      decimalEncodingStrategy: impl.decimalEncodingStrategy)
+      decimalEncodingStrategy: impl.decimalEncodingStrategy
+    )
     childImpl.codingPath = codingPath + [key]
     childImpl.arrayRef = childRef
     childImpl.parentRef = ref
@@ -467,7 +486,8 @@ final class _JSONKeyedEncodingContainer<Key: CodingKey>: KeyedEncodingContainerP
     ref.dict[key.stringValue] = .array(childRef.elements)
     impl.syncKeyed()
     return _JSONUnkeyedEncodingContainer(
-      impl: childImpl, ref: childRef, pathPrefix: codingPath + [key])
+      impl: childImpl, ref: childRef, pathPrefix: codingPath + [key]
+    )
   }
 
   // MARK: - Super encoders
@@ -477,7 +497,8 @@ final class _JSONKeyedEncodingContainer<Key: CodingKey>: KeyedEncodingContainerP
       userInfo: impl.userInfo,
       dateEncodingStrategy: impl.dateEncodingStrategy,
       dataEncodingStrategy: impl.dataEncodingStrategy,
-      decimalEncodingStrategy: impl.decimalEncodingStrategy)
+      decimalEncodingStrategy: impl.decimalEncodingStrategy
+    )
     childImpl.codingPath = codingPath + [key]
     childImpl.parentRef = ref
     childImpl.parentKey = key.stringValue
@@ -493,7 +514,8 @@ final class _JSONKeyedEncodingContainer<Key: CodingKey>: KeyedEncodingContainerP
       userInfo: impl.userInfo,
       dateEncodingStrategy: impl.dateEncodingStrategy,
       dataEncodingStrategy: impl.dataEncodingStrategy,
-      decimalEncodingStrategy: impl.decimalEncodingStrategy)
+      decimalEncodingStrategy: impl.decimalEncodingStrategy
+    )
     childImpl.parentRef = ref
     childImpl.parentKey = "super"
     childImpl.parentImpl = impl
@@ -510,33 +532,39 @@ final class _JSONUnkeyedEncodingContainer: UnkeyedEncodingContainer {
   let impl: _JSONEncodeImpl
   let ref: _ArrayReference
 
-  var count: Int { ref.count }
+  var count: Int {
+    ref.count
+  }
 
   init(impl: _JSONEncodeImpl, ref: _ArrayReference, pathPrefix: [CodingKey] = []) {
     self.impl = impl
     self.ref = ref
-    self.codingPath = pathPrefix
+    codingPath = pathPrefix
   }
 
   func encode<T: Encodable>(_ value: T) throws {
     // Foundation type special handling
     if let date = value as? Date {
-      ref.elements.append(
-        try encodeDate(
+      try ref.elements.append(
+        encodeDate(
           date, with: impl.dateEncodingStrategy, codingPath: codingPath,
           dateEncodingStrategy: impl.dateEncodingStrategy,
           dataEncodingStrategy: impl.dataEncodingStrategy,
-          decimalEncodingStrategy: impl.decimalEncodingStrategy))
+          decimalEncodingStrategy: impl.decimalEncodingStrategy
+        )
+      )
       impl.syncUnkeyed()
       return
     }
     if let data = value as? Data {
-      ref.elements.append(
-        try encodeData(
+      try ref.elements.append(
+        encodeData(
           data, with: impl.dataEncodingStrategy,
           dateEncodingStrategy: impl.dateEncodingStrategy,
           dataEncodingStrategy: impl.dataEncodingStrategy,
-          decimalEncodingStrategy: impl.decimalEncodingStrategy))
+          decimalEncodingStrategy: impl.decimalEncodingStrategy
+        )
+      )
       impl.syncUnkeyed()
       return
     }
@@ -551,7 +579,7 @@ final class _JSONUnkeyedEncodingContainer: UnkeyedEncodingContainer {
       return
     }
     if let decimal = value as? Decimal {
-      ref.elements.append(try encodeDecimal(decimal, with: impl.decimalEncodingStrategy))
+      try ref.elements.append(encodeDecimal(decimal, with: impl.decimalEncodingStrategy))
       impl.syncUnkeyed()
       return
     }
@@ -561,7 +589,8 @@ final class _JSONUnkeyedEncodingContainer: UnkeyedEncodingContainer {
       userInfo: impl.userInfo,
       dateEncodingStrategy: impl.dateEncodingStrategy,
       dataEncodingStrategy: impl.dataEncodingStrategy,
-      decimalEncodingStrategy: impl.decimalEncodingStrategy)
+      decimalEncodingStrategy: impl.decimalEncodingStrategy
+    )
     try value.encode(to: child)
     ref.elements.append(child.json)
     impl.syncUnkeyed()
@@ -645,7 +674,9 @@ final class _JSONUnkeyedEncodingContainer: UnkeyedEncodingContainer {
         value,
         EncodingError.Context(
           codingPath: codingPath,
-          debugDescription: "UInt64 value \(value) overflows Int64"))
+          debugDescription: "UInt64 value \(value) overflows Int64"
+        )
+      )
     }
     ref.elements.append(.number(.integer(i)))
     impl.syncUnkeyed()
@@ -654,14 +685,15 @@ final class _JSONUnkeyedEncodingContainer: UnkeyedEncodingContainer {
   // MARK: - Nested containers
 
   func nestedContainer<NestedKey: CodingKey>(
-    keyedBy keyType: NestedKey.Type
+    keyedBy _: NestedKey.Type
   ) -> KeyedEncodingContainer<NestedKey> {
     let childRef = _ObjectReference()
     let childImpl = _JSONEncodeImpl(
       userInfo: impl.userInfo,
       dateEncodingStrategy: impl.dateEncodingStrategy,
       dataEncodingStrategy: impl.dataEncodingStrategy,
-      decimalEncodingStrategy: impl.decimalEncodingStrategy)
+      decimalEncodingStrategy: impl.decimalEncodingStrategy
+    )
     childImpl.objectRef = childRef
     childImpl.parentArrayRef = ref
     childImpl.parentArrayIndex = ref.elements.count
@@ -670,7 +702,9 @@ final class _JSONUnkeyedEncodingContainer: UnkeyedEncodingContainer {
     impl.syncUnkeyed()
     return KeyedEncodingContainer(
       _JSONKeyedEncodingContainer<NestedKey>(
-        impl: childImpl, ref: childRef, pathPrefix: codingPath))
+        impl: childImpl, ref: childRef, pathPrefix: codingPath
+      )
+    )
   }
 
   func nestedUnkeyedContainer() -> UnkeyedEncodingContainer {
@@ -679,7 +713,8 @@ final class _JSONUnkeyedEncodingContainer: UnkeyedEncodingContainer {
       userInfo: impl.userInfo,
       dateEncodingStrategy: impl.dateEncodingStrategy,
       dataEncodingStrategy: impl.dataEncodingStrategy,
-      decimalEncodingStrategy: impl.decimalEncodingStrategy)
+      decimalEncodingStrategy: impl.decimalEncodingStrategy
+    )
     childImpl.arrayRef = childRef
     // Capture index *before* appending the placeholder, so the child
     // always writes to the correct slot even if more elements are appended
@@ -690,7 +725,8 @@ final class _JSONUnkeyedEncodingContainer: UnkeyedEncodingContainer {
     ref.elements.append(.array(childRef.elements))
     impl.syncUnkeyed()
     return _JSONUnkeyedEncodingContainer(
-      impl: childImpl, ref: childRef, pathPrefix: codingPath)
+      impl: childImpl, ref: childRef, pathPrefix: codingPath
+    )
   }
 
   // MARK: - Super encoders
@@ -700,7 +736,8 @@ final class _JSONUnkeyedEncodingContainer: UnkeyedEncodingContainer {
       userInfo: impl.userInfo,
       dateEncodingStrategy: impl.dateEncodingStrategy,
       dataEncodingStrategy: impl.dataEncodingStrategy,
-      decimalEncodingStrategy: impl.decimalEncodingStrategy)
+      decimalEncodingStrategy: impl.decimalEncodingStrategy
+    )
     childImpl.parentArrayRef = ref
     childImpl.parentArrayIndex = ref.elements.count
     childImpl.parentImpl = impl
@@ -718,7 +755,7 @@ struct _JSONSingleValueEncodingContainer: SingleValueEncodingContainer {
 
   init(impl: _JSONEncodeImpl, pathPrefix: [CodingKey] = []) {
     self.impl = impl
-    self.codingPath = pathPrefix
+    codingPath = pathPrefix
   }
 
   mutating func encodeNil() throws {
@@ -763,7 +800,8 @@ struct _JSONSingleValueEncodingContainer: SingleValueEncodingContainer {
         date, with: impl.dateEncodingStrategy, codingPath: codingPath,
         dateEncodingStrategy: impl.dateEncodingStrategy,
         dataEncodingStrategy: impl.dataEncodingStrategy,
-        decimalEncodingStrategy: impl.decimalEncodingStrategy)
+        decimalEncodingStrategy: impl.decimalEncodingStrategy
+      )
       impl.syncKeyed()
       return
     }
@@ -772,7 +810,8 @@ struct _JSONSingleValueEncodingContainer: SingleValueEncodingContainer {
         data, with: impl.dataEncodingStrategy,
         dateEncodingStrategy: impl.dateEncodingStrategy,
         dataEncodingStrategy: impl.dataEncodingStrategy,
-        decimalEncodingStrategy: impl.decimalEncodingStrategy)
+        decimalEncodingStrategy: impl.decimalEncodingStrategy
+      )
       impl.syncKeyed()
       return
     }
@@ -797,7 +836,8 @@ struct _JSONSingleValueEncodingContainer: SingleValueEncodingContainer {
       userInfo: impl.userInfo,
       dateEncodingStrategy: impl.dateEncodingStrategy,
       dataEncodingStrategy: impl.dataEncodingStrategy,
-      decimalEncodingStrategy: impl.decimalEncodingStrategy)
+      decimalEncodingStrategy: impl.decimalEncodingStrategy
+    )
     try value.encode(to: child)
     impl.json = child.json
     impl.syncKeyed()

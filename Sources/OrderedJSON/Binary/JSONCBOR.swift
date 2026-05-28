@@ -105,7 +105,7 @@ private func decodeCBOR(_ data: Data, _ pos: inout Int) throws -> JSON {
     guard count >= 0 else { throw JSONError.invalidCBOR("Negative array count") }
     var elements: [JSON] = []
     for _ in 0..<count {
-      elements.append(try decodeCBOR(data, &pos))
+      try elements.append(decodeCBOR(data, &pos))
     }
     return JSON.array(elements)
 
@@ -161,9 +161,9 @@ private func readCBORArgument(_ data: Data, _ pos: inout Int, _ info: Int) throw
     pos += 1
     return v
   case 25:  // 2 bytes
-    return UInt64(try readUInt16(data, &pos))
+    return try UInt64(readUInt16(data, &pos))
   case 26:  // 4 bytes
-    return UInt64(try readUInt32(data, &pos))
+    return try UInt64(readUInt32(data, &pos))
   case 27:  // 8 bytes
     return try readUInt64(data, &pos)
   default:
@@ -191,8 +191,10 @@ private func readUInt64(_ data: Data, _ pos: inout Int) throws -> UInt64 {
   guard pos + 8 <= data.count else { throw JSONError.invalidCBOR("Unexpected end of CBOR data") }
   let value =
     UInt64(data[pos]) << 56 | UInt64(data[pos + 1]) << 48 | UInt64(data[pos + 2]) << 40 | UInt64(
-      data[pos + 3]) << 32 | UInt64(data[pos + 4]) << 24 | UInt64(data[pos + 5]) << 16 | UInt64(
-      data[pos + 6]) << 8 | UInt64(data[pos + 7])
+      data[pos + 3]
+    ) << 32 | UInt64(data[pos + 4]) << 24 | UInt64(data[pos + 5]) << 16 | UInt64(
+      data[pos + 6]
+    ) << 8 | UInt64(data[pos + 7])
   pos += 8
   return value
 }
@@ -205,7 +207,7 @@ private func halfToFloat(_ bits: UInt16) -> Double {
   if exp == 0 {
     // Denormalized: value = (-1)^sign * 2^(1-15) * mant/2^10
     // = sign * mant * 2^(-24) = sign * mant / 16777216
-    return sign * Double(mant) / 16777216.0
+    return sign * Double(mant) / 16_777_216.0
   } else if exp == 31 {
     // NaN or Inf
     return mant == 0 ? (sign * Double.infinity) : Double.nan

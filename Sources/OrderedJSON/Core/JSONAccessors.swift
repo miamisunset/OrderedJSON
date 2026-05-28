@@ -162,7 +162,7 @@ extension JSON {
   /// - Parameter type: The desired Swift type.
   /// - Returns: The value converted to `T`.
   /// - Throws: `JSONError.typeError` on type mismatch.
-  public func get<T>(_ type: T.Type) throws -> T {
+  public func get<T>(_: T.Type) throws -> T {
     // Safe: each branch is guarded by `T.self == X.self` above, so the
     // `as! T` force-cast is guaranteed to succeed.
     if T.self == String.self {

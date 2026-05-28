@@ -2,18 +2,17 @@ import Foundation
 import OrderedCollections
 
 extension JSONSchema {
-
   /// Validates all `pattern` keyword regexes in a schema at init time.
   /// Recursively visits every subschema that could contain a `pattern`.
   /// - Parameter schema: The schema JSON to scan.
   /// - Throws: `JSONSchemaError` if any pattern contains invalid regex syntax.
-  internal static func validatePatterns(_ schema: JSON) throws {
+  static func validatePatterns(_ schema: JSON) throws {
     guard schema.isObject else { return }
 
     // Check direct pattern keyword
     if let patternStr = schema["pattern"]?.stringValue {
       do {
-        let _ = try NSRegularExpression(pattern: patternStr, options: [])
+        _ = try NSRegularExpression(pattern: patternStr, options: [])
       } catch {
         throw JSONSchemaError(
           instancePath: "",
@@ -68,7 +67,7 @@ extension JSONSchema {
       guard case .object(let patternDict) = pp.storage else { return }
       for (pattern, _) in patternDict {
         do {
-          let _ = try NSRegularExpression(pattern: pattern, options: [])
+          _ = try NSRegularExpression(pattern: pattern, options: [])
         } catch {
           throw JSONSchemaError(
             instancePath: "",

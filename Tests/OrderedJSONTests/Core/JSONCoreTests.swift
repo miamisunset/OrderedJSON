@@ -95,7 +95,8 @@ import Testing
     #expect(val.isBoolean == (val == JSON.boolean(true) || val == JSON.boolean(false)))
     #expect(
       val.isNumber
-        == (!val.isNull && !val.isBoolean && !val.isString && !val.isObject && !val.isArray))
+        == (!val.isNull && !val.isBoolean && !val.isString && !val.isObject && !val.isArray)
+    )
   }
 }
 

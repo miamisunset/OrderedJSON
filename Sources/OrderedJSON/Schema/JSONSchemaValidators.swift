@@ -2,18 +2,18 @@ import Foundation
 import OrderedCollections
 
 extension JSONSchema {
-
   // ======================================================================
   // MARK: - Shared validators (called for both drafts, no draft checks)
+
   // ======================================================================
 
   // MARK: - Keyword: type
 
   /// Validates the `type` keyword — checks that the value's type matches one
   /// of the allowed types. Integers are allowed for `number` type.
-  internal func validateType(
+  func validateType(
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
-    errors: inout [JSONSchemaError], ctx: EvaluationContext
+    errors: inout [JSONSchemaError], ctx _: EvaluationContext
   ) {
     guard let typeSpec = subschema["type"] else { return }
     let allowedTypes: [String]
@@ -25,7 +25,9 @@ extension JSONSchema {
       errors.append(
         JSONSchemaError(
           instancePath: instancePath, schemaPath: schemaPath + "/type", keyword: "type",
-          message: "type must be a string or array of strings"))
+          message: "type must be a string or array of strings"
+        )
+      )
       return
     }
     let actualType = typeNameOf(value)
@@ -36,13 +38,15 @@ extension JSONSchema {
       errors.append(
         JSONSchemaError(
           instancePath: instancePath, schemaPath: schemaPath + "/type", keyword: "type",
-          message: "expected \(allowedTypes.joined(separator: ", ")) but found \(actualType)"))
+          message: "expected \(allowedTypes.joined(separator: ", ")) but found \(actualType)"
+        )
+      )
     }
   }
 
   /// Returns the JSON type name for a value (e.g., "string", "integer").
   /// Per JSON Schema, a float with zero fractional part (e.g. 1.0) is an integer.
-  internal func typeNameOf(_ value: JSON) -> String {
+  func typeNameOf(_ value: JSON) -> String {
     switch value.storage {
     case .null: return "null"
     case .boolean: return "boolean"
@@ -61,7 +65,7 @@ extension JSONSchema {
 
   /// Validates the `properties` keyword — validates each property value
   /// against its corresponding subschema. Non-object values are skipped.
-  internal func validateProperties(
+  func validateProperties(
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
     errors: inout [JSONSchemaError], ctx: EvaluationContext
   ) {
@@ -75,7 +79,8 @@ extension JSONSchema {
         validateValue(
           childValue, against: propSchema,
           instancePath: instancePath.isEmpty ? key : instancePath + "/" + key,
-          schemaPath: childSchemaPath, errors: &errors, ctx: ctx)
+          schemaPath: childSchemaPath, errors: &errors, ctx: ctx
+        )
       }
     }
   }
@@ -84,9 +89,9 @@ extension JSONSchema {
 
   /// Validates the `required` keyword — checks that all required property
   /// keys are present (presence only, not null-rejecting).
-  internal func validateRequired(
+  func validateRequired(
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
-    errors: inout [JSONSchemaError], ctx: EvaluationContext
+    errors: inout [JSONSchemaError], ctx _: EvaluationContext
   ) {
     guard let required = subschema["required"], required.isArray, value.isObject else { return }
     for reqElem in required {
@@ -94,14 +99,18 @@ extension JSONSchema {
         errors.append(
           JSONSchemaError(
             instancePath: instancePath, schemaPath: schemaPath + "/required", keyword: "required",
-            message: "required array must contain strings"))
+            message: "required array must contain strings"
+          )
+        )
         continue
       }
       if value[key] == nil {
         errors.append(
           JSONSchemaError(
             instancePath: instancePath, schemaPath: schemaPath + "/required", keyword: "required",
-            message: "required property '\(key)' is missing"))
+            message: "required property '\(key)' is missing"
+          )
+        )
       }
     }
   }
@@ -109,9 +118,9 @@ extension JSONSchema {
   // MARK: - Keyword: minimum
 
   /// Validates the `minimum` keyword — checks that the numeric value is >= minimum.
-  internal func validateMinimum(
+  func validateMinimum(
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
-    errors: inout [JSONSchemaError], ctx: EvaluationContext
+    errors: inout [JSONSchemaError], ctx _: EvaluationContext
   ) {
     guard let minVal = subschema["minimum"] else { return }
     let valInt = value.intValue
@@ -121,7 +130,9 @@ extension JSONSchema {
         errors.append(
           JSONSchemaError(
             instancePath: instancePath, schemaPath: schemaPath + "/minimum", keyword: "minimum",
-            message: "value \(v) is less than minimum \(m)"))
+            message: "value \(v) is less than minimum \(m)"
+          )
+        )
       }
       return
     }
@@ -129,15 +140,17 @@ extension JSONSchema {
     errors.append(
       JSONSchemaError(
         instancePath: instancePath, schemaPath: schemaPath + "/minimum", keyword: "minimum",
-        message: "value \(v) is less than minimum \(m)"))
+        message: "value \(v) is less than minimum \(m)"
+      )
+    )
   }
 
   // MARK: - Keyword: maximum
 
   /// Validates the `maximum` keyword — checks that the numeric value is <= maximum.
-  internal func validateMaximum(
+  func validateMaximum(
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
-    errors: inout [JSONSchemaError], ctx: EvaluationContext
+    errors: inout [JSONSchemaError], ctx _: EvaluationContext
   ) {
     guard let maxVal = subschema["maximum"] else { return }
     let valInt = value.intValue
@@ -147,7 +160,9 @@ extension JSONSchema {
         errors.append(
           JSONSchemaError(
             instancePath: instancePath, schemaPath: schemaPath + "/maximum", keyword: "maximum",
-            message: "value \(v) is greater than maximum \(m)"))
+            message: "value \(v) is greater than maximum \(m)"
+          )
+        )
       }
       return
     }
@@ -155,16 +170,18 @@ extension JSONSchema {
     errors.append(
       JSONSchemaError(
         instancePath: instancePath, schemaPath: schemaPath + "/maximum", keyword: "maximum",
-        message: "value \(v) is greater than maximum \(m)"))
+        message: "value \(v) is greater than maximum \(m)"
+      )
+    )
   }
 
   // MARK: - Keyword: exclusiveMinimum (numeric bound — shared)
 
   /// Validates `exclusiveMinimum` as a numeric bound (Draft 2020-12 semantics).
   /// Also used in Draft 7 when the value is numeric (not a boolean modifier on `minimum`).
-  internal func validateExclusiveMinimum(
+  func validateExclusiveMinimum(
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
-    errors: inout [JSONSchemaError], ctx: EvaluationContext
+    errors: inout [JSONSchemaError], ctx _: EvaluationContext
   ) {
     guard let exclMin = subschema["exclusiveMinimum"], exclMin.isNumber else { return }
     guard let exclDouble = exclMin.floatValue, let valDouble = value.floatValue else { return }
@@ -174,7 +191,9 @@ extension JSONSchema {
           JSONSchemaError(
             instancePath: instancePath, schemaPath: schemaPath + "/exclusiveMinimum",
             keyword: "exclusiveMinimum",
-            message: "value \(valInt) is not strictly greater than \(exclInt)"))
+            message: "value \(valInt) is not strictly greater than \(exclInt)"
+          )
+        )
       }
       return
     }
@@ -183,7 +202,9 @@ extension JSONSchema {
         JSONSchemaError(
           instancePath: instancePath, schemaPath: schemaPath + "/exclusiveMinimum",
           keyword: "exclusiveMinimum",
-          message: "value \(valDouble) is not strictly greater than \(exclDouble)"))
+          message: "value \(valDouble) is not strictly greater than \(exclDouble)"
+        )
+      )
     }
   }
 
@@ -191,9 +212,9 @@ extension JSONSchema {
 
   /// Validates `exclusiveMaximum` as a numeric bound (Draft 2020-12 semantics).
   /// Also used in Draft 7 when the value is numeric (not a boolean modifier on `maximum`).
-  internal func validateExclusiveMaximum(
+  func validateExclusiveMaximum(
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
-    errors: inout [JSONSchemaError], ctx: EvaluationContext
+    errors: inout [JSONSchemaError], ctx _: EvaluationContext
   ) {
     guard let exclMax = subschema["exclusiveMaximum"], exclMax.isNumber else { return }
     guard let exclDouble = exclMax.floatValue, let valDouble = value.floatValue else { return }
@@ -203,7 +224,9 @@ extension JSONSchema {
           JSONSchemaError(
             instancePath: instancePath, schemaPath: schemaPath + "/exclusiveMaximum",
             keyword: "exclusiveMaximum",
-            message: "value \(valInt) is not strictly less than \(exclInt)"))
+            message: "value \(valInt) is not strictly less than \(exclInt)"
+          )
+        )
       }
       return
     }
@@ -212,7 +235,9 @@ extension JSONSchema {
         JSONSchemaError(
           instancePath: instancePath, schemaPath: schemaPath + "/exclusiveMaximum",
           keyword: "exclusiveMaximum",
-          message: "value \(valDouble) is not strictly less than \(exclDouble)"))
+          message: "value \(valDouble) is not strictly less than \(exclDouble)"
+        )
+      )
     }
   }
 
@@ -222,18 +247,20 @@ extension JSONSchema {
   /// is a multiple of the given divisor. Zero and negative divisors are
   /// ignored per spec. Uses division-based check to avoid float precision
   /// issues with large values and tiny divisors.
-  internal func validateMultipleOf(
+  func validateMultipleOf(
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
-    errors: inout [JSONSchemaError], ctx: EvaluationContext
+    errors: inout [JSONSchemaError], ctx _: EvaluationContext
   ) {
     guard let mVal = subschema["multipleOf"] else { return }
     if let mInt = mVal.intValue {
       if let valInt = value.intValue {
-        if mInt > 0 && valInt % mInt != 0 {
+        if mInt > 0, valInt % mInt != 0 {
           errors.append(
             JSONSchemaError(
               instancePath: instancePath, schemaPath: schemaPath + "/multipleOf",
-              keyword: "multipleOf", message: "\(valInt) is not a multiple of \(mInt)"))
+              keyword: "multipleOf", message: "\(valInt) is not a multiple of \(mInt)"
+            )
+          )
         }
         return
       }
@@ -246,7 +273,9 @@ extension JSONSchema {
         errors.append(
           JSONSchemaError(
             instancePath: instancePath, schemaPath: schemaPath + "/multipleOf",
-            keyword: "multipleOf", message: "\(valDouble) is not a multiple of \(mDouble)"))
+            keyword: "multipleOf", message: "\(valDouble) is not a multiple of \(mDouble)"
+          )
+        )
       } else {
         let rounded = ratio.rounded(.towardZero)
         let diff = abs(ratio - rounded)
@@ -255,7 +284,9 @@ extension JSONSchema {
           errors.append(
             JSONSchemaError(
               instancePath: instancePath, schemaPath: schemaPath + "/multipleOf",
-              keyword: "multipleOf", message: "\(valDouble) is not a multiple of \(mDouble)"))
+              keyword: "multipleOf", message: "\(valDouble) is not a multiple of \(mDouble)"
+            )
+          )
         }
       }
     }
@@ -265,20 +296,32 @@ extension JSONSchema {
 
   /// Validates the `pattern` keyword — checks that a string value matches
   /// the given regex. Non-string values are skipped.
-  internal func validatePattern(
+  func validatePattern(
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
-    errors: inout [JSONSchemaError], ctx: EvaluationContext
+    errors: inout [JSONSchemaError], ctx _: EvaluationContext
   ) {
     guard let patternStr = subschema["pattern"]?.stringValue, let strVal = value.stringValue else {
       return
     }
-    guard let regex = try? NSRegularExpression(pattern: patternStr, options: []) else { return }
+    // Use pre-compiled regex if available, otherwise compile on the fly.
+    let regex: NSRegularExpression
+    if let compiled = compiled,
+      let cached = compiled.precompiledPatterns[patternStr]
+    {
+      regex = cached.regex
+    } else if let r = try? NSRegularExpression(pattern: patternStr, options: []) {
+      regex = r
+    } else {
+      return
+    }
     let range = NSRange(strVal.startIndex..<strVal.endIndex, in: strVal)
     if regex.firstMatch(in: strVal, options: [], range: range) == nil {
       errors.append(
         JSONSchemaError(
           instancePath: instancePath, schemaPath: schemaPath + "/pattern", keyword: "pattern",
-          message: "string '\(strVal)' does not match pattern '\(patternStr)'"))
+          message: "string '\(strVal)' does not match pattern '\(patternStr)'"
+        )
+      )
     }
   }
 
@@ -286,9 +329,9 @@ extension JSONSchema {
 
   /// Validates the `enum` keyword — checks that the value matches at least
   /// one of the allowed values using schema-aware equality.
-  internal func validateEnum(
+  func validateEnum(
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
-    errors: inout [JSONSchemaError], ctx: EvaluationContext
+    errors: inout [JSONSchemaError], ctx _: EvaluationContext
   ) {
     guard let enumValues = subschema["enum"], enumValues.isArray else { return }
     var found = false
@@ -302,7 +345,9 @@ extension JSONSchema {
       errors.append(
         JSONSchemaError(
           instancePath: instancePath, schemaPath: schemaPath + "/enum", keyword: "enum",
-          message: "value does not match any of the allowed values in enum"))
+          message: "value does not match any of the allowed values in enum"
+        )
+      )
     }
   }
 
@@ -310,16 +355,18 @@ extension JSONSchema {
 
   /// Validates the `const` keyword — checks that the value is exactly equal
   /// to the const value using schema-aware equality.
-  internal func validateConst(
+  func validateConst(
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
-    errors: inout [JSONSchemaError], ctx: EvaluationContext
+    errors: inout [JSONSchemaError], ctx _: EvaluationContext
   ) {
     guard let constVal = subschema["const"] else { return }
     if !JSONSchema.schemaEqual(value, constVal) {
       errors.append(
         JSONSchemaError(
           instancePath: instancePath, schemaPath: schemaPath + "/const", keyword: "const",
-          message: "value does not match the const value"))
+          message: "value does not match the const value"
+        )
+      )
     }
   }
 
@@ -328,9 +375,9 @@ extension JSONSchema {
   /// Validates the `minLength` keyword — checks that the string's code point
   /// count (`unicodeScalars.count`) meets the minimum. Per RFC 8259, length
   /// is measured in code points, not grapheme clusters.
-  internal func validateMinLength(
+  func validateMinLength(
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
-    errors: inout [JSONSchemaError], ctx: EvaluationContext
+    errors: inout [JSONSchemaError], ctx _: EvaluationContext
   ) {
     guard let minLen = subschema["minLength"]?.intValue, let strVal = value.stringValue else {
       return
@@ -340,7 +387,9 @@ extension JSONSchema {
       errors.append(
         JSONSchemaError(
           instancePath: instancePath, schemaPath: schemaPath + "/minLength", keyword: "minLength",
-          message: "string length \(count) code points is less than minimum \(minLen)"))
+          message: "string length \(count) code points is less than minimum \(minLen)"
+        )
+      )
     }
   }
 
@@ -348,9 +397,9 @@ extension JSONSchema {
 
   /// Validates the `maxLength` keyword — checks that the string's code point
   /// count (`unicodeScalars.count`) does not exceed the maximum.
-  internal func validateMaxLength(
+  func validateMaxLength(
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
-    errors: inout [JSONSchemaError], ctx: EvaluationContext
+    errors: inout [JSONSchemaError], ctx _: EvaluationContext
   ) {
     guard let maxLen = subschema["maxLength"]?.intValue, let strVal = value.stringValue else {
       return
@@ -360,7 +409,9 @@ extension JSONSchema {
       errors.append(
         JSONSchemaError(
           instancePath: instancePath, schemaPath: schemaPath + "/maxLength", keyword: "maxLength",
-          message: "string length \(count) code points is greater than maximum \(maxLen)"))
+          message: "string length \(count) code points is greater than maximum \(maxLen)"
+        )
+      )
     }
   }
 
@@ -368,7 +419,7 @@ extension JSONSchema {
 
   /// Validates the `allOf` keyword — checks that the value matches all
   /// subschemas. Errors from each failing subschema are collected.
-  internal func validateAllOf(
+  func validateAllOf(
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
     errors: inout [JSONSchemaError], ctx: EvaluationContext
   ) {
@@ -377,13 +428,18 @@ extension JSONSchema {
       var subErrors: [JSONSchemaError] = []
       validateValue(
         value, against: sub, instancePath: instancePath,
-        schemaPath: schemaPath + "/allOf/" + String(index), errors: &subErrors, ctx: ctx)
+        schemaPath: schemaPath + "/allOf/" + String(index), errors: &subErrors, ctx: ctx
+      )
       if let first = subErrors.first {
         errors.append(
           JSONSchemaError(
             instancePath: first.instancePath.isEmpty ? instancePath : first.instancePath,
             schemaPath: schemaPath + "/allOf/" + String(index), keyword: "allOf",
-            message: "subschema #\(index) failed: \(first.message)"))
+            message: "subschema #\(index) failed: \(first.message)"
+          )
+        )
+        // Short-circuit: allOf must pass all, so stop after first failure.
+        break
       }
     }
   }
@@ -392,7 +448,11 @@ extension JSONSchema {
 
   /// Validates the `anyOf` keyword — checks that the value matches at least
   /// one subschema. Empty arrays always fail.
-  internal func validateAnyOf(
+  ///
+  /// Short-circuits (breaks) after the first matching subschema — this
+  /// optimization was already present before the Phase 10 PR and is correct
+  /// per spec: anyOf succeeds as soon as one subschema matches.
+  func validateAnyOf(
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
     errors: inout [JSONSchemaError], ctx: EvaluationContext
   ) {
@@ -402,7 +462,8 @@ extension JSONSchema {
       var subErrors: [JSONSchemaError] = []
       validateValue(
         value, against: sub, instancePath: instancePath,
-        schemaPath: schemaPath, errors: &subErrors, ctx: ctx)
+        schemaPath: schemaPath, errors: &subErrors, ctx: ctx
+      )
       if subErrors.isEmpty {
         matched = true
         break
@@ -412,7 +473,9 @@ extension JSONSchema {
       errors.append(
         JSONSchemaError(
           instancePath: instancePath, schemaPath: schemaPath + "/anyOf", keyword: "anyOf",
-          message: "value does not match any subschema in anyOf"))
+          message: "value does not match any subschema in anyOf"
+        )
+      )
     }
   }
 
@@ -420,7 +483,11 @@ extension JSONSchema {
 
   /// Validates the `oneOf` keyword — checks that the value matches exactly
   /// one subschema. Early exits on the second match.
-  internal func validateOneOf(
+  ///
+  /// Short-circuits (breaks) after the second matching subschema — this
+  /// optimization was already present before the Phase 10 PR and is correct
+  /// per spec: oneOf fails as soon as two subschemas match.
+  func validateOneOf(
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
     errors: inout [JSONSchemaError], ctx: EvaluationContext
   ) {
@@ -430,7 +497,8 @@ extension JSONSchema {
       var subErrors: [JSONSchemaError] = []
       validateValue(
         value, against: sub, instancePath: instancePath,
-        schemaPath: schemaPath, errors: &subErrors, ctx: ctx)
+        schemaPath: schemaPath, errors: &subErrors, ctx: ctx
+      )
       if subErrors.isEmpty { matchCount += 1 }
       if matchCount > 1 { break }
     }
@@ -438,7 +506,9 @@ extension JSONSchema {
       errors.append(
         JSONSchemaError(
           instancePath: instancePath, schemaPath: schemaPath + "/oneOf", keyword: "oneOf",
-          message: "value matches \(matchCount) subschemas in oneOf (expected exactly 1)"))
+          message: "value matches \(matchCount) subschemas in oneOf (expected exactly 1)"
+        )
+      )
     }
   }
 
@@ -446,7 +516,7 @@ extension JSONSchema {
 
   /// Validates the `not` keyword — checks that the value does NOT match
   /// the subschema. Boolean subschemas are supported.
-  internal func validateNot(
+  func validateNot(
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
     errors: inout [JSONSchemaError], ctx: EvaluationContext
   ) {
@@ -454,12 +524,15 @@ extension JSONSchema {
     var subErrors: [JSONSchemaError] = []
     validateValue(
       value, against: subschema["not"]!, instancePath: instancePath,
-      schemaPath: schemaPath + "/not", errors: &subErrors, ctx: ctx)
+      schemaPath: schemaPath + "/not", errors: &subErrors, ctx: ctx
+    )
     if subErrors.isEmpty {
       errors.append(
         JSONSchemaError(
           instancePath: instancePath, schemaPath: schemaPath + "/not", keyword: "not",
-          message: "value matches the not schema"))
+          message: "value matches the not schema"
+        )
+      )
     }
   }
 
@@ -468,7 +541,7 @@ extension JSONSchema {
   /// Validates the `if`/`then`/`else` keywords — if the `if` subschema
   /// matches, `then` must also match; if `if` fails, `else` must match.
   /// Missing `then`/`else` are skipped per spec.
-  internal func validateIfThenElse(
+  func validateIfThenElse(
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
     errors: inout [JSONSchemaError], ctx: EvaluationContext
   ) {
@@ -476,18 +549,22 @@ extension JSONSchema {
     var ifErrors: [JSONSchemaError] = []
     validateValue(
       value, against: ifSchema, instancePath: instancePath,
-      schemaPath: schemaPath + "/if", errors: &ifErrors, ctx: ctx)
+      schemaPath: schemaPath + "/if", errors: &ifErrors, ctx: ctx
+    )
     if ifErrors.isEmpty {
       if let thenSchema = subschema["then"] {
         var thenErrors: [JSONSchemaError] = []
         validateValue(
           value, against: thenSchema, instancePath: instancePath,
-          schemaPath: schemaPath + "/then", errors: &thenErrors, ctx: ctx)
+          schemaPath: schemaPath + "/then", errors: &thenErrors, ctx: ctx
+        )
         if let first = thenErrors.first {
           errors.append(
             JSONSchemaError(
               instancePath: instancePath, schemaPath: schemaPath + "/then", keyword: "then",
-              message: "then schema failed: \(first.message)"))
+              message: "then schema failed: \(first.message)"
+            )
+          )
         }
       }
     } else {
@@ -495,12 +572,15 @@ extension JSONSchema {
         var elseErrors: [JSONSchemaError] = []
         validateValue(
           value, against: elseSchema, instancePath: instancePath,
-          schemaPath: schemaPath + "/else", errors: &elseErrors, ctx: ctx)
+          schemaPath: schemaPath + "/else", errors: &elseErrors, ctx: ctx
+        )
         if let first = elseErrors.first {
           errors.append(
             JSONSchemaError(
               instancePath: instancePath, schemaPath: schemaPath + "/else", keyword: "else",
-              message: "else schema failed: \(first.message)"))
+              message: "else schema failed: \(first.message)"
+            )
+          )
         }
       }
     }
@@ -510,39 +590,43 @@ extension JSONSchema {
 
   /// Validates `minItems` — checks that the array has at least the
   /// specified number of items.
-  internal func validateMinItems(
+  func validateMinItems(
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
-    errors: inout [JSONSchemaError], ctx: EvaluationContext
+    errors: inout [JSONSchemaError], ctx _: EvaluationContext
   ) {
     guard let minVal = subschema["minItems"]?.intValue, let arr = value.arrayValue else { return }
     if arr.count < minVal {
       errors.append(
         JSONSchemaError(
           instancePath: instancePath, schemaPath: schemaPath + "/minItems", keyword: "minItems",
-          message: "array length \(arr.count) is less than minimum \(minVal)"))
+          message: "array length \(arr.count) is less than minimum \(minVal)"
+        )
+      )
     }
   }
 
   /// Validates `maxItems` — checks that the array has at most the
   /// specified number of items.
-  internal func validateMaxItems(
+  func validateMaxItems(
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
-    errors: inout [JSONSchemaError], ctx: EvaluationContext
+    errors: inout [JSONSchemaError], ctx _: EvaluationContext
   ) {
     guard let maxVal = subschema["maxItems"]?.intValue, let arr = value.arrayValue else { return }
     if arr.count > maxVal {
       errors.append(
         JSONSchemaError(
           instancePath: instancePath, schemaPath: schemaPath + "/maxItems", keyword: "maxItems",
-          message: "array length \(arr.count) is greater than maximum \(maxVal)"))
+          message: "array length \(arr.count) is greater than maximum \(maxVal)"
+        )
+      )
     }
   }
 
   /// Validates `uniqueItems` — checks that all items in the array are
   /// unique (using schema-aware equality).
-  internal func validateUniqueItems(
+  func validateUniqueItems(
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
-    errors: inout [JSONSchemaError], ctx: EvaluationContext
+    errors: inout [JSONSchemaError], ctx _: EvaluationContext
   ) {
     guard subschema["uniqueItems"]?.boolValue == true, let arr = value.arrayValue else { return }
     for i in 0..<arr.count {
@@ -552,7 +636,9 @@ extension JSONSchema {
             JSONSchemaError(
               instancePath: instancePath, schemaPath: schemaPath + "/uniqueItems",
               keyword: "uniqueItems",
-              message: "items at indexes \(i) and \(j) are equal"))
+              message: "items at indexes \(i) and \(j) are equal"
+            )
+          )
           return
         }
       }
@@ -561,7 +647,7 @@ extension JSONSchema {
 
   /// Validates `contains` — checks that at least one item in the array
   /// matches the subschema.
-  internal func validateContains(
+  func validateContains(
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
     errors: inout [JSONSchemaError], ctx: EvaluationContext
   ) {
@@ -575,7 +661,8 @@ extension JSONSchema {
       var itemErrors: [JSONSchemaError] = []
       validateValue(
         item, against: containsSchema, instancePath: instancePath,
-        schemaPath: schemaPath + "/contains", errors: &itemErrors, ctx: ctx)
+        schemaPath: schemaPath + "/contains", errors: &itemErrors, ctx: ctx
+      )
       if itemErrors.isEmpty {
         matchCount += 1
         if matchCount >= required { return }
@@ -584,16 +671,18 @@ extension JSONSchema {
     errors.append(
       JSONSchemaError(
         instancePath: instancePath, schemaPath: schemaPath + "/contains", keyword: "contains",
-        message: "array does not contain \(required) item(s) matching the subschema"))
+        message: "array does not contain \(required) item(s) matching the subschema"
+      )
+    )
   }
 
   // MARK: - Object keywords (shared)
 
   /// Validates `minProperties` — checks that the object has at least the
   /// specified number of properties.
-  internal func validateMinProperties(
+  func validateMinProperties(
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
-    errors: inout [JSONSchemaError], ctx: EvaluationContext
+    errors: inout [JSONSchemaError], ctx _: EvaluationContext
   ) {
     guard let minVal = subschema["minProperties"]?.intValue, value.isObject else { return }
     if value.count < minVal {
@@ -601,15 +690,17 @@ extension JSONSchema {
         JSONSchemaError(
           instancePath: instancePath, schemaPath: schemaPath + "/minProperties",
           keyword: "minProperties",
-          message: "object has \(value.count) properties, less than minimum \(minVal)"))
+          message: "object has \(value.count) properties, less than minimum \(minVal)"
+        )
+      )
     }
   }
 
   /// Validates `maxProperties` — checks that the object has at most the
   /// specified number of properties.
-  internal func validateMaxProperties(
+  func validateMaxProperties(
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
-    errors: inout [JSONSchemaError], ctx: EvaluationContext
+    errors: inout [JSONSchemaError], ctx _: EvaluationContext
   ) {
     guard let maxVal = subschema["maxProperties"]?.intValue, value.isObject else { return }
     if value.count > maxVal {
@@ -617,13 +708,15 @@ extension JSONSchema {
         JSONSchemaError(
           instancePath: instancePath, schemaPath: schemaPath + "/maxProperties",
           keyword: "maxProperties",
-          message: "object has \(value.count) properties, greater than maximum \(maxVal)"))
+          message: "object has \(value.count) properties, greater than maximum \(maxVal)"
+        )
+      )
     }
   }
 
   /// Validates `propertyNames` — each property key in the object must
   /// validate against the schema (the schema validates the key string).
-  internal func validatePropertyNames(
+  func validatePropertyNames(
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
     errors: inout [JSONSchemaError], ctx: EvaluationContext
   ) {
@@ -635,20 +728,23 @@ extension JSONSchema {
       let childInstancePath = instancePath.isEmpty ? "~" + key : instancePath + "/~" + key
       validateValue(
         .string(key), against: pnSchema, instancePath: childInstancePath,
-        schemaPath: childSchemaPath, errors: &keyErrors, ctx: ctx)
+        schemaPath: childSchemaPath, errors: &keyErrors, ctx: ctx
+      )
       if let first = keyErrors.first {
         errors.append(
           JSONSchemaError(
             instancePath: childInstancePath, schemaPath: childSchemaPath,
             keyword: "propertyNames",
-            message: "property name '\(key)' failed: \(first.message)"))
+            message: "property name '\(key)' failed: \(first.message)"
+          )
+        )
       }
     }
   }
 
   /// Validates `patternProperties` — property keys matching a regex must
   /// have their value validated against the corresponding schema.
-  internal func validatePatternProperties(
+  func validatePatternProperties(
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
     errors: inout [JSONSchemaError], ctx: EvaluationContext
   ) {
@@ -657,14 +753,23 @@ extension JSONSchema {
       return
     }
     for (pattern, schema) in patternDict {
-      let regex = try! NSRegularExpression(pattern: pattern, options: [])
+      // Use pre-compiled regex if available, otherwise compile on the fly.
+      let regex: NSRegularExpression
+      if let compiled = compiled,
+        let cached = compiled.precompiledPatterns[pattern]
+      {
+        regex = cached.regex
+      } else {
+        regex = try! NSRegularExpression(pattern: pattern, options: [])
+      }
       for (key, val) in dict {
         let range = NSRange(key.startIndex..<key.endIndex, in: key)
         if regex.firstMatch(in: key, options: [], range: range) != nil {
           validateValue(
             val, against: schema,
             instancePath: instancePath.isEmpty ? key : instancePath + "/" + key,
-            schemaPath: schemaPath + "/patternProperties/" + pattern, errors: &errors, ctx: ctx)
+            schemaPath: schemaPath + "/patternProperties/" + pattern, errors: &errors, ctx: ctx
+          )
         }
       }
     }
@@ -674,7 +779,7 @@ extension JSONSchema {
 
   /// Validates `additionalProperties` — schema for properties not covered
   /// by `properties` or `patternProperties`. Same semantics in both drafts.
-  internal func validateAdditionalProperties(
+  func validateAdditionalProperties(
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
     errors: inout [JSONSchemaError], ctx: EvaluationContext
   ) {
@@ -683,13 +788,15 @@ extension JSONSchema {
     }
     guard case .object(let dict) = value.storage else { return }
     let coveredKeys = evaluatedPropertyKeys(
-      for: subschema, from: dict, includeAdditionalProperties: false)
+      for: subschema, from: dict, includeAdditionalProperties: false
+    )
     for (key, val) in dict {
       if !coveredKeys.contains(key) {
         validateValue(
           val, against: additionalProperties,
           instancePath: instancePath.isEmpty ? key : instancePath + "/" + key,
-          schemaPath: schemaPath + "/additionalProperties", errors: &errors, ctx: ctx)
+          schemaPath: schemaPath + "/additionalProperties", errors: &errors, ctx: ctx
+        )
       }
     }
   }
@@ -705,7 +812,7 @@ extension JSONSchema {
   ///   - dict: The instance object dictionary to check keys against.
   ///   - includeAdditionalProperties: Whether to also include keys evaluated
   ///     by `additionalProperties` (needed for `unevaluatedProperties`).
-  internal func evaluatedPropertyKeys(
+  func evaluatedPropertyKeys(
     for subschema: JSON,
     from dict: OrderedDictionary<String, JSON>,
     includeAdditionalProperties: Bool = false
@@ -715,14 +822,24 @@ extension JSONSchema {
       guard case .object(let props) = properties.storage else {
         preconditionFailure("properties.isObject was true but storage pattern match failed")
       }
-      for (k, _) in props { keys.insert(k) }
+      for (k, _) in props {
+        keys.insert(k)
+      }
     }
     if let pp = subschema["patternProperties"], pp.isObject {
       guard case .object(let patternDict) = pp.storage else {
         preconditionFailure("patternProperties.isObject was true but storage pattern match failed")
       }
       for (pattern, _) in patternDict {
-        let regex = try! NSRegularExpression(pattern: pattern, options: [])
+        // Use pre-compiled regex if available, otherwise compile on the fly.
+        let regex: NSRegularExpression
+        if let compiled = compiled,
+          let cached = compiled.precompiledPatterns[pattern]
+        {
+          regex = cached.regex
+        } else {
+          regex = try! NSRegularExpression(pattern: pattern, options: [])
+        }
         for (key, _) in dict {
           let range = NSRange(key.startIndex..<key.endIndex, in: key)
           if regex.firstMatch(in: key, options: [], range: range) != nil { keys.insert(key) }
@@ -730,14 +847,16 @@ extension JSONSchema {
       }
     }
     if includeAdditionalProperties, subschema["additionalProperties"] != nil {
-      for (key, _) in dict { keys.insert(key) }
+      for (key, _) in dict {
+        keys.insert(key)
+      }
     }
     return keys
   }
 
   /// Recursively computes the set of property keys that a schema (including
   /// its composition keywords) evaluates for the given object data.
-  internal func evaluatedPropertyKeysRecursive(
+  func evaluatedPropertyKeysRecursive(
     for subschema: JSON,
     dict: OrderedDictionary<String, JSON>,
     instancePath: String,
@@ -752,12 +871,13 @@ extension JSONSchema {
     if let refStr = subschema["$ref"]?.stringValue {
       if let resolved = compiled?.resolveRef(
         refStr, currentResourceURI: ctx.currentResourceURI,
-        remoteRegistry: remoteCompiled)
-      {
+        remoteRegistry: remoteCompiled
+      ) {
         let targetKeys = evaluatedPropertyKeysRecursive(
           for: resolved.schema, dict: dict,
           instancePath: instancePath, schemaPath: schemaPath, ctx: ctx,
-          includeUnevaluatedProperties: true)
+          includeUnevaluatedProperties: true
+        )
         keys.formUnion(targetKeys)
       }
     }
@@ -768,12 +888,13 @@ extension JSONSchema {
       if let resolved = compiled?.resolveDynamicRef(
         dynRefStr,
         dynamicScope: ctx.dynamicScope, currentResourceURI: ctx.currentResourceURI,
-        remoteRegistry: remoteCompiled)
-      {
+        remoteRegistry: remoteCompiled
+      ) {
         let targetKeys = evaluatedPropertyKeysRecursive(
           for: resolved.schema, dict: dict,
           instancePath: instancePath, schemaPath: schemaPath, ctx: ctx,
-          includeUnevaluatedProperties: true)
+          includeUnevaluatedProperties: true
+        )
         keys.formUnion(targetKeys)
       }
     }
@@ -787,7 +908,8 @@ extension JSONSchema {
         let depKeys = evaluatedPropertyKeysRecursive(
           for: depSchema, dict: dict,
           instancePath: instancePath, schemaPath: schemaPath, ctx: ctx,
-          includeUnevaluatedProperties: true)
+          includeUnevaluatedProperties: true
+        )
         keys.formUnion(depKeys)
       }
     }
@@ -800,7 +922,8 @@ extension JSONSchema {
         if let innerRef = sub["$ref"]?.stringValue,
           let resolved = compiled?.resolveRef(
             innerRef, currentResourceURI: ctx.currentResourceURI,
-            remoteRegistry: remoteCompiled)
+            remoteRegistry: remoteCompiled
+          )
         {
           subSchema = resolved.schema
         } else {
@@ -809,7 +932,8 @@ extension JSONSchema {
         let subKeys = evaluatedPropertyKeysRecursive(
           for: subSchema, dict: dict,
           instancePath: instancePath, schemaPath: schemaPath, ctx: ctx,
-          includeUnevaluatedProperties: true)
+          includeUnevaluatedProperties: true
+        )
         keys.formUnion(subKeys)
       }
     }
@@ -823,7 +947,8 @@ extension JSONSchema {
         if let innerRef = sub["$ref"]?.stringValue,
           let resolved = compiled?.resolveRef(
             innerRef, currentResourceURI: ctx.currentResourceURI,
-            remoteRegistry: remoteCompiled)
+            remoteRegistry: remoteCompiled
+          )
         {
           subSchema = resolved.schema
         } else {
@@ -832,12 +957,14 @@ extension JSONSchema {
         var subErrors: [JSONSchemaError] = []
         validateValue(
           objectValue, against: subSchema, instancePath: instancePath,
-          schemaPath: schemaPath + "/anyOf", errors: &subErrors, ctx: ctx)
+          schemaPath: schemaPath + "/anyOf", errors: &subErrors, ctx: ctx
+        )
         if subErrors.isEmpty {
           let subKeys = evaluatedPropertyKeysRecursive(
             for: subSchema, dict: dict,
             instancePath: instancePath, schemaPath: schemaPath, ctx: ctx,
-            includeUnevaluatedProperties: true)
+            includeUnevaluatedProperties: true
+          )
           keys.formUnion(subKeys)
         }
       }
@@ -852,7 +979,8 @@ extension JSONSchema {
         if let innerRef = sub["$ref"]?.stringValue,
           let resolved = compiled?.resolveRef(
             innerRef, currentResourceURI: ctx.currentResourceURI,
-            remoteRegistry: remoteCompiled)
+            remoteRegistry: remoteCompiled
+          )
         {
           subSchema = resolved.schema
         } else {
@@ -861,12 +989,14 @@ extension JSONSchema {
         var subErrors: [JSONSchemaError] = []
         validateValue(
           objectValue, against: subSchema, instancePath: instancePath,
-          schemaPath: schemaPath + "/oneOf", errors: &subErrors, ctx: ctx)
+          schemaPath: schemaPath + "/oneOf", errors: &subErrors, ctx: ctx
+        )
         if subErrors.isEmpty {
           let subKeys = evaluatedPropertyKeysRecursive(
             for: subSchema, dict: dict,
             instancePath: instancePath, schemaPath: schemaPath, ctx: ctx,
-            includeUnevaluatedProperties: true)
+            includeUnevaluatedProperties: true
+          )
           keys.formUnion(subKeys)
         }
       }
@@ -879,7 +1009,8 @@ extension JSONSchema {
       if let innerRef = ifSchema["$ref"]?.stringValue,
         let resolved = compiled?.resolveRef(
           innerRef, currentResourceURI: ctx.currentResourceURI,
-          remoteRegistry: remoteCompiled)
+          remoteRegistry: remoteCompiled
+        )
       {
         ifSchemaResolved = resolved.schema
       } else {
@@ -889,19 +1020,22 @@ extension JSONSchema {
       let objectValue = JSON(dict)
       validateValue(
         objectValue, against: ifSchemaResolved, instancePath: instancePath,
-        schemaPath: schemaPath + "/if", errors: &ifErrors, ctx: ctx)
+        schemaPath: schemaPath + "/if", errors: &ifErrors, ctx: ctx
+      )
       if ifErrors.isEmpty {
         let ifKeys = evaluatedPropertyKeysRecursive(
           for: ifSchemaResolved, dict: dict,
           instancePath: instancePath, schemaPath: schemaPath, ctx: ctx,
-          includeUnevaluatedProperties: true)
+          includeUnevaluatedProperties: true
+        )
         keys.formUnion(ifKeys)
         if let thenSchema = subschema["then"] {
           let thenSchemaResolved: JSON
           if let innerRef = thenSchema["$ref"]?.stringValue,
             let resolved = compiled?.resolveRef(
               innerRef, currentResourceURI: ctx.currentResourceURI,
-              remoteRegistry: remoteCompiled)
+              remoteRegistry: remoteCompiled
+            )
           {
             thenSchemaResolved = resolved.schema
           } else {
@@ -910,7 +1044,8 @@ extension JSONSchema {
           let thenKeys = evaluatedPropertyKeysRecursive(
             for: thenSchemaResolved, dict: dict,
             instancePath: instancePath, schemaPath: schemaPath, ctx: ctx,
-            includeUnevaluatedProperties: true)
+            includeUnevaluatedProperties: true
+          )
           keys.formUnion(thenKeys)
         }
       } else {
@@ -919,7 +1054,8 @@ extension JSONSchema {
           if let innerRef = elseSchema["$ref"]?.stringValue,
             let resolved = compiled?.resolveRef(
               innerRef, currentResourceURI: ctx.currentResourceURI,
-              remoteRegistry: remoteCompiled)
+              remoteRegistry: remoteCompiled
+            )
           {
             elseSchemaResolved = resolved.schema
           } else {
@@ -928,7 +1064,8 @@ extension JSONSchema {
           let elseKeys = evaluatedPropertyKeysRecursive(
             for: elseSchemaResolved, dict: dict,
             instancePath: instancePath, schemaPath: schemaPath, ctx: ctx,
-            includeUnevaluatedProperties: true)
+            includeUnevaluatedProperties: true
+          )
           keys.formUnion(elseKeys)
         }
       }
@@ -949,15 +1086,16 @@ extension JSONSchema {
 
   // ======================================================================
   // MARK: - Draft 7 specific validators
+
   // ======================================================================
 
   // MARK: - Keyword: exclusiveMinimum (Draft 7 boolean modifier)
 
   /// Validates `exclusiveMinimum` as a boolean modifier on `minimum`
   /// (Draft 7 semantics). Ignored when the value is numeric.
-  internal func validateExclusiveMinimumBool(
+  func validateExclusiveMinimumBool(
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
-    errors: inout [JSONSchemaError], ctx: EvaluationContext
+    errors: inout [JSONSchemaError], ctx _: EvaluationContext
   ) {
     guard let exclBool = subschema["exclusiveMinimum"]?.boolValue,
       let minVal = subschema["minimum"],
@@ -970,7 +1108,9 @@ extension JSONSchema {
             JSONSchemaError(
               instancePath: instancePath, schemaPath: schemaPath + "/exclusiveMinimum",
               keyword: "exclusiveMinimum",
-              message: "value \(valInt) is less than or equal to minimum \(minInt)"))
+              message: "value \(valInt) is less than or equal to minimum \(minInt)"
+            )
+          )
         }
         return
       }
@@ -979,7 +1119,9 @@ extension JSONSchema {
           JSONSchemaError(
             instancePath: instancePath, schemaPath: schemaPath + "/exclusiveMinimum",
             keyword: "exclusiveMinimum",
-            message: "value \(valDouble) is less than or equal to minimum \(minDouble)"))
+            message: "value \(valDouble) is less than or equal to minimum \(minDouble)"
+          )
+        )
       }
     }
   }
@@ -988,9 +1130,9 @@ extension JSONSchema {
 
   /// Validates `exclusiveMaximum` as a boolean modifier on `maximum`
   /// (Draft 7 semantics). Ignored when the value is numeric.
-  internal func validateExclusiveMaximumBool(
+  func validateExclusiveMaximumBool(
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
-    errors: inout [JSONSchemaError], ctx: EvaluationContext
+    errors: inout [JSONSchemaError], ctx _: EvaluationContext
   ) {
     guard let exclBool = subschema["exclusiveMaximum"]?.boolValue,
       let maxVal = subschema["maximum"],
@@ -1003,7 +1145,9 @@ extension JSONSchema {
             JSONSchemaError(
               instancePath: instancePath, schemaPath: schemaPath + "/exclusiveMaximum",
               keyword: "exclusiveMaximum",
-              message: "value \(valInt) is greater than or equal to maximum \(maxInt)"))
+              message: "value \(valInt) is greater than or equal to maximum \(maxInt)"
+            )
+          )
         }
         return
       }
@@ -1012,7 +1156,9 @@ extension JSONSchema {
           JSONSchemaError(
             instancePath: instancePath, schemaPath: schemaPath + "/exclusiveMaximum",
             keyword: "exclusiveMaximum",
-            message: "value \(valDouble) is greater than or equal to maximum \(maxDouble)"))
+            message: "value \(valDouble) is greater than or equal to maximum \(maxDouble)"
+          )
+        )
       }
     }
   }
@@ -1026,9 +1172,9 @@ extension JSONSchema {
   /// Per Draft 2020-12, `format` is an **annotation** keyword — it should
   /// NOT produce validation errors. Draft 7 treats `format` as an assertion.
   /// This validator is only called for Draft 7 schemas.
-  internal func validateFormat(
+  func validateFormat(
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
-    errors: inout [JSONSchemaError], ctx: EvaluationContext
+    errors: inout [JSONSchemaError], ctx _: EvaluationContext
   ) {
     guard let formatStr = subschema["format"]?.stringValue, let strVal = value.stringValue else {
       return
@@ -1039,7 +1185,9 @@ extension JSONSchema {
       errors.append(
         JSONSchemaError(
           instancePath: instancePath, schemaPath: schemaPath + "/format", keyword: "format",
-          message: "string '\(strVal)' does not match format '\(formatStr)'"))
+          message: "string '\(strVal)' does not match format '\(formatStr)'"
+        )
+      )
     }
   }
 
@@ -1051,7 +1199,7 @@ extension JSONSchema {
   /// schema validation or required-key checking based on its type.
   ///
   /// Draft 2020-12 splits this into `dependentSchemas` + `dependentRequired`.
-  internal func validateDependencies(
+  func validateDependencies(
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
     errors: inout [JSONSchemaError], ctx: EvaluationContext
   ) {
@@ -1063,13 +1211,16 @@ extension JSONSchema {
         var subErrors: [JSONSchemaError] = []
         validateValue(
           value, against: depValue, instancePath: instancePath,
-          schemaPath: schemaPath + "/dependencies/" + key, errors: &subErrors, ctx: ctx)
+          schemaPath: schemaPath + "/dependencies/" + key, errors: &subErrors, ctx: ctx
+        )
         if let first = subErrors.first {
           errors.append(
             JSONSchemaError(
               instancePath: instancePath, schemaPath: schemaPath + "/dependencies/" + key,
               keyword: "dependencies",
-              message: "dependency for key '\(key)' failed: \(first.message)"))
+              message: "dependency for key '\(key)' failed: \(first.message)"
+            )
+          )
         }
       } else if depValue.isArray {
         for reqKey in depValue.arrayValue ?? [] {
@@ -1079,7 +1230,9 @@ extension JSONSchema {
               JSONSchemaError(
                 instancePath: instancePath, schemaPath: schemaPath + "/dependencies/" + key,
                 keyword: "dependencies",
-                message: "key '\(key)' requires key '\(reqKeyStr)'"))
+                message: "key '\(key)' requires key '\(reqKeyStr)'"
+              )
+            )
           }
         }
       } else if let boolVal = depValue.boolValue, !boolVal {
@@ -1088,7 +1241,9 @@ extension JSONSchema {
           JSONSchemaError(
             instancePath: instancePath, schemaPath: schemaPath + "/dependencies/" + key,
             keyword: "dependencies",
-            message: "dependency '\(key)' is false, but key exists"))
+            message: "dependency '\(key)' is false, but key exists"
+          )
+        )
       }
     }
   }
@@ -1099,7 +1254,7 @@ extension JSONSchema {
   /// the tuple length defined by `items` (when items is an array).
   /// When `items` is a schema (not array), `additionalItems` is ignored
   /// because `items` already applies to all items.
-  internal func validateAdditionalItems(
+  func validateAdditionalItems(
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
     errors: inout [JSONSchemaError], ctx: EvaluationContext
   ) {
@@ -1113,7 +1268,8 @@ extension JSONSchema {
       validateValue(
         item, against: additionalItems,
         instancePath: instancePath.isEmpty ? String(index) : instancePath + "/" + String(index),
-        schemaPath: schemaPath + "/additionalItems", errors: &errors, ctx: ctx)
+        schemaPath: schemaPath + "/additionalItems", errors: &errors, ctx: ctx
+      )
     }
   }
 
@@ -1121,7 +1277,7 @@ extension JSONSchema {
 
   /// Validates `items` as a tuple array (Draft 7) — validates the first N
   /// items against the corresponding schemas in the array.
-  internal func validateItemsTuple(
+  func validateItemsTuple(
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
     errors: inout [JSONSchemaError], ctx: EvaluationContext
   ) {
@@ -1131,12 +1287,14 @@ extension JSONSchema {
       validateValue(
         item, against: tupleSchemas[index],
         instancePath: instancePath.isEmpty ? String(index) : instancePath + "/" + String(index),
-        schemaPath: schemaPath + "/items/" + String(index), errors: &errors, ctx: ctx)
+        schemaPath: schemaPath + "/items/" + String(index), errors: &errors, ctx: ctx
+      )
     }
   }
 
   // ======================================================================
   // MARK: - Draft 2020-12 specific validators
+
   // ======================================================================
 
   // MARK: - Keyword: dependentSchemas
@@ -1144,7 +1302,7 @@ extension JSONSchema {
   /// Validates the `dependentSchemas` keyword — when a property key is
   /// present, the entire object must validate against the dependent schema.
   /// Draft 2020-12 only (Draft 7 uses `dependencies`).
-  internal func validateDependentSchemas(
+  func validateDependentSchemas(
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
     errors: inout [JSONSchemaError], ctx: EvaluationContext
   ) {
@@ -1157,13 +1315,16 @@ extension JSONSchema {
       var subErrors: [JSONSchemaError] = []
       validateValue(
         value, against: depSchema, instancePath: instancePath,
-        schemaPath: schemaPath + "/dependentSchemas/" + key, errors: &subErrors, ctx: ctx)
+        schemaPath: schemaPath + "/dependentSchemas/" + key, errors: &subErrors, ctx: ctx
+      )
       if let first = subErrors.first {
         errors.append(
           JSONSchemaError(
             instancePath: instancePath, schemaPath: schemaPath + "/dependentSchemas/" + key,
             keyword: "dependentSchemas",
-            message: "dependent schema for key '\(key)' failed: \(first.message)"))
+            message: "dependent schema for key '\(key)' failed: \(first.message)"
+          )
+        )
       }
     }
   }
@@ -1173,9 +1334,9 @@ extension JSONSchema {
   /// Validates the `dependentRequired` keyword — when a property key is
   /// present, other specified property keys must also be present.
   /// Draft 2020-12 only (Draft 7 uses `dependencies`).
-  internal func validateDependentRequired(
+  func validateDependentRequired(
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
-    errors: inout [JSONSchemaError], ctx: EvaluationContext
+    errors: inout [JSONSchemaError], ctx _: EvaluationContext
   ) {
     guard let depRequired = subschema["dependentRequired"], depRequired.isObject, value.isObject
     else { return }
@@ -1189,7 +1350,9 @@ extension JSONSchema {
             errors.append(
               JSONSchemaError(
                 instancePath: instancePath, schemaPath: schemaPath + "/dependentRequired/" + key,
-                keyword: "dependentRequired", message: "key '\(key)' requires key '\(reqKeyStr)'"))
+                keyword: "dependentRequired", message: "key '\(key)' requires key '\(reqKeyStr)'"
+              )
+            )
           }
         }
       }
@@ -1200,7 +1363,7 @@ extension JSONSchema {
 
   /// Validates `prefixItems` (Draft 2020-12) — tuple validation for the
   /// first N items. Each schema validates the corresponding item index.
-  internal func validatePrefixItems(
+  func validatePrefixItems(
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
     errors: inout [JSONSchemaError], ctx: EvaluationContext
   ) {
@@ -1212,7 +1375,8 @@ extension JSONSchema {
       validateValue(
         item, against: schemas[index],
         instancePath: instancePath.isEmpty ? String(index) : instancePath + "/" + String(index),
-        schemaPath: schemaPath + "/prefixItems/" + String(index), errors: &errors, ctx: ctx)
+        schemaPath: schemaPath + "/prefixItems/" + String(index), errors: &errors, ctx: ctx
+      )
     }
   }
 
@@ -1221,7 +1385,7 @@ extension JSONSchema {
   /// Validates `items` as a schema (Draft 2020-12) — applies to items
   /// beyond `prefixItems`. In Draft 7, `items` schema applies to all items
   /// (handled by the shared `validateItemsSchema` call when prefixItems is absent).
-  internal func validateItemsSchema(
+  func validateItemsSchema(
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
     errors: inout [JSONSchemaError], ctx: EvaluationContext
   ) {
@@ -1240,7 +1404,8 @@ extension JSONSchema {
           item, against: items,
           instancePath: instancePath.isEmpty
             ? String(actualIndex) : instancePath + "/" + String(actualIndex),
-          schemaPath: schemaPath + "/items", errors: &errors, ctx: ctx)
+          schemaPath: schemaPath + "/items", errors: &errors, ctx: ctx
+        )
       }
     } else if let boolVal = items.boolValue {
       if !boolVal {
@@ -1250,7 +1415,8 @@ extension JSONSchema {
             item, against: items,
             instancePath: instancePath.isEmpty
               ? String(actualIndex) : instancePath + "/" + String(actualIndex),
-            schemaPath: schemaPath + "/items", errors: &errors, ctx: ctx)
+            schemaPath: schemaPath + "/items", errors: &errors, ctx: ctx
+          )
         }
       }
       // If items is true, all remaining items pass (no validation needed)
@@ -1265,7 +1431,7 @@ extension JSONSchema {
   /// Examines `prefixItems`, `items`, `contains`, and in-place applicators
   /// (`allOf`, `anyOf`, `oneOf`, `if`/`then`/`else`) to determine which
   /// indices are considered evaluated.
-  internal func evaluatedItemIndices(
+  func evaluatedItemIndices(
     for subschema: JSON,
     data: [JSON],
     instancePath: String,
@@ -1283,12 +1449,14 @@ extension JSONSchema {
     if let refStr = subschema["$ref"]?.stringValue,
       let resolved = compiled?.resolveRef(
         refStr, currentResourceURI: ctx.currentResourceURI,
-        remoteRegistry: remoteCompiled)
+        remoteRegistry: remoteCompiled
+      )
     {
       let targetKeys = evaluatedItemIndices(
         for: resolved.schema, data: data,
         instancePath: instancePath, schemaPath: schemaPath, ctx: ctx,
-        includeUnevaluatedItems: true)
+        includeUnevaluatedItems: true
+      )
       indices.formUnion(targetKeys)
     }
 
@@ -1298,12 +1466,13 @@ extension JSONSchema {
       if let resolved = compiled?.resolveDynamicRef(
         dynRefStr,
         dynamicScope: ctx.dynamicScope, currentResourceURI: ctx.currentResourceURI,
-        remoteRegistry: remoteCompiled)
-      {
+        remoteRegistry: remoteCompiled
+      ) {
         let targetKeys = evaluatedItemIndices(
           for: resolved.schema, data: data,
           instancePath: instancePath, schemaPath: schemaPath, ctx: ctx,
-          includeUnevaluatedItems: true)
+          includeUnevaluatedItems: true
+        )
         indices.formUnion(targetKeys)
       }
     }
@@ -1339,7 +1508,8 @@ extension JSONSchema {
         validateValue(
           data[i], against: containsSchema,
           instancePath: instancePath.isEmpty ? String(i) : instancePath + "/" + String(i),
-          schemaPath: schemaPath + "/contains", errors: &itemErrors, ctx: ctx)
+          schemaPath: schemaPath + "/contains", errors: &itemErrors, ctx: ctx
+        )
         if itemErrors.isEmpty {
           indices.insert(i)
         }
@@ -1354,7 +1524,8 @@ extension JSONSchema {
         if let innerRef = sub["$ref"]?.stringValue,
           let resolved = compiled?.resolveRef(
             innerRef, currentResourceURI: ctx.currentResourceURI,
-            remoteRegistry: remoteCompiled)
+            remoteRegistry: remoteCompiled
+          )
         {
           subSchema = resolved.schema
         } else {
@@ -1363,7 +1534,8 @@ extension JSONSchema {
         let subIndices = evaluatedItemIndices(
           for: subSchema, data: data,
           instancePath: instancePath, schemaPath: schemaPath, ctx: ctx,
-          includeUnevaluatedItems: true)
+          includeUnevaluatedItems: true
+        )
         indices.formUnion(subIndices)
       }
     }
@@ -1377,7 +1549,8 @@ extension JSONSchema {
         if let innerRef = sub["$ref"]?.stringValue,
           let resolved = compiled?.resolveRef(
             innerRef, currentResourceURI: ctx.currentResourceURI,
-            remoteRegistry: remoteCompiled)
+            remoteRegistry: remoteCompiled
+          )
         {
           subSchema = resolved.schema
         } else {
@@ -1386,12 +1559,14 @@ extension JSONSchema {
         var subErrors: [JSONSchemaError] = []
         validateValue(
           arrayValue, against: subSchema, instancePath: instancePath,
-          schemaPath: schemaPath + "/anyOf", errors: &subErrors, ctx: ctx)
+          schemaPath: schemaPath + "/anyOf", errors: &subErrors, ctx: ctx
+        )
         if subErrors.isEmpty {
           let subIndices = evaluatedItemIndices(
             for: subSchema, data: data,
             instancePath: instancePath, schemaPath: schemaPath, ctx: ctx,
-            includeUnevaluatedItems: true)
+            includeUnevaluatedItems: true
+          )
           indices.formUnion(subIndices)
         }
       }
@@ -1406,7 +1581,8 @@ extension JSONSchema {
         if let innerRef = sub["$ref"]?.stringValue,
           let resolved = compiled?.resolveRef(
             innerRef, currentResourceURI: ctx.currentResourceURI,
-            remoteRegistry: remoteCompiled)
+            remoteRegistry: remoteCompiled
+          )
         {
           subSchema = resolved.schema
         } else {
@@ -1415,12 +1591,14 @@ extension JSONSchema {
         var subErrors: [JSONSchemaError] = []
         validateValue(
           arrayValue, against: subSchema, instancePath: instancePath,
-          schemaPath: schemaPath + "/oneOf", errors: &subErrors, ctx: ctx)
+          schemaPath: schemaPath + "/oneOf", errors: &subErrors, ctx: ctx
+        )
         if subErrors.isEmpty {
           let subIndices = evaluatedItemIndices(
             for: subSchema, data: data,
             instancePath: instancePath, schemaPath: schemaPath, ctx: ctx,
-            includeUnevaluatedItems: true)
+            includeUnevaluatedItems: true
+          )
           indices.formUnion(subIndices)
         }
       }
@@ -1433,7 +1611,8 @@ extension JSONSchema {
       if let innerRef = ifSchema["$ref"]?.stringValue,
         let resolved = compiled?.resolveRef(
           innerRef, currentResourceURI: ctx.currentResourceURI,
-          remoteRegistry: remoteCompiled)
+          remoteRegistry: remoteCompiled
+        )
       {
         ifSchemaResolved = resolved.schema
       } else {
@@ -1443,20 +1622,23 @@ extension JSONSchema {
       let arrayValue = JSON(data)
       validateValue(
         arrayValue, against: ifSchemaResolved, instancePath: instancePath,
-        schemaPath: schemaPath + "/if", errors: &ifErrors, ctx: ctx)
+        schemaPath: schemaPath + "/if", errors: &ifErrors, ctx: ctx
+      )
       if ifErrors.isEmpty {
         // if matches — take if's indices plus then's indices
         let ifIndices = evaluatedItemIndices(
           for: ifSchemaResolved, data: data,
           instancePath: instancePath, schemaPath: schemaPath, ctx: ctx,
-          includeUnevaluatedItems: true)
+          includeUnevaluatedItems: true
+        )
         indices.formUnion(ifIndices)
         if let thenSchema = subschema["then"] {
           let thenSchemaResolved: JSON
           if let innerRef = thenSchema["$ref"]?.stringValue,
             let resolved = compiled?.resolveRef(
               innerRef, currentResourceURI: ctx.currentResourceURI,
-              remoteRegistry: remoteCompiled)
+              remoteRegistry: remoteCompiled
+            )
           {
             thenSchemaResolved = resolved.schema
           } else {
@@ -1465,7 +1647,8 @@ extension JSONSchema {
           let thenIndices = evaluatedItemIndices(
             for: thenSchemaResolved, data: data,
             instancePath: instancePath, schemaPath: schemaPath, ctx: ctx,
-            includeUnevaluatedItems: true)
+            includeUnevaluatedItems: true
+          )
           indices.formUnion(thenIndices)
         }
       } else {
@@ -1475,7 +1658,8 @@ extension JSONSchema {
           if let innerRef = elseSchema["$ref"]?.stringValue,
             let resolved = compiled?.resolveRef(
               innerRef, currentResourceURI: ctx.currentResourceURI,
-              remoteRegistry: remoteCompiled)
+              remoteRegistry: remoteCompiled
+            )
           {
             elseSchemaResolved = resolved.schema
           } else {
@@ -1484,7 +1668,8 @@ extension JSONSchema {
           let elseIndices = evaluatedItemIndices(
             for: elseSchemaResolved, data: data,
             instancePath: instancePath, schemaPath: schemaPath, ctx: ctx,
-            includeUnevaluatedItems: true)
+            includeUnevaluatedItems: true
+          )
           indices.formUnion(elseIndices)
         }
         // No indices from if itself when if fails
@@ -1509,7 +1694,7 @@ extension JSONSchema {
   /// Validates `unevaluatedItems` (Draft 2020-12) — schema for items not
   /// evaluated by `prefixItems`, `items`, `contains`, or in-place
   /// applicators (`allOf`, `anyOf`, `oneOf`, `if`/`then`/`else`).
-  internal func validateUnevaluatedItems(
+  func validateUnevaluatedItems(
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
     errors: inout [JSONSchemaError], ctx: EvaluationContext
   ) {
@@ -1523,13 +1708,15 @@ extension JSONSchema {
     // composition keywords).
     let evaluated = evaluatedItemIndices(
       for: subschema, data: arr,
-      instancePath: instancePath, schemaPath: schemaPath, ctx: ctx)
+      instancePath: instancePath, schemaPath: schemaPath, ctx: ctx
+    )
     for (index, item) in arr.enumerated() {
       if evaluated.contains(index) { continue }
       validateValue(
         item, against: unevaluated,
         instancePath: instancePath.isEmpty ? String(index) : instancePath + "/" + String(index),
-        schemaPath: schemaPath + "/unevaluatedItems", errors: &errors, ctx: ctx)
+        schemaPath: schemaPath + "/unevaluatedItems", errors: &errors, ctx: ctx
+      )
     }
   }
 
@@ -1541,7 +1728,7 @@ extension JSONSchema {
   ///
   /// - Todo: In-place applicators (`allOf`, `anyOf`, `oneOf`, `if`/`then`/`else`)
   ///   can also evaluate properties — their evaluated keys should be tracked.
-  internal func validateUnevaluatedProperties(
+  func validateUnevaluatedProperties(
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
     errors: inout [JSONSchemaError], ctx: EvaluationContext
   ) {
@@ -1549,13 +1736,15 @@ extension JSONSchema {
     guard case .object(let dict) = value.storage else { return }
     let evaluatedKeys = evaluatedPropertyKeysRecursive(
       for: subschema, dict: dict,
-      instancePath: instancePath, schemaPath: schemaPath, ctx: ctx)
+      instancePath: instancePath, schemaPath: schemaPath, ctx: ctx
+    )
     for (key, val) in dict {
       if !evaluatedKeys.contains(key) {
         validateValue(
           val, against: unevaluated,
           instancePath: instancePath.isEmpty ? key : instancePath + "/" + key,
-          schemaPath: schemaPath + "/unevaluatedProperties", errors: &errors, ctx: ctx)
+          schemaPath: schemaPath + "/unevaluatedProperties", errors: &errors, ctx: ctx
+        )
       }
     }
   }
@@ -1569,9 +1758,9 @@ extension JSONSchema {
   ///
   /// This validator is a no-op — it exists for schema completeness and future
   /// use if content-aware validation is added.
-  internal func validateContentMediaType(
-    _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
-    errors: inout [JSONSchemaError], ctx: EvaluationContext
+  func validateContentMediaType(
+    _: JSON, subschema _: JSON, instancePath _: String, schemaPath _: String,
+    errors _: inout [JSONSchemaError], ctx _: EvaluationContext
   ) {
     // contentMediaType is an annotation — no validation errors produced
   }
@@ -1585,9 +1774,9 @@ extension JSONSchema {
   ///
   /// This validator is a no-op — it exists for schema completeness and future
   /// use if content-aware validation is added.
-  internal func validateContentEncoding(
-    _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
-    errors: inout [JSONSchemaError], ctx: EvaluationContext
+  func validateContentEncoding(
+    _: JSON, subschema _: JSON, instancePath _: String, schemaPath _: String,
+    errors _: inout [JSONSchemaError], ctx _: EvaluationContext
   ) {
     // contentEncoding is an annotation — no validation errors produced
   }
@@ -1603,9 +1792,13 @@ extension JSONSchema {
   ///
   /// Non-string values are skipped. If the decoded content cannot be parsed
   /// as JSON, a validation error is produced.
-  internal func validateContentSchema(
-    _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
-    errors: inout [JSONSchemaError], ctx: EvaluationContext
+  ///
+  /// Per Draft 2020-12, `contentSchema` is an **annotation** keyword — it
+  /// should NOT produce validation errors.  This implementation is a no-op.
+  /// To enable content-aware validation, override this behavior.
+  func validateContentSchema(
+    _: JSON, subschema _: JSON, instancePath _: String, schemaPath _: String,
+    errors _: inout [JSONSchemaError], ctx _: EvaluationContext
   ) {
     // contentSchema is an annotation keyword per Draft 2020-12.
     // It does NOT produce validation errors.
@@ -1615,7 +1808,7 @@ extension JSONSchema {
 
   /// Validates `minContains` (Draft 2020-12) — the array must contain at
   /// least `minContains` items matching the `contains` subschema.
-  internal func validateMinContains(
+  func validateMinContains(
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
     errors: inout [JSONSchemaError], ctx: EvaluationContext
   ) {
@@ -1628,7 +1821,8 @@ extension JSONSchema {
       var itemErrors: [JSONSchemaError] = []
       validateValue(
         item, against: containsSchema, instancePath: instancePath,
-        schemaPath: schemaPath + "/contains", errors: &itemErrors, ctx: ctx)
+        schemaPath: schemaPath + "/contains", errors: &itemErrors, ctx: ctx
+      )
       if itemErrors.isEmpty { matchCount += 1 }
     }
     if matchCount < minContains {
@@ -1637,13 +1831,15 @@ extension JSONSchema {
           instancePath: instancePath, schemaPath: schemaPath + "/minContains",
           keyword: "minContains",
           message:
-            "array contains \(matchCount) items matching the subschema, minimum \(minContains)"))
+            "array contains \(matchCount) items matching the subschema, minimum \(minContains)"
+        )
+      )
     }
   }
 
   /// Validates `maxContains` (Draft 2020-12) — the array must contain at
   /// most `maxContains` items matching the `contains` subschema.
-  internal func validateMaxContains(
+  func validateMaxContains(
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
     errors: inout [JSONSchemaError], ctx: EvaluationContext
   ) {
@@ -1656,7 +1852,8 @@ extension JSONSchema {
       var itemErrors: [JSONSchemaError] = []
       validateValue(
         item, against: containsSchema, instancePath: instancePath,
-        schemaPath: schemaPath + "/contains", errors: &itemErrors, ctx: ctx)
+        schemaPath: schemaPath + "/contains", errors: &itemErrors, ctx: ctx
+      )
       if itemErrors.isEmpty { matchCount += 1 }
     }
     if matchCount > maxContains {
@@ -1665,7 +1862,9 @@ extension JSONSchema {
           instancePath: instancePath, schemaPath: schemaPath + "/maxContains",
           keyword: "maxContains",
           message:
-            "array contains \(matchCount) items matching the subschema, maximum \(maxContains)"))
+            "array contains \(matchCount) items matching the subschema, maximum \(maxContains)"
+        )
+      )
     }
   }
 }

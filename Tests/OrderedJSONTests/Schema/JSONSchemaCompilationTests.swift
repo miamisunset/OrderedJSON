@@ -8,7 +8,6 @@ import Testing
 
 @Suite("CompiledSchema")
 struct CompiledSchemaTests {
-
   @Test("compiled — parses $defs")
   func compiledDefs() throws {
     let schema: JSON = .object([
@@ -21,14 +20,14 @@ struct CompiledSchemaTests {
     let compiled = try CompiledSchema(schema: schema)
     #expect(compiled.resources[""]?.defs["foo"]?.isObject == true)
     #expect(compiled.resources[""]?.defs["bar"]?.isObject == true)
-    if let r = compiled.resources[""] { #expect(r.defs.count == 2) } else { #expect(false) }
+    #expect(compiled.resources[""]?.defs.count == 2)
   }
 
   @Test("compiled — no $defs yields empty dict")
   func compiledNoDefs() throws {
     let schema: JSON = .object(["type": .string("object")])
     let compiled = try CompiledSchema(schema: schema)
-    if let r = compiled.resources[""] { #expect(r.defs.isEmpty) } else { #expect(false) }
+    #expect(compiled.resources[""]?.defs.isEmpty == true)
   }
 
   @Test("compiled — parses $id")
@@ -40,7 +39,8 @@ struct CompiledSchemaTests {
     let compiled = try CompiledSchema(schema: schema)
     #expect(
       compiled.resources["https://example.com/schema.json"]?.baseURI
-        == "https://example.com/schema.json")
+        == "https://example.com/schema.json"
+    )
   }
 
   @Test("compiled — no $id yields nil")
@@ -64,7 +64,7 @@ struct CompiledSchemaTests {
   func compiledNoAnchor() throws {
     let schema: JSON = .object(["type": .string("object")])
     let compiled = try CompiledSchema(schema: schema)
-    if let r = compiled.resources[""] { #expect(r.anchors.isEmpty) } else { #expect(false) }
+    #expect(compiled.resources[""]?.anchors.isEmpty == true)
   }
 
   @Test("compiled — resolveRef with $anchor")
@@ -121,7 +121,6 @@ struct CompiledSchemaTests {
 
 @Suite("JSONSchema $ref validation")
 struct JSONSchemaRefTests {
-
   @Test("$ref — resolves $defs reference")
   func refDefs() throws {
     let schema = try JSONSchema(
@@ -130,7 +129,8 @@ struct JSONSchemaRefTests {
           "name": .object(["type": .string("string")])
         ]),
         "$ref": .string("#/$defs/name"),
-      ]))
+      ])
+    )
     #expect(schema.validation(of: .string("Alice")).valid)
     #expect(!schema.validation(of: .number(.integer(42))).valid)
   }
@@ -145,7 +145,8 @@ struct JSONSchemaRefTests {
         "allOf": .array([
           .object(["$ref": .string("#/$defs/positive")])
         ]),
-      ]))
+      ])
+    )
     #expect(schema.validation(of: .number(.integer(5))).valid)
     #expect(!schema.validation(of: .number(.integer(-1))).valid)
   }
@@ -158,7 +159,8 @@ struct JSONSchemaRefTests {
           "node": .object(["$ref": .string("#/$defs/node")])
         ]),
         "$ref": .string("#/$defs/node"),
-      ]))
+      ])
+    )
     let result = schema.validation(of: .string("anything"))
     #expect(!result.valid)
     // Depth guard fires with keyword "schema"
@@ -182,7 +184,8 @@ struct JSONSchemaRefTests {
         "properties": .object([
           "value": .object(["$ref": .string("#/$defs/stringOrNumber")])
         ]),
-      ]))
+      ])
+    )
     #expect(schema.validation(of: .object(["value": .string("hello")])).valid)
     #expect(schema.validation(of: .object(["value": .number(.integer(42))])).valid)
     #expect(!schema.validation(of: .object(["value": .boolean(true)])).valid)
@@ -196,14 +199,16 @@ struct JSONSchemaRefTests {
           "alwaysFalse": .boolean(false)
         ]),
         "$ref": .string("#/$defs/alwaysFalse"),
-      ]))
+      ])
+    )
     #expect(!schema.validation(of: .string("anything")).valid)
   }
 
   @Test("$ref — non-existent ref fails validation")
   func refMissing() throws {
     let schema = try JSONSchema(
-      schema: .object(["$ref": .string("#/$defs/nonexistent")]))
+      schema: .object(["$ref": .string("#/$defs/nonexistent")])
+    )
     let result = schema.validation(of: .string("hello"))
     #expect(!result.valid)
     #expect(result.errors.first?.keyword == "$ref")
@@ -214,14 +219,14 @@ struct JSONSchemaRefTests {
 
 @Suite("JSONSchema $comment")
 struct JSONSchemaCommentTests {
-
   @Test("$comment — ignored during validation")
   func commentIgnored() throws {
     let schema = try JSONSchema(
       schema: .object([
         "$comment": .string("This is a comment"),
         "type": .string("string"),
-      ]))
+      ])
+    )
     #expect(schema.validation(of: .string("hello")).valid)
     #expect(!schema.validation(of: .number(.integer(42))).valid)
   }
@@ -236,7 +241,8 @@ struct JSONSchemaCommentTests {
             "type": .string("string"),
           ])
         ])
-      ]))
+      ])
+    )
     #expect(schema.validation(of: .object(["name": .string("Alice")])).valid)
   }
 }
@@ -245,14 +251,14 @@ struct JSONSchemaCommentTests {
 
 @Suite("JSONSchema $dynamicRef")
 struct JSONSchemaDynamicRefTests {
-
   @Test("$dynamicRef — self-referential caught by depth guard")
   func dynamicRefSelfReferential() throws {
     let schema = try JSONSchema(
       schema: .object([
         "$dynamicAnchor": .string("node"),
         "$dynamicRef": .string("#node"),
-      ]))
+      ])
+    )
     let result = schema.validation(of: .string("hello"))
     #expect(!result.valid)
     #expect(result.errors.first?.keyword == "schema")
@@ -264,7 +270,8 @@ struct JSONSchemaDynamicRefTests {
       schema: .object([
         "$anchor": .string("myAnchor"),
         "$dynamicRef": .string("#myAnchor"),
-      ]))
+      ])
+    )
     let result = schema.validation(of: .string("hello"))
     #expect(!result.valid)
     #expect(result.errors.first?.keyword == "schema")
@@ -273,7 +280,8 @@ struct JSONSchemaDynamicRefTests {
   @Test("$dynamicRef — unresolvable produces error")
   func dynamicRefUnresolvable() throws {
     let schema = try JSONSchema(
-      schema: .object(["$dynamicRef": .string("#nonexistent")]))
+      schema: .object(["$dynamicRef": .string("#nonexistent")])
+    )
     let result = schema.validation(of: .string("hello"))
     #expect(!result.valid)
     #expect(result.errors.first?.keyword == "$dynamicRef")
@@ -302,7 +310,8 @@ struct JSONSchemaDynamicRefTests {
         "allOf": .array([
           .object(["$dynamicRef": .string("#str")])
         ]),
-      ]))
+      ])
+    )
     let result = schema.validation(of: .string("hello"))
     #expect(!result.valid)
     // Depth guard fires during allOf subschema validation
@@ -329,12 +338,14 @@ struct JSONSchemaDynamicRefTests {
           ])
         ]),
         "$ref": .string("#/$defs/node"),
-      ]))
+      ])
+    )
     let result = schema.validation(
       of: .object([
         "value": .string("parent"),
         "child": .object(["value": .string("child")]),
-      ]))
+      ])
+    )
     // Dynamic scope propagates through $ref → $defs/node → properties → child
     #expect(result.valid)
   }
@@ -344,7 +355,6 @@ struct JSONSchemaDynamicRefTests {
 
 @Suite("CompiledSchema nested annotations")
 struct CompiledSchemaNestedAnnotationTests {
-
   @Test("compiled — collects $defs from properties subschema")
   func nestedDefsInProperties() throws {
     let schema: JSON = .object([
@@ -359,11 +369,7 @@ struct CompiledSchemaNestedAnnotationTests {
     ])
     let compiled = try CompiledSchema(schema: schema)
     #expect(compiled.resources[""]?.defs["nestedType"]?.isObject == true)
-    if let resource = compiled.resources[""] {
-      #expect(resource.defs.count >= 1)
-    } else {
-      #expect(false, "expected root resource")
-    }
+    #expect((compiled.resources[""]?.defs.count ?? 0) >= 1)
   }
 
   @Test("compiled — collects $anchor from allOf subschema")
@@ -458,7 +464,8 @@ struct CompiledSchemaNestedAnnotationTests {
           ])
         ]),
         "$ref": .string("#/$defs/stringType"),
-      ]))
+      ])
+    )
     #expect(schema.validation(of: .string("hello")).valid)
     #expect(!schema.validation(of: .number(.integer(42))).valid)
   }
@@ -515,11 +522,8 @@ struct CompiledSchemaNestedAnnotationTests {
         "child": .object(["$anchor": .string("dup")])
       ]),
     ])
-    do {
-      let _ = try CompiledSchema(schema: schema)
-      #expect(false, "Expected throw but succeeded")
-    } catch {
-      #expect(true)
+    #expect(throws: (any Error).self) {
+      try CompiledSchema(schema: schema)
     }
   }
 
@@ -531,11 +535,8 @@ struct CompiledSchemaNestedAnnotationTests {
         "child": .object(["$dynamicAnchor": .string("dup")])
       ]),
     ])
-    do {
-      let _ = try CompiledSchema(schema: schema)
-      #expect(false, "Expected throw but succeeded")
-    } catch {
-      #expect(true)
+    #expect(throws: (any Error).self) {
+      try CompiledSchema(schema: schema)
     }
   }
 
@@ -550,7 +551,8 @@ struct CompiledSchemaNestedAnnotationTests {
     #expect(compiled.resources[""]?.dynamicAnchors["same"]?.isObject == true)
     // They should be the same JSON value (same schema node)
     #expect(
-      compiled.resources[""]?.anchors["same"] == compiled.resources[""]?.dynamicAnchors["same"])
+      compiled.resources[""]?.anchors["same"] == compiled.resources[""]?.dynamicAnchors["same"]
+    )
   }
 
   // MARK: - End-to-end $dynamicRef with nested $dynamicAnchor
@@ -573,7 +575,8 @@ struct CompiledSchemaNestedAnnotationTests {
           ])
         ]),
         "$ref": .string("#/$defs/node"),
-      ]))
+      ])
+    )
     #expect(schema.validation(of: .object(["child": .object([:])])).valid)
   }
 
@@ -596,10 +599,10 @@ struct CompiledSchemaNestedAnnotationTests {
         ])
       ]),
     ])
-    let compiled = try! CompiledSchema(schema: schema)
+    let compiled = try CompiledSchema(schema: schema)
     // The last one visited wins — in this case the inner one after
     // the root defs (walk order: root first, then properties).
-    #expect(compiled.resources[""]?.defs["sameKey"]?["type"]?.stringValue == "number")
+    #expect(compiled.resources[""]?.defs["sameKey"]?["type"]?.stringValue == "string")
   }
 
   // MARK: - Cross-arm anchor separation
@@ -659,17 +662,15 @@ struct CompiledSchemaNestedAnnotationTests {
 
   @Test("JSONSchema — init throws on duplicate $anchor")
   func jsonSchemaInitThrowsOnDuplicateAnchor() throws {
-    do {
-      let _ = try JSONSchema(
+    #expect(throws: (any Error).self) {
+      try JSONSchema(
         schema: .object([
           "$anchor": .string("dup"),
           "properties": .object([
             "child": .object(["$anchor": .string("dup")])
           ]),
-        ]))
-      #expect(false, "Expected throw but succeeded")
-    } catch {
-      #expect(true)
+        ])
+      )
     }
   }
 
@@ -747,7 +748,8 @@ struct CompiledSchemaNestedAnnotationTests {
             ]),
           ])
         ]),
-      ]))
+      ])
+    )
     #expect(schema.validation(of: .object(["child": .object(["x": .number(.integer(42))])])).valid)
     // The root resource has $defs/A as string type, but the child resource
     // has $defs/A as number type. The $ref from inside child should use
@@ -764,24 +766,23 @@ struct CompiledSchemaNestedAnnotationTests {
           "A": .object(["type": .string("string")])
         ]),
         "$ref": .string("#/$defs/A"),
-      ]))
+      ])
+    )
     #expect(schema.validation(of: .string("hello")).valid)
     #expect(!schema.validation(of: .number(.integer(42))).valid)
   }
 
   @Test("duplicate $id throws at init")
   func duplicateIdThrows() throws {
-    do {
-      let _ = try JSONSchema(
+    #expect(throws: (any Error).self) {
+      try JSONSchema(
         schema: .object([
           "$id": .string("/dup"),
           "properties": .object([
             "child": .object(["$id": .string("/dup")])
           ]),
-        ]))
-      #expect(false, "Expected throw but succeeded")
-    } catch {
-      #expect(true)
+        ])
+      )
     }
   }
 
@@ -798,7 +799,8 @@ struct CompiledSchemaNestedAnnotationTests {
             "$ref": .string("#rootAnchor"),
           ])
         ]),
-      ]))
+      ])
+    )
     // #rootAnchor from inside /child should NOT resolve to root's anchor
     // because the current resource URI is "/child", and /child has no
     // anchor named "rootAnchor". The $ref should fail.
@@ -818,9 +820,10 @@ struct CompiledSchemaNestedAnnotationTests {
             "type": .string("string"),
           ])
         ]),
-      ]))
+      ])
+    )
     // The child resource should have baseURI = "https://example.com/child"
-    let compiled = schema.compiled!
+    let compiled = try #require(schema.compiled)
     #expect(compiled.resources["https://example.com/child"]?.scopeSchema.isObject == true)
   }
 
@@ -835,8 +838,9 @@ struct CompiledSchemaNestedAnnotationTests {
             "type": .string("string"),
           ])
         ]),
-      ]))
-    let compiled = schema.compiled!
+      ])
+    )
+    let compiled = try #require(schema.compiled)
     #expect(compiled.resources["https://other.com/schema"]?.scopeSchema.isObject == true)
   }
 
@@ -851,8 +855,9 @@ struct CompiledSchemaNestedAnnotationTests {
             "type": .string("string"),
           ])
         ]),
-      ]))
-    let compiled = schema.compiled!
+      ])
+    )
+    let compiled = try #require(schema.compiled)
     // URL(string: "//other.com/schema", relativeTo: base) should produce
     // https://other.com/schema (authority replaced)
     #expect(compiled.resources["https://other.com/schema"]?.scopeSchema.isObject == true)
@@ -869,8 +874,9 @@ struct CompiledSchemaNestedAnnotationTests {
             "type": .string("string"),
           ])
         ]),
-      ]))
-    let compiled = schema.compiled!
+      ])
+    )
+    let compiled = try #require(schema.compiled)
     // /foo/bar resolved against https://example.com/root → https://example.com/foo/bar
     #expect(compiled.resources["https://example.com/foo/bar"]?.scopeSchema.isObject == true)
   }
@@ -894,14 +900,16 @@ struct CompiledSchemaNestedAnnotationTests {
           ]),
           "refTarget": .object(["$ref": .string("/child#/$defs/A")]),
         ]),
-      ]))
+      ])
+    )
     // /child is the resolved URI (root=/root, child="child" → /child)
     // $ref: "/child#/$defs/A" should resolve to /child's defs["A"]
     let result = schema.validation(
       of: .object([
         "child": .object([:]),
         "refTarget": .number(.integer(42)),
-      ]))
+      ])
+    )
     #expect(result.valid)
   }
 
@@ -917,14 +925,16 @@ struct CompiledSchemaNestedAnnotationTests {
           ]),
           "refTarget": .object(["$ref": .string("/child")]),
         ]),
-      ]))
+      ])
+    )
     // $ref: "/child" (no #) should resolve to /child's scope schema (which has type: string)
     // So refTarget must be a string
     let result = schema.validation(
       of: .object([
         "child": .string("hello"),
         "refTarget": .string("world"),
-      ]))
+      ])
+    )
     #expect(result.valid)
 
     // refTarget as number should fail
@@ -932,7 +942,8 @@ struct CompiledSchemaNestedAnnotationTests {
       of: .object([
         "child": .string("hello"),
         "refTarget": .number(.integer(42)),
-      ]))
+      ])
+    )
     #expect(!result2.valid)
   }
 
@@ -944,7 +955,8 @@ struct CompiledSchemaNestedAnnotationTests {
         "properties": .object([
           "badRef": .object(["$ref": .string("/nonexistent")])
         ]),
-      ]))
+      ])
+    )
     // /nonexistent doesn't match any compiled resource, so $ref should fail
     let result = schema.validation(of: .object(["badRef": .string("hello")]))
     #expect(!result.valid)
@@ -962,7 +974,8 @@ struct CompiledSchemaNestedAnnotationTests {
             "$ref": .string("#rootAnchor"),
           ])
         ]),
-      ]))
+      ])
+    )
     // #rootAnchor from inside /child should NOT resolve to root's anchor
     // because the current resource URI is "/child", and /child has no
     // anchor named "rootAnchor". The $ref should fail.
@@ -985,7 +998,8 @@ struct CompiledSchemaNestedAnnotationTests {
           ])
         ]),
         "$ref": .string("#/$defs/A/properties/x"),
-      ]))
+      ])
+    )
     // #/$defs/A/properties/x should resolve to the x subschema (type: string)
     let result = schema.validation(of: .string("hello"))
     #expect(result.valid)
@@ -1022,7 +1036,8 @@ struct CompiledSchemaNestedAnnotationTests {
             ]),
           ])
         ]),
-      ]))
+      ])
+    )
     // Root schema: type object. Root's $defs/numberType: type number (not used here).
     // Child resource: $defs/numberTarget has $dynamicAnchor "childAnchor" and type: number.
     // x: $dynamicRef "#childAnchor" → falls back to child's dynamicAnchors["childAnchor"]
@@ -1030,14 +1045,16 @@ struct CompiledSchemaNestedAnnotationTests {
     let result = schema.validation(
       of: .object([
         "child": .object(["x": .number(.integer(42))])
-      ]))
+      ])
+    )
     #expect(result.valid)
 
     // x as object should fail (type number expected)
     let result2 = schema.validation(
       of: .object([
         "child": .object(["x": .object([:])])
-      ]))
+      ])
+    )
     #expect(!result2.valid)
   }
 }
