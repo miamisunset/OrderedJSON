@@ -16,15 +16,14 @@ extension JSON {
   /// ## Example
   ///
   /// ```swift
-  /// let decoded = try JSON.fromCBOR(data)
+  /// let decoded = try JSON(cbor: data)
   /// ```
-  public static func fromCBOR(_ data: Data) throws -> JSON {
+  public init(cbor data: Data) throws {
     var pos = 0
-    let value = try decodeCBOR(data, &pos)
+    self = try decodeCBOR(data, &pos)
     if pos < data.count {
       throw JSONError.invalidCBOR("Trailing bytes after CBOR value")
     }
-    return value
   }
 
   /// Encodes this JSON value into CBOR format.
@@ -34,9 +33,9 @@ extension JSON {
   ///
   /// ```swift
   /// let json = JSON.object(["key": .string("value")])
-  /// let cborData = json.toCBOR()
+  /// let cborData = json.cbor()
   /// ```
-  public func toCBOR() -> Data {
+  public func cbor() -> Data {
     var bytes: [UInt8] = []
     encodeCBOR(self, &bytes)
     return Data(bytes)

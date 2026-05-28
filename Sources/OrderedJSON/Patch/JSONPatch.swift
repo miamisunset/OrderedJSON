@@ -23,7 +23,7 @@ extension JSON {
   /// ```
   public func patch(_ patchValue: JSON) throws -> JSON {
     var copy = self
-    try copy.patchInPlace(patchValue)
+    try copy.patching(patchValue)
     return copy
   }
 
@@ -31,7 +31,7 @@ extension JSON {
   ///
   /// - Parameter patchValue: A JSON array of patch operations.
   /// - Throws: `JSONError.formatError` if the patch is malformed or an operation fails.
-  public mutating func patchInPlace(_ patchValue: JSON) throws {
+  public mutating func patching(_ patchValue: JSON) throws {
     guard case .array(let operations) = patchValue.storage else {
       throw JSONError.formatError("Patch must be an array of operations")
     }

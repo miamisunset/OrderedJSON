@@ -77,20 +77,21 @@ public struct JSONIterator: IteratorProtocol {
 extension JSON {
   /// Returns an array of key-value pairs for objects, or an empty array for non-objects.
   ///
-  /// Unlike `Sequence` iteration (which yields only values), `items()` yields
+  /// Unlike `Sequence` iteration (which yields only values), `keyValuePairs()` yields
   /// both keys and values. The order matches insertion order.
   ///
   /// ## Example
   ///
   /// ```swift
   /// let json = JSON.object(["name": .string("Alice"), "age": .number(.integer(30))])
-  /// for (key, value) in json.items() {
+  /// for (key, value) in json.keyValuePairs() {
   ///   print("\(key): \(value)")
   /// }
   /// ```
   ///
   /// - Returns: An array of `(key, value)` tuples.
-  public func items() -> [(key: String, value: JSON)] {
+  /// - Complexity: O(n) where n is the number of keys — builds a new tuple array.
+  public func keyValuePairs() -> [(key: String, value: JSON)] {
     guard case .object(let dict) = storage else { return [] }
     var result: [(key: String, value: JSON)] = []
     result.reserveCapacity(dict.count)

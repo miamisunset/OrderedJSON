@@ -10,13 +10,21 @@ extension JSON {
   /// For arrays, removes all elements (leaving an empty array).
   /// For primitives, this is a no-op.
   public mutating func clear() {
+    self = cleared()
+  }
+
+  /// Returns a copy with all elements removed from an object or array.
+  ///
+  /// For objects, returns an empty object. For arrays, returns an empty array.
+  /// For primitives, returns an identical copy (no-op).
+  public func cleared() -> JSON {
     switch storage {
     case .object:
-      storage = .object(OrderedDictionary<String, JSON>())
+      return JSON.object(OrderedDictionary<String, JSON>())
     case .array:
-      storage = .array([])
+      return JSON.array([])
     case .null, .boolean, .number, .string:
-      break  // no-op for primitives
+      return self
     }
   }
 
@@ -45,9 +53,9 @@ extension JSON {
     storage = .array(arr)
   }
 
-  // MARK: - append (push_back)
+  // MARK: - append
 
-  /// Appends a value to the end of a JSON array (equivalent to `push_back`).
+  /// Appends a value to the end of a JSON array.
   ///
   /// If the value is not an array, this is a no-op.
   /// - Parameter value: The value to append.
@@ -69,19 +77,6 @@ extension JSON {
     guard case .array(var arr) = storage else { return }
     guard index >= 0, index <= arr.count else { return }
     arr.insert(value, at: index)
-    storage = .array(arr)
-  }
-
-  // MARK: - emplace (array)
-
-  /// Appends a value to a JSON array (equivalent to `append`).
-  ///
-  /// Provided for compatibility with nlohmann/json's `emplace_back`.
-  /// If the value is not an array, this is a no-op.
-  /// - Parameter value: The value to append.
-  public mutating func emplace(_ value: JSON) {
-    guard case .array(var arr) = storage else { return }
-    arr.append(value)
     storage = .array(arr)
   }
 

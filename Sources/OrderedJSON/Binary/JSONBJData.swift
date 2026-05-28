@@ -18,15 +18,14 @@ extension JSON {
   /// ## Example
   ///
   /// ```swift
-  /// let decoded = try JSON.fromBJData(data)
+  /// let decoded = try JSON(bjdata: data)
   /// ```
-  public static func fromBJData(_ data: Data) throws -> JSON {
+  public init(bjdata data: Data) throws {
     var pos = 0
-    let value = try decodeBJData(data, &pos)
+    self = try decodeBJData(data, &pos)
     if pos < data.count {
       throw JSONError.invalidBJData("Trailing bytes after BJData value")
     }
-    return value
   }
 
   /// Encodes this JSON value into BJData format.
@@ -36,9 +35,9 @@ extension JSON {
   ///
   /// ```swift
   /// let json = JSON.object(["key": .string("value")])
-  /// let bjdataData = json.toBJData()
+  /// let bjdataData = json.bjdata()
   /// ```
-  public func toBJData() -> Data {
+  public func bjdata() -> Data {
     var bytes: [UInt8] = []
     encodeBJData(self, &bytes)
     return Data(bytes)

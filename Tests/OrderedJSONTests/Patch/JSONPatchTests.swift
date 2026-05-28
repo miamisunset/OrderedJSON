@@ -187,7 +187,7 @@ import Testing
       "value": JSON.string("qux"),
     ])
   ])
-  try json.patchInPlace(patch)
+  try json.patching(patch)
   let expected = JSON.object([
     "foo": JSON.string("bar"),
     "baz": JSON.string("qux"),

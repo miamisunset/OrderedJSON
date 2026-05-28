@@ -19,6 +19,36 @@ import Testing
   #expect(arr.isEmpty)
 }
 
+@Test func clearedObject() {
+  let obj = JSON.object(["a": JSON.string("x"), "b": JSON.number(.integer(1))])
+  let cleared = obj.cleared()
+  #expect(cleared.isObject)
+  #expect(cleared.isEmpty)
+  #expect(!obj.isEmpty)  // original unchanged
+}
+
+@Test func clearedArray() {
+  let arr = JSON.array([JSON.string("a"), JSON.number(.integer(1))])
+  let cleared = arr.cleared()
+  #expect(cleared.isArray)
+  #expect(cleared.isEmpty)
+  #expect(!arr.isEmpty)  // original unchanged
+}
+
+@Test func clearedScalarReturnsSelf() {
+  let str = JSON.string("hello")
+  #expect(str.cleared() == str)
+
+  let num = JSON.number(.integer(42))
+  #expect(num.cleared() == num)
+
+  let bool = JSON.boolean(true)
+  #expect(bool.cleared() == bool)
+
+  let nullVal = JSON.null
+  #expect(nullVal.cleared().isNull)
+}
+
 @Test func clearScalarNoop() {
   var str = JSON.string("hello")
   str.clear()
@@ -111,19 +141,6 @@ import Testing
   var obj = JSON.object(["a": JSON.string("x")])
   obj.insert(JSON.string("b"), at: 0)  // silently ignored
   #expect(obj.count == 1)
-}
-
-@Test func emplaceArray() {
-  var arr = JSON.array([JSON.string("a")])
-  arr.emplace(JSON.number(.integer(42)))
-  #expect(arr.count == 2)
-  #expect(arr[1] == JSON.number(.integer(42)))
-}
-
-@Test func emplaceArrayNonArray() {
-  var str = JSON.string("hello")
-  str.emplace(JSON.number(.integer(42)))  // silently ignored
-  #expect(str == JSON.string("hello"))
 }
 
 @Test func emplaceObjectNewKey() {
@@ -264,10 +281,4 @@ import Testing
   a.swap(with: &b)
   #expect(a == JSON.number(.integer(42)))
   #expect(b == JSON.string("hello"))
-}
-
-// MARK: - maxCount
-
-@Test func maxSize() {
-  #expect(JSON.null.maxCount == Int.max)
 }

@@ -52,7 +52,7 @@ extension JSONSchema {
     case .boolean: return "boolean"
     case .number(.integer): return "integer"
     case .number(.float):
-      guard let d = value.floatValue else { return "number" }
+      guard let d = value.doubleValue else { return "number" }
       if d == d.rounded(.towardZero) && d.isFinite { return "integer" }
       return "number"
     case .string: return "string"
@@ -136,7 +136,7 @@ extension JSONSchema {
       }
       return
     }
-    guard let v = value.floatValue, let m = minVal.floatValue, v < m else { return }
+    guard let v = value.doubleValue, let m = minVal.doubleValue, v < m else { return }
     errors.append(
       JSONSchemaError(
         instancePath: instancePath, schemaPath: schemaPath + "/minimum", keyword: "minimum",
@@ -166,7 +166,7 @@ extension JSONSchema {
       }
       return
     }
-    guard let v = value.floatValue, let m = maxVal.floatValue, v > m else { return }
+    guard let v = value.doubleValue, let m = maxVal.doubleValue, v > m else { return }
     errors.append(
       JSONSchemaError(
         instancePath: instancePath, schemaPath: schemaPath + "/maximum", keyword: "maximum",
@@ -184,7 +184,7 @@ extension JSONSchema {
     errors: inout [JSONSchemaError], ctx _: EvaluationContext
   ) {
     guard let exclMin = subschema["exclusiveMinimum"], exclMin.isNumber else { return }
-    guard let exclDouble = exclMin.floatValue, let valDouble = value.floatValue else { return }
+    guard let exclDouble = exclMin.doubleValue, let valDouble = value.doubleValue else { return }
     if let valInt = value.intValue, let exclInt = exclMin.intValue {
       if valInt <= exclInt {
         errors.append(
@@ -217,7 +217,7 @@ extension JSONSchema {
     errors: inout [JSONSchemaError], ctx _: EvaluationContext
   ) {
     guard let exclMax = subschema["exclusiveMaximum"], exclMax.isNumber else { return }
-    guard let exclDouble = exclMax.floatValue, let valDouble = value.floatValue else { return }
+    guard let exclDouble = exclMax.doubleValue, let valDouble = value.doubleValue else { return }
     if let valInt = value.intValue, let exclInt = exclMax.intValue {
       if valInt >= exclInt {
         errors.append(
@@ -265,7 +265,7 @@ extension JSONSchema {
         return
       }
     }
-    guard let mDouble = mVal.floatValue, let valDouble = value.floatValue else { return }
+    guard let mDouble = mVal.doubleValue, let valDouble = value.doubleValue else { return }
     if mDouble > 0 {
       let ratio = valDouble / mDouble
       if !ratio.isFinite {
@@ -1099,7 +1099,7 @@ extension JSONSchema {
   ) {
     guard let exclBool = subschema["exclusiveMinimum"]?.boolValue,
       let minVal = subschema["minimum"],
-      let valDouble = value.floatValue, let minDouble = minVal.floatValue
+      let valDouble = value.doubleValue, let minDouble = minVal.doubleValue
     else { return }
     if exclBool {
       if let valInt = value.intValue, let minInt = minVal.intValue {
@@ -1136,7 +1136,7 @@ extension JSONSchema {
   ) {
     guard let exclBool = subschema["exclusiveMaximum"]?.boolValue,
       let maxVal = subschema["maximum"],
-      let valDouble = value.floatValue, let maxDouble = maxVal.floatValue
+      let valDouble = value.doubleValue, let maxDouble = maxVal.doubleValue
     else { return }
     if exclBool {
       if let valInt = value.intValue, let maxInt = maxVal.intValue {

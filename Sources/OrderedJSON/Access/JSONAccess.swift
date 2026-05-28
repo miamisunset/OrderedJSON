@@ -30,12 +30,6 @@ extension JSON {
     }
   }
 
-  /// The maximum number of elements a JSON value can contain.
-  /// Always returns `Int.max`.
-  public var maxCount: Int {
-    Int.max
-  }
-
   // MARK: - First / Last
 
   /// Returns the first element of an array or the first value of an object,
@@ -76,6 +70,7 @@ extension JSON {
   ///
   /// For objects, returns the ordered key array.
   /// For arrays and primitives, returns `nil`.
+  /// - Complexity: O(n) where n is the number of keys — allocates a new array.
   public var objectKeys: [String]? {
     guard case .object(let dict) = storage else { return nil }
     return Array(dict.keys)
@@ -87,6 +82,7 @@ extension JSON {
   ///
   /// For arrays, returns the ordered array of JSON elements.
   /// For objects and primitives, returns `nil`.
+  /// - Complexity: O(n) — copies all elements into a new array.
   public var arrayValue: [JSON]? {
     guard case .array(let arr) = storage else { return nil }
     return arr
@@ -98,6 +94,7 @@ extension JSON {
   ///
   /// For objects, returns the ordered dictionary preserving insertion order.
   /// For arrays and primitives, returns `nil`.
+  /// - Complexity: O(n) — copies all key-value pairs into a new dictionary.
   public var objectValue: OrderedDictionary<String, JSON>? {
     guard case .object(let dict) = storage else { return nil }
     return dict

@@ -503,7 +503,7 @@ let json = JSON.parse("""
 
 json.count     // 3  — number of keys in object, elements in array
 json.isEmpty   // false
-json.maxCount  // Int.max (unbounded)
+
 json.first     // Optional(JSON.number(.integer(1)))  — first value
 json.last      // Optional(JSON.number(.integer(3)))  — last value
 
@@ -785,7 +785,7 @@ for value in obj {
 }
 
 // Key-value pairs
-for (key, value) in obj.items() {
+for (key, value) in obj.keyValuePairs() {
   print("\(key): \(value)")  // x: 10, y: 20
 }
 ```
@@ -1335,7 +1335,7 @@ let json = JSON.parse(#"{"name": "Alice", "count": 42, "pi": 3.14, "ok": true}"#
 
 json["name"]?.stringValue   // "Alice" — String?
 json["count"]?.intValue     // 42 — Int64?
-json["pi"]?.floatValue      // 3.14 — Double?
+json["pi"]?.doubleValue      // 3.14 — Double?
 json["ok"]?.boolValue       // true — Bool?
 json["count"]?.numberValue  // .integer(42) — JSONNumber?
 
@@ -1343,14 +1343,14 @@ json["count"]?.numberValue  // .integer(42) — JSONNumber?
 json["count"]?.intValue     // 42 (Int64)
 
 // For integers widened to Double:
-json["count"]?.floatValue   // 42.0 (Double)
+json["count"]?.doubleValue   // 42.0 (Double)
 ```
 
 | Property | Accepts | Returns | Returns nil if |
 |----------|---------|---------|----------------|
 | `stringValue` | `.string` | `String?` | Not a string |
 | `intValue` | `.integer` or `.float` (clean integer) | `Int64?` | Not a number, or fractional float |
-| `floatValue` | `.float` or `.integer` (widening) | `Double?` | Not a number |
+| `doubleValue` | `.float` or `.integer` (widening) | `Double?` | Not a number |
 | `boolValue` | `.boolean` | `Bool?` | Not a boolean |
 | `numberValue` | `.integer` or `.float` | `JSONNumber?` | Not a number |
 

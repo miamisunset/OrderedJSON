@@ -73,12 +73,12 @@ import Testing
   #expect(collected.isEmpty)
 }
 
-@Test func itemsObject() {
+@Test func keyValuePairsObject() {
   let obj = JSON.object([
     "a": JSON.string("x"),
     "b": JSON.number(.integer(1)),
   ])
-  let items = obj.items()
+  let items = obj.keyValuePairs()
   #expect(items.count == 2)
   #expect(items[0].key == "a")
   #expect(items[0].value == JSON.string("x"))
@@ -86,14 +86,14 @@ import Testing
   #expect(items[1].value == JSON.number(.integer(1)))
 }
 
-@Test func itemsNonObject() {
-  #expect(JSON.string("hello").items().isEmpty)
-  #expect(JSON.array([]).items().isEmpty)
-  #expect(JSON.null.items().isEmpty)
+@Test func keyValuePairsNonObject() {
+  #expect(JSON.string("hello").keyValuePairs().isEmpty)
+  #expect(JSON.array([]).keyValuePairs().isEmpty)
+  #expect(JSON.null.keyValuePairs().isEmpty)
 }
 
-@Test func itemsEmptyObject() {
-  let items = JSON.object([:]).items()
+@Test func keyValuePairsEmptyObject() {
+  let items = JSON.object([:]).keyValuePairs()
   #expect(items.isEmpty)
 }
 
