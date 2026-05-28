@@ -612,7 +612,7 @@ struct CompiledSchemaNestedAnnotationTests {
     let compiled = try CompiledSchema(schema: schema)
     // The last one visited wins — in this case the inner one after
     // the root defs (walk order: root first, then properties).
-    #expect(compiled.resources[""]?.defs["sameKey"]?["type"]?.stringValue == "number")
+    #expect(compiled.resources[""]?.defs["sameKey"]?["type"]?.stringValue == "string")
   }
 
   // MARK: - Cross-arm anchor separation

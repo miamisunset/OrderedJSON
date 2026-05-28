@@ -718,7 +718,7 @@ private func appendBE(_ value: UInt64, to bytes: inout [UInt8]) {
 @Test func cborHalfFloat() throws {
   // CBOR half-precision float (additional info 25)
   // 1.5 encoded as half-float: 0x3E, 0x80 = 0b0 01111 1000000000 = 1.5
-  let bytes: [UInt8] = [0xFA, 0x3E, 0x80]  // major 7, info 25, value=0x3E80
+  let bytes: [UInt8] = [0xF9, 0x3E, 0x80]  // major 7, info 25, value=0x3E80
   let data = Data(bytes)
   let decoded = try JSON.fromCBOR(data)
   #expect(decoded.isNumber)
@@ -751,7 +751,7 @@ private func appendBE(_ value: UInt64, to bytes: inout [UInt8]) {
 
 @Test func cborHalfFloatDenormalized() throws {
   // Half-float denormalized value (exp=0)
-  let bytes: [UInt8] = [0xFA, 0x00, 0x01]  // major 7, info 25, value=0x0001 (min denormalized)
+  let bytes: [UInt8] = [0xF9, 0x00, 0x01]  // major 7, info 25, value=0x0001 (min denormalized)
   let data = Data(bytes)
   let decoded = try JSON.fromCBOR(data)
   #expect(decoded.isNumber)
@@ -759,7 +759,7 @@ private func appendBE(_ value: UInt64, to bytes: inout [UInt8]) {
 
 @Test func cborHalfFloatInf() throws {
   // Half-float infinity (exp=31, mant=0)
-  let bytes: [UInt8] = [0xFA, 0xFC, 0x00]  // major 7, info 25, value=0xFC00 (-inf)
+  let bytes: [UInt8] = [0xF9, 0xFC, 0x00]  // major 7, info 25, value=0xFC00 (-inf)
   let data = Data(bytes)
   let decoded = try JSON.fromCBOR(data)
   #expect(decoded.isNumber)
@@ -767,7 +767,7 @@ private func appendBE(_ value: UInt64, to bytes: inout [UInt8]) {
 
 @Test func cborHalfFloatNaN() throws {
   // Half-float NaN (exp=31, mant!=0)
-  let bytes: [UInt8] = [0xFA, 0xFE, 0x00]  // major 7, info 25, value=0xFE00 (NaN)
+  let bytes: [UInt8] = [0xF9, 0xFE, 0x00]  // major 7, info 25, value=0xFE00 (NaN)
   let data = Data(bytes)
   let decoded = try JSON.fromCBOR(data)
   #expect(decoded.isNumber)
@@ -776,7 +776,7 @@ private func appendBE(_ value: UInt64, to bytes: inout [UInt8]) {
 
 @Test func cborHalfFloatDenormalizedValue() throws {
   // Half-float denormalized: 0x0001 = 2^(-24) ≈ 5.96e-8
-  let bytes: [UInt8] = [0xFA, 0x00, 0x01]  // major 7, info 25, value=0x0001
+  let bytes: [UInt8] = [0xF9, 0x00, 0x01]  // major 7, info 25, value=0x0001
   let data = Data(bytes)
   let decoded = try JSON.fromCBOR(data)
   #expect(decoded.isNumber)
@@ -786,7 +786,7 @@ private func appendBE(_ value: UInt64, to bytes: inout [UInt8]) {
 
 @Test func cborHalfFloatDenormalizedMax() throws {
   // Half-float denormalized max: 0x03FF = 2^(-14) * (1023/1024) ≈ 6.1e-5
-  let bytes: [UInt8] = [0xFA, 0x03, 0xFF]  // major 7, info 25, value=0x03FF
+  let bytes: [UInt8] = [0xF9, 0x03, 0xFF]  // major 7, info 25, value=0x03FF
   let data = Data(bytes)
   let decoded = try JSON.fromCBOR(data)
   #expect(decoded.isNumber)
@@ -796,7 +796,7 @@ private func appendBE(_ value: UInt64, to bytes: inout [UInt8]) {
 
 @Test func cborHalfFloatNormalizedMin() throws {
   // Half-float normalized min: 0x0400 = 2^(-14) * (1024/1024) = 2^(-14) ≈ 6.1e-5
-  let bytes: [UInt8] = [0xFA, 0x04, 0x00]  // major 7, info 25, value=0x0400
+  let bytes: [UInt8] = [0xF9, 0x04, 0x00]  // major 7, info 25, value=0x0400
   let data = Data(bytes)
   let decoded = try JSON.fromCBOR(data)
   #expect(decoded.isNumber)
@@ -1230,11 +1230,12 @@ private func appendBE(_ value: UInt64, to bytes: inout [UInt8]) {
   // BSON string element (type 0x02) without null terminator should throw
   // Document: [length][type=0x02][key "a"][string length][string without null]
   let bytes: [UInt8] = [
-    0x10, 0x00, 0x00, 0x00,  // doc length = 16
+    0x13, 0x00, 0x00, 0x00,  // doc length = 19
     0x02,  // type = UTF-8 string
     0x61, 0x00,  // key "a" + null
     0x06, 0x00, 0x00, 0x00,  // string length = 6 (including null)
-    0x48, 0x65, 0x6C, 0x6C, 0x6F,  // "Hello" without null terminator
+    0x48, 0x65, 0x6C, 0x6C, 0x6F,  // "Hello" (5 bytes, missing null terminator)
+    0xFF,  // not a valid null terminator (should throw)
     0x00,  // doc null terminator
   ]
   let data = Data(bytes)

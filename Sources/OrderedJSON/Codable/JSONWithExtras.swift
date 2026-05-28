@@ -1,3 +1,4 @@
+import Foundation
 import OrderedCollections
 
 /// A wrapper that captures unknown JSON keys as extras during decoding.
@@ -326,6 +327,35 @@ private struct _TrackingKeyedDecodingContainer<Key: CodingKey>: KeyedDecodingCon
         )
       )
     }
+    // Foundation type special handling (mirrors OrderedJSONDecoder)
+    if T.self == Date.self {
+      return try decodeDate(
+        from: val, with: dateDecodingStrategy, codingPath: codingPath + [key],
+        dateDecodingStrategy: dateDecodingStrategy,
+        dataDecodingStrategy: dataDecodingStrategy,
+        decimalDecodingStrategy: decimalDecodingStrategy
+      ) as! T
+    }
+    if T.self == Data.self {
+      return try decodeData(
+        from: val, with: dataDecodingStrategy, codingPath: codingPath + [key],
+        dateDecodingStrategy: dateDecodingStrategy,
+        dataDecodingStrategy: dataDecodingStrategy,
+        decimalDecodingStrategy: decimalDecodingStrategy
+      ) as! T
+    }
+    if T.self == URL.self {
+      return try decodeURL(from: val, codingPath: codingPath + [key]) as! T
+    }
+    if T.self == UUID.self {
+      return try decodeUUID(from: val, codingPath: codingPath + [key]) as! T
+    }
+    if T.self == Decimal.self {
+      return try decodeDecimal(
+        from: val, with: decimalDecodingStrategy, codingPath: codingPath + [key]
+      ) as! T
+    }
+    // Default path
     let decoder = _JSONDecodeImpl(
       json: val, userInfo: [:], codingPath: codingPath + [key],
       dateDecodingStrategy: dateDecodingStrategy,

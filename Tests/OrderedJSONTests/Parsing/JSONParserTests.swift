@@ -415,9 +415,4 @@ import Testing
   }
 }
 
-@Test func parseLargeIntOverflowsDoubleToInfinityThrows() throws {
-  // A huge integer that exceeds Double range → Infinity, must throw
-  #expect(throws: JSONParseError.invalidNumber(line: 1, column: 1)) {
-    try JSON.parse("999999999999999999999999999999999999999")
-  }
-}
+

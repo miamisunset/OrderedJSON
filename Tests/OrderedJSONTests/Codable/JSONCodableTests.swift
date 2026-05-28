@@ -1310,7 +1310,7 @@ extension JSON {
     let amount: Decimal
   }
   // A Decimal with exponent that overflows Double to infinity
-  let huge = try #require(Decimal(string: "1e400"))
+  let huge = Decimal(sign: .plus, exponent: 400, significand: 1)
   var encoder = OrderedJSONEncoder()
   encoder.decimalEncodingStrategy = .asNumber
   // Should throw EncodingError, not crash

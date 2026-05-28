@@ -101,6 +101,9 @@ private func decodeBSONElement(_ data: Data, _ pos: inout Int) throws -> (String
     guard len > 0, pos + len <= data.count else {
       throw JSONError.invalidBSON("String length exceeds data")
     }
+    guard data[pos + len - 1] == 0 else {
+      throw JSONError.invalidBSON("String missing null terminator")
+    }
     let body = data[pos..<pos + len - 1]  // -1 for null terminator
     pos += len
     guard let str = String(data: body, encoding: .utf8) else {

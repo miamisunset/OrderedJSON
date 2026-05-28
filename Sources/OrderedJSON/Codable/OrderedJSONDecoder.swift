@@ -152,7 +152,7 @@ final class _JSONDecodeImpl: Decoder {
 
 // MARK: - Foundation type decoding helpers
 
-private func decodeDate(
+package func decodeDate(
   from json: JSON, with strategy: DateDecodingStrategy, codingPath: [CodingKey],
   dateDecodingStrategy: DateDecodingStrategy,
   dataDecodingStrategy: DataDecodingStrategy,
@@ -207,7 +207,7 @@ private func decodeDate(
   }
 }
 
-private func decodeData(
+package func decodeData(
   from json: JSON, with strategy: DataDecodingStrategy, codingPath: [CodingKey],
   dateDecodingStrategy: DateDecodingStrategy,
   dataDecodingStrategy: DataDecodingStrategy,
@@ -245,7 +245,7 @@ private func decodeData(
   }
 }
 
-private func decodeDecimal(
+package func decodeDecimal(
   from json: JSON, with strategy: DecimalDecodingStrategy, codingPath: [CodingKey]
 ) throws -> Decimal {
   switch strategy {
@@ -278,7 +278,7 @@ private func decodeDecimal(
   }
 }
 
-private func decodeURL(
+package func decodeURL(
   from json: JSON, codingPath: [CodingKey]
 ) throws -> URL {
   let string = try json.requireString()
@@ -293,7 +293,7 @@ private func decodeURL(
   return url
 }
 
-private func decodeUUID(
+package func decodeUUID(
   from json: JSON, codingPath: [CodingKey]
 ) throws -> UUID {
   let string = try json.requireString()
