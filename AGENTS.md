@@ -53,7 +53,7 @@ Swift library that preserves JSON key order with a rich method-based API mirrori
 
 - **Pre-push** — run `swift test --enable-code-coverage` (must pass) + `swift format lint --recursive --parallel -p .` (must be clean) + `swift format format --recursive --parallel --in-place -p .` (auto-format)
 - **Order**: lint → format → test (format first so lint sees formatted code)
-- Direct pushes to `main` are allowed.
+- Direct pushes to `main` are allowed only when explicitly instructed by the repository owner.
 
 ## Gotchas
 
