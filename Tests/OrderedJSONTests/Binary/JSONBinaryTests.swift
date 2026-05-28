@@ -1170,7 +1170,7 @@ private func appendBE(_ value: UInt64, to bytes: inout [UInt8]) {
 
 @Test func bsonStringLenExceedsDataThrows() throws {
   // BSON string with length > available data should throw
-  var bytes: [UInt8] = [0x02, 0x78, 0x00, 0x64, 0x00, 0x00, 0x00]
+  let bytes: [UInt8] = [0x02, 0x78, 0x00, 0x64, 0x00, 0x00, 0x00]
   let data = Data(bytes)
   #expect(throws: JSONError.self) { try JSON.fromBSON(data) }
 }
