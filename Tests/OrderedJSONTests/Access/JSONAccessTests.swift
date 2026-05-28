@@ -108,26 +108,26 @@ import Testing
 
 @Test func lookupCountKey() {
   let obj = JSON.object(["a": JSON.string("x"), "b": JSON.number(.integer(1))])
-  #expect(obj.count("a") == 1)
-  #expect(obj.count("missing") == 0)
+  #expect(obj.count(key: "a") == 1)
+  #expect(obj.count(key: "missing") == 0)
 }
 
 @Test func lookupCountKeyNonObject() {
-  #expect(JSON.string("hello").count("key") == 0)
-  #expect(JSON.array([]).count("key") == 0)
-  #expect(JSON.null.count("key") == 0)
+  #expect(JSON.string("hello").count(key: "key") == 0)
+  #expect(JSON.array([]).count(key: "key") == 0)
+  #expect(JSON.null.count(key: "key") == 0)
 }
 
 @Test func lookupFind() {
   let obj = JSON.object(["a": JSON.string("x")])
-  #expect(obj.find("a") == JSON.string("x"))
-  #expect(obj.find("missing") == nil)
+  #expect(obj.find(key: "a") == JSON.string("x"))
+  #expect(obj.find(key: "missing") == nil)
 }
 
 @Test func lookupFindNonObject() {
-  #expect(JSON.string("hello").find("key") == nil)
-  #expect(JSON.array([]).find("key") == nil)
-  #expect(JSON.null.find("key") == nil)
+  #expect(JSON.string("hello").find(key: "key") == nil)
+  #expect(JSON.array([]).find(key: "key") == nil)
+  #expect(JSON.null.find(key: "key") == nil)
 }
 
 // MARK: - JSONSubscript Tests

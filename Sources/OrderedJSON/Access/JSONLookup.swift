@@ -38,7 +38,7 @@ extension JSON {
   /// For non-object values, always returns 0.
   /// - Parameter key: The key to check.
   /// - Returns: 1 if the key exists, 0 otherwise.
-  public func count(_ key: String) -> Int {
+  public func count(key: String) -> Int {
     guard case .object(let dict) = storage else { return 0 }
     return dict.keys.contains(key) ? 1 : 0
   }
@@ -50,7 +50,7 @@ extension JSON {
   /// Returns `nil` if the key doesn't exist or if the value is not an object.
   /// - Parameter key: The key to look up.
   /// - Returns: The value for the key, or `nil`.
-  public func find(_ key: String) -> JSON? {
+  public func find(key: String) -> JSON? {
     guard case .object(let dict) = storage else { return nil }
     return dict[key]
   }
