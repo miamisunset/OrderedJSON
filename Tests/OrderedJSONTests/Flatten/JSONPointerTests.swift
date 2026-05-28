@@ -108,28 +108,28 @@ import Testing
 @Test func pointerSet() throws {
   var json = JSON.object(["a": JSON.string("old")])
   let ptr = try JSONPointer("/a")
-  ptr.set(into: &json, value: JSON.string("new"))
+  ptr.set(value: JSON.string("new"), into: &json)
   #expect(json["a"] == JSON.string("new"))
 }
 
 @Test func pointerSetRoot() throws {
   var json = JSON.string("old")
   let ptr = try JSONPointer("")
-  ptr.set(into: &json, value: JSON.string("new"))
+  ptr.set(value: JSON.string("new"), into: &json)
   #expect(json == JSON.string("new"))
 }
 
 @Test func pointerSetCreatesIntermediate() throws {
   var json = JSON.object([:])
   let ptr = try JSONPointer("/a/b/c")
-  ptr.set(into: &json, value: JSON.string("deep"))
+  ptr.set(value: JSON.string("deep"), into: &json)
   #expect(json["a"]?["b"]?["c"] == JSON.string("deep"))
 }
 
 @Test func pointerSetCreatesArray() throws {
   var json = JSON.object([:])
   let ptr = try JSONPointer("/0")
-  ptr.set(into: &json, value: JSON.string("first"))
+  ptr.set(value: JSON.string("first"), into: &json)
   #expect(json.isArray)
   #expect(json[0] == JSON.string("first"))
 }
@@ -175,7 +175,7 @@ import Testing
 @Test func pointerSetDashAppendsToArray() throws {
   var json = JSON.array([JSON.string("a")])
   let ptr = try JSONPointer("/-")
-  ptr.set(into: &json, value: JSON.string("b"))
+  ptr.set(value: JSON.string("b"), into: &json)
   #expect(json[0] == JSON.string("a"))
   #expect(json[1] == JSON.string("b"))
 }
@@ -183,7 +183,7 @@ import Testing
 @Test func pointerSetDashCreatesArray() throws {
   var json = JSON.object([:])  // start with object, "-" forces array
   let ptr = try JSONPointer("/-")
-  ptr.set(into: &json, value: JSON.string("first"))
+  ptr.set(value: JSON.string("first"), into: &json)
   #expect(json.isArray)
   #expect(json[0] == JSON.string("first"))
 }
@@ -191,7 +191,7 @@ import Testing
 @Test func pointerSetDashAppendsWithRest() throws {
   var json = JSON.array([JSON.object([:])])
   let ptr = try JSONPointer("/-/foo")
-  ptr.set(into: &json, value: JSON.string("bar"))
+  ptr.set(value: JSON.string("bar"), into: &json)
   #expect(json[0]?.isObject == true)
   #expect(json[1]?.isObject == true)
   #expect(json[1]?["foo"] == JSON.string("bar"))

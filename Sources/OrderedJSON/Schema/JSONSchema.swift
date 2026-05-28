@@ -26,7 +26,7 @@ import OrderedCollections
 /// let doc: JSON = .object(["name": .string("Alice"), "age": .number(.integer(30))])
 /// try schema.validate(doc)  // throws on first error
 ///
-/// let result = schema.validation(of: doc)  // collect all errors
+/// let result = schema.validating(doc)  // collect all errors
 /// print(result.valid)  // true
 /// ```
 ///
@@ -318,7 +318,7 @@ public struct JSONSchema: Hashable, Sendable {
   ///
   /// - Parameter document: The JSON document to validate.
   /// - Returns: A `VerboseResult` with all errors collected.
-  public func validation(of document: JSON) -> VerboseResult {
+  public func validating(_ document: JSON) -> VerboseResult {
     var errors: [JSONSchemaError] = []
     validateValue(
       document, against: schemaJSON, instancePath: "", schemaPath: "",

@@ -1004,25 +1004,25 @@ private func appendBE(_ value: UInt64, to bytes: inout [UInt8]) {
 
 @Test func nanFloatSerializesAsNull() {
   let json = JSON.number(.float(Double.nan))
-  let dumped = json.dump(indent: -1)
+  let dumped = json.dump(indent: nil)
   #expect(dumped == "null")
 }
 
 @Test func infinityFloatSerializesAsNull() {
   let json = JSON.number(.float(Double.infinity))
-  let dumped = json.dump(indent: -1)
+  let dumped = json.dump(indent: nil)
   #expect(dumped == "null")
 }
 
 @Test func negativeInfinityFloatSerializesAsNull() {
   let json = JSON.number(.float(-Double.infinity))
-  let dumped = json.dump(indent: -1)
+  let dumped = json.dump(indent: nil)
   #expect(dumped == "null")
 }
 
 @Test func nanInObjectSerializesCorrectly() {
   let json = JSON.object(["a": JSON.number(.float(Double.nan)), "b": JSON.number(.integer(1))])
-  let dumped = json.dump(indent: -1)
+  let dumped = json.dump(indent: nil)
   // NaN should serialize as null, not crash
   #expect(dumped == "{\"a\":null,\"b\":1}" || dumped == "{\"b\":1,\"a\":null}")
 }
@@ -1041,7 +1041,7 @@ private func appendBE(_ value: UInt64, to bytes: inout [UInt8]) {
     Issue.record("Expected float, got \(decoded.storage)")
   }
   // Serialize to JSON string — should produce null
-  let dumped = decoded.dump(indent: -1)
+  let dumped = decoded.dump(indent: nil)
   #expect(dumped == "null")
 }
 

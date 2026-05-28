@@ -13,7 +13,7 @@ import Testing
       "value": JSON.string("qux"),
     ])
   ])
-  let result = try json.patch(patch)
+  let result = try json.applying(patch)
   let expected = JSON.object([
     "foo": JSON.string("bar"),
     "baz": JSON.string("qux"),
@@ -30,7 +30,7 @@ import Testing
       "value": JSON.string("c"),
     ])
   ])
-  let result = try json.patch(patch)
+  let result = try json.applying(patch)
   let expected = JSON.array([JSON.string("a"), JSON.string("c"), JSON.string("b")])
   #expect(result == expected)
 }
@@ -44,7 +44,7 @@ import Testing
       "value": JSON.string("c"),
     ])
   ])
-  let result = try json.patch(patch)
+  let result = try json.applying(patch)
   let expected = JSON.array([JSON.string("a"), JSON.string("b"), JSON.string("c")])
   #expect(result == expected)
 }
@@ -60,7 +60,7 @@ import Testing
       "path": JSON.string("/baz"),
     ])
   ])
-  let result = try json.patch(patch)
+  let result = try json.applying(patch)
   let expected = JSON.object(["foo": JSON.string("bar")])
   #expect(result == expected)
 }
@@ -73,7 +73,7 @@ import Testing
       "path": JSON.string("/1"),
     ])
   ])
-  let result = try json.patch(patch)
+  let result = try json.applying(patch)
   let expected = JSON.array([JSON.string("a"), JSON.string("c")])
   #expect(result == expected)
 }
@@ -89,7 +89,7 @@ import Testing
       "value": JSON.number(.integer(42)),
     ])
   ])
-  let result = try json.patch(patch)
+  let result = try json.applying(patch)
   let expected = JSON.object(["foo": JSON.number(.integer(42))])
   #expect(result == expected)
 }
@@ -105,7 +105,7 @@ import Testing
       "path": JSON.string("/baz"),
     ])
   ])
-  let result = try json.patch(patch)
+  let result = try json.applying(patch)
   let expected = JSON.object([
     "foo": JSON.string("bar"),
     "baz": JSON.string("bar"),
@@ -125,7 +125,7 @@ import Testing
       "path": JSON.string("/foo"),
     ])
   ])
-  let result = try json.patch(patch)
+  let result = try json.applying(patch)
   let expected = JSON.object([
     "foo": JSON.string("qux")
   ])
@@ -143,7 +143,7 @@ import Testing
       "value": JSON.string("bar"),
     ])
   ])
-  let result = try json.patch(patch)
+  let result = try json.applying(patch)
   #expect(result == json)
 }
 
@@ -158,7 +158,7 @@ import Testing
       "value": JSON.string("wrong"),
     ])
   ])
-  #expect(throws: JSONError.self) { try json.patch(patch) }
+  #expect(throws: JSONError.self) { try json.applying(patch) }
 }
 
 @Test func patchInvalidOperation() throws {
@@ -169,13 +169,13 @@ import Testing
       "path": JSON.string("/foo"),
     ])
   ])
-  #expect(throws: JSONError.self) { try json.patch(patch) }
+  #expect(throws: JSONError.self) { try json.applying(patch) }
 }
 
 @Test func patchInvalidPatchFormat() throws {
   let json = JSON.object(["foo": JSON.string("bar")])
   let patch = JSON.string("not an array")
-  #expect(throws: JSONError.self) { try json.patch(patch) }
+  #expect(throws: JSONError.self) { try json.applying(patch) }
 }
 
 @Test func patchInPlaceMutates() throws {
@@ -187,7 +187,7 @@ import Testing
       "value": JSON.string("qux"),
     ])
   ])
-  try json.patching(patch)
+  try json.patch(patch)
   let expected = JSON.object([
     "foo": JSON.string("bar"),
     "baz": JSON.string("qux"),
@@ -200,7 +200,7 @@ import Testing
 @Test func patchOperationNotObject() throws {
   let json = JSON.object(["foo": JSON.string("bar")])
   let patch = JSON.array([JSON.string("not object")])
-  #expect(throws: JSONError.self) { try json.patch(patch) }
+  #expect(throws: JSONError.self) { try json.applying(patch) }
 }
 
 @Test func patchMissingOp() throws {
@@ -208,7 +208,7 @@ import Testing
   let patch = JSON.array([
     JSON.object(["path": JSON.string("/foo")])
   ])
-  #expect(throws: JSONError.self) { try json.patch(patch) }
+  #expect(throws: JSONError.self) { try json.applying(patch) }
 }
 
 @Test func patchMissingPath() throws {
@@ -216,7 +216,7 @@ import Testing
   let patch = JSON.array([
     JSON.object(["op": JSON.string("add"), "value": JSON.string("x")])
   ])
-  #expect(throws: JSONError.self) { try json.patch(patch) }
+  #expect(throws: JSONError.self) { try json.applying(patch) }
 }
 
 @Test func patchAddMissingValue() throws {
@@ -224,7 +224,7 @@ import Testing
   let patch = JSON.array([
     JSON.object(["op": JSON.string("add"), "path": JSON.string("/baz")])
   ])
-  #expect(throws: JSONError.self) { try json.patch(patch) }
+  #expect(throws: JSONError.self) { try json.applying(patch) }
 }
 
 @Test func patchReplaceMissingValue() throws {
@@ -232,7 +232,7 @@ import Testing
   let patch = JSON.array([
     JSON.object(["op": JSON.string("replace"), "path": JSON.string("/foo")])
   ])
-  #expect(throws: JSONError.self) { try json.patch(patch) }
+  #expect(throws: JSONError.self) { try json.applying(patch) }
 }
 
 @Test func patchCopyMissingFrom() throws {
@@ -240,7 +240,7 @@ import Testing
   let patch = JSON.array([
     JSON.object(["op": JSON.string("copy"), "path": JSON.string("/baz")])
   ])
-  #expect(throws: JSONError.self) { try json.patch(patch) }
+  #expect(throws: JSONError.self) { try json.applying(patch) }
 }
 
 @Test func patchMoveMissingFrom() throws {
@@ -248,7 +248,7 @@ import Testing
   let patch = JSON.array([
     JSON.object(["op": JSON.string("move"), "path": JSON.string("/foo")])
   ])
-  #expect(throws: JSONError.self) { try json.patch(patch) }
+  #expect(throws: JSONError.self) { try json.applying(patch) }
 }
 
 @Test func patchTestMissingValue() throws {
@@ -256,7 +256,7 @@ import Testing
   let patch = JSON.array([
     JSON.object(["op": JSON.string("test"), "path": JSON.string("/foo")])
   ])
-  #expect(throws: JSONError.self) { try json.patch(patch) }
+  #expect(throws: JSONError.self) { try json.applying(patch) }
 }
 
 @Test func patchCopyPathNotFound() throws {
@@ -268,7 +268,7 @@ import Testing
       "path": JSON.string("/baz"),
     ])
   ])
-  #expect(throws: JSONError.self) { try json.patch(patch) }
+  #expect(throws: JSONError.self) { try json.applying(patch) }
 }
 
 @Test func patchMovePathNotFound() throws {
@@ -280,7 +280,7 @@ import Testing
       "path": JSON.string("/baz"),
     ])
   ])
-  #expect(throws: JSONError.self) { try json.patch(patch) }
+  #expect(throws: JSONError.self) { try json.applying(patch) }
 }
 
 @Test func patchAppendToNonArray() throws {
@@ -292,7 +292,7 @@ import Testing
       "value": JSON.string("x"),
     ])
   ])
-  #expect(throws: JSONError.self) { try json.patch(patch) }
+  #expect(throws: JSONError.self) { try json.applying(patch) }
 }
 
 @Test func patchDashTokenInFromRejected() throws {
@@ -306,7 +306,7 @@ import Testing
     ])
   ])
   let json = JSON.object(["a": .string("x")])
-  #expect(throws: JSONError.self) { try json.patch(patch) }
+  #expect(throws: JSONError.self) { try json.applying(patch) }
 }
 
 @Test func patchTraverseBeyondAppend() throws {
@@ -318,7 +318,7 @@ import Testing
       "value": JSON.string("x"),
     ])
   ])
-  #expect(throws: JSONError.self) { try json.patch(patch) }
+  #expect(throws: JSONError.self) { try json.applying(patch) }
 }
 
 @Test func patchIndexIntoNonArray() throws {
@@ -330,7 +330,7 @@ import Testing
       "value": JSON.string("x"),
     ])
   ])
-  #expect(throws: JSONError.self) { try json.patch(patch) }
+  #expect(throws: JSONError.self) { try json.applying(patch) }
 }
 
 @Test func patchKeyIntoNonObject() throws {
@@ -342,7 +342,7 @@ import Testing
       "value": JSON.string("x"),
     ])
   ])
-  #expect(throws: JSONError.self) { try json.patch(patch) }
+  #expect(throws: JSONError.self) { try json.applying(patch) }
 }
 
 @Test func patchKeyNotFoundInSet() throws {
@@ -354,7 +354,7 @@ import Testing
       "value": JSON.string("z"),
     ])
   ])
-  #expect(throws: JSONError.self) { try json.patch(patch) }
+  #expect(throws: JSONError.self) { try json.applying(patch) }
 }
 
 @Test func patchKeyNotFoundInRemove() throws {
@@ -365,7 +365,7 @@ import Testing
       "path": JSON.string("/a/b"),
     ])
   ])
-  #expect(throws: JSONError.self) { try json.patch(patch) }
+  #expect(throws: JSONError.self) { try json.applying(patch) }
 }
 
 @Test func patchReplaceArrayOutOfBounds() throws {
@@ -377,7 +377,7 @@ import Testing
       "value": JSON.string("x"),
     ])
   ])
-  #expect(throws: JSONError.self) { try json.patch(patch) }
+  #expect(throws: JSONError.self) { try json.applying(patch) }
 }
 
 @Test func patchAddArrayAppendBeyond() throws {
@@ -390,7 +390,7 @@ import Testing
       "value": JSON.string("x"),
     ])
   ])
-  #expect(throws: JSONError.self) { try json.patch(patch) }
+  #expect(throws: JSONError.self) { try json.applying(patch) }
 }
 
 @Test func patchRemoveIndexIntoNonArray() throws {
@@ -401,7 +401,7 @@ import Testing
       "path": JSON.string("/0"),
     ])
   ])
-  #expect(throws: JSONError.self) { try json.patch(patch) }
+  #expect(throws: JSONError.self) { try json.applying(patch) }
 }
 
 @Test func patchRemoveArrayOutOfBounds() throws {
@@ -412,7 +412,7 @@ import Testing
       "path": JSON.string("/5"),
     ])
   ])
-  #expect(throws: JSONError.self) { try json.patch(patch) }
+  #expect(throws: JSONError.self) { try json.applying(patch) }
 }
 
 @Test func patchRemoveKeyIntoNonObject() throws {
@@ -423,7 +423,7 @@ import Testing
       "path": JSON.string("/foo"),
     ])
   ])
-  #expect(throws: JSONError.self) { try json.patch(patch) }
+  #expect(throws: JSONError.self) { try json.applying(patch) }
 }
 
 @Test func patchArrayIndexOutOfBoundsTraverse() throws {
@@ -435,7 +435,7 @@ import Testing
       "value": JSON.string("x"),
     ])
   ])
-  #expect(throws: JSONError.self) { try json.patch(patch) }
+  #expect(throws: JSONError.self) { try json.applying(patch) }
 }
 
 @Test func patchReplaceArrayIndexOutOfBounds() throws {
@@ -447,7 +447,7 @@ import Testing
       "value": JSON.string("x"),
     ])
   ])
-  let result = try json.patch(patch)
+  let result = try json.applying(patch)
   #expect(result[0] == JSON.string("x"))
 }
 
@@ -586,6 +586,6 @@ import Testing
     "qux": JSON.boolean(true),
   ])
   let patch = JSON.diff(source, target)
-  let result = try source.patch(patch)
+  let result = try source.applying(patch)
   #expect(result == target)
 }

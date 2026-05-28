@@ -11,7 +11,7 @@ import Testing
   func testNull() throws {
     let j: JSON = .null
     let schema = try j.schema()
-    let result = schema.validation(of: j)
+    let result = schema.validating(j)
     #expect(result.valid)
     // Verify the generated schema
     let schemaJSON = JSONSchemaGeneration.generate(from: j)
@@ -22,8 +22,8 @@ import Testing
   func testBoolean() throws {
     let j: JSON = .boolean(true)
     let schema = try j.schema()
-    #expect(schema.validation(of: j).valid)
-    #expect(schema.validation(of: .boolean(false)).valid)
+    #expect(schema.validating(j).valid)
+    #expect(schema.validating(.boolean(false)).valid)
 
     let schemaJSON = JSONSchemaGeneration.generate(from: j)
     #expect(schemaJSON == .object(["type": .string("boolean")]))
@@ -33,9 +33,9 @@ import Testing
   func testInteger() throws {
     let j: JSON = .number(.integer(42))
     let schema = try j.schema()
-    #expect(schema.validation(of: j).valid)
-    #expect(schema.validation(of: .number(.integer(0))).valid)
-    #expect(schema.validation(of: .number(.float(1.5))).valid == false)  // float not integer
+    #expect(schema.validating(j).valid)
+    #expect(schema.validating(.number(.integer(0))).valid)
+    #expect(schema.validating(.number(.float(1.5))).valid == false)  // float not integer
     // But integer schema accepts any integer
     let schemaJSON = JSONSchemaGeneration.generate(from: j)
     #expect(schemaJSON == .object(["type": .string("integer")]))
@@ -45,9 +45,9 @@ import Testing
   func testFloat() throws {
     let j: JSON = .number(.float(3.14))
     let schema = try j.schema()
-    #expect(schema.validation(of: j).valid)
-    #expect(schema.validation(of: .number(.float(0.0))).valid)
-    #expect(schema.validation(of: .number(.integer(10))).valid)  // integer is also number
+    #expect(schema.validating(j).valid)
+    #expect(schema.validating(.number(.float(0.0))).valid)
+    #expect(schema.validating(.number(.integer(10))).valid)  // integer is also number
     // But number schema accepts both float and integer
     let schemaJSON = JSONSchemaGeneration.generate(from: j)
     #expect(schemaJSON == .object(["type": .string("number")]))
@@ -57,8 +57,8 @@ import Testing
   func testString() throws {
     let j: JSON = .string("hello")
     let schema = try j.schema()
-    #expect(schema.validation(of: j).valid)
-    #expect(schema.validation(of: .string("world")).valid)
+    #expect(schema.validating(j).valid)
+    #expect(schema.validating(.string("world")).valid)
 
     let schemaJSON = JSONSchemaGeneration.generate(from: j)
     #expect(schemaJSON == .object(["type": .string("string")]))
@@ -70,10 +70,10 @@ import Testing
   func emptyArray() throws {
     let j: JSON = .array([])
     let schema = try j.schema()
-    #expect(schema.validation(of: j).valid)
+    #expect(schema.validating(j).valid)
     // Empty array should accept any array
-    #expect(schema.validation(of: .array([.string("a")])).valid)
-    #expect(schema.validation(of: .array([.number(.integer(1))])).valid)
+    #expect(schema.validating(.array([.string("a")])).valid)
+    #expect(schema.validating(.array([.number(.integer(1))])).valid)
 
     let schemaJSON = JSONSchemaGeneration.generate(from: j)
     #expect(schemaJSON["type"] == .string("array"))
@@ -84,9 +84,9 @@ import Testing
   func homogeneousArray() throws {
     let j: JSON = .array([.number(.integer(1)), .number(.integer(2)), .number(.integer(3))])
     let schema = try j.schema()
-    #expect(schema.validation(of: j).valid)
-    #expect(schema.validation(of: .array([.number(.integer(4))])).valid)
-    #expect(schema.validation(of: .array([.string("x")])).valid == false)  // wrong type
+    #expect(schema.validating(j).valid)
+    #expect(schema.validating(.array([.number(.integer(4))])).valid)
+    #expect(schema.validating(.array([.string("x")])).valid == false)  // wrong type
 
     let schemaJSON = JSONSchemaGeneration.generate(from: j)
     #expect(schemaJSON["type"] == .string("array"))
@@ -97,14 +97,14 @@ import Testing
   func heterogeneousArray() throws {
     let j: JSON = .array([.number(.integer(1)), .string("two"), .boolean(true)])
     let schema = try j.schema()
-    #expect(schema.validation(of: j).valid)
+    #expect(schema.validating(j).valid)
 
     // A shorter array that matches the first prefix items should be valid
-    #expect(schema.validation(of: .array([.number(.integer(1)), .string("two")])).valid)
+    #expect(schema.validating(.array([.number(.integer(1)), .string("two")])).valid)
     // An array with extra items beyond prefixItems should fail (items: false)
     #expect(
-      schema.validation(
-        of: .array([.number(.integer(1)), .string("two"), .boolean(true), .number(.integer(99))])
+      schema.validating(
+        .array([.number(.integer(1)), .string("two"), .boolean(true), .number(.integer(99))])
       ).valid == false
     )
 
@@ -124,11 +124,11 @@ import Testing
     ]
     let j: JSON = .object(dict)
     let schema = try j.schema()
-    #expect(schema.validation(of: j).valid)
+    #expect(schema.validating(j).valid)
 
     // Missing required key should fail
     let partial: JSON = .object(["name": .string("Bob")])
-    #expect(schema.validation(of: partial).valid == false)
+    #expect(schema.validating(partial).valid == false)
 
     // Extra key should fail (since additionalProperties not allowed)
     let extra: JSON = .object([
@@ -136,7 +136,7 @@ import Testing
       "age": .number(.integer(30)),
       "extra": .string("bad"),
     ])
-    #expect(schema.validation(of: extra).valid == false)
+    #expect(schema.validating(extra).valid == false)
 
     let schemaJSON = JSONSchemaGeneration.generate(from: j)
     #expect(schemaJSON["type"] == .string("object"))
@@ -152,7 +152,7 @@ import Testing
     ]
     let j: JSON = .object(dict)
     let schema = try j.schema()
-    #expect(schema.validation(of: j).valid)
+    #expect(schema.validating(j).valid)
 
     let schemaJSON = JSONSchemaGeneration.generate(from: j)
     #expect(schemaJSON["type"] == .string("object"))
@@ -166,7 +166,7 @@ import Testing
     ]
     let j: JSON = .object(dict)
     let schema = try j.schema()
-    #expect(schema.validation(of: j).valid)
+    #expect(schema.validating(j).valid)
 
     let schemaJSON = JSONSchemaGeneration.generate(from: j)
     #expect(schemaJSON["type"] == .string("object"))
@@ -188,7 +188,7 @@ import Testing
     ])
 
     let schema = try doc.schema()
-    let result = schema.validation(of: doc)
+    let result = schema.validating(doc)
     #expect(result.valid)
     #expect(result.errors.isEmpty)
   }
@@ -201,12 +201,12 @@ import Testing
       ])
     ])
     let schema = try nested.schema()
-    #expect(schema.validation(of: nested).valid)
+    #expect(schema.validating(nested).valid)
 
     // Should reject missing inner
     let missingInner: JSON = .object([
       "outer": .object([:])
     ])
-    #expect(schema.validation(of: missingInner).valid == false)
+    #expect(schema.validating(missingInner).valid == false)
   }
 }

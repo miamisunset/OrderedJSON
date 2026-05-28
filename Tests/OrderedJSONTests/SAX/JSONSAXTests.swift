@@ -78,7 +78,7 @@ final class SAXCollector: JSONSAXEventHandler {
 
 @Test func saxParseNull() {
   let collector = SAXCollector()
-  let result = JSON.saxParse("null", handler: collector)
+  let result = JSON.parse("null", handler: collector)
   #expect(result == true)
   #expect(collector.events.count == 1)
   #expect(collector.events[0].0 == "null")
@@ -86,7 +86,7 @@ final class SAXCollector: JSONSAXEventHandler {
 
 @Test func saxParseBooleanTrue() {
   let collector = SAXCollector()
-  let result = JSON.saxParse("true", handler: collector)
+  let result = JSON.parse("true", handler: collector)
   #expect(result == true)
   #expect(collector.events.count == 1)
   #expect(collector.events[0] == ("boolean", "true"))
@@ -94,7 +94,7 @@ final class SAXCollector: JSONSAXEventHandler {
 
 @Test func saxParseBooleanFalse() {
   let collector = SAXCollector()
-  let result = JSON.saxParse("false", handler: collector)
+  let result = JSON.parse("false", handler: collector)
   #expect(result == true)
   #expect(collector.events.count == 1)
   #expect(collector.events[0] == ("boolean", "false"))
@@ -102,7 +102,7 @@ final class SAXCollector: JSONSAXEventHandler {
 
 @Test func saxParseInteger() {
   let collector = SAXCollector()
-  let result = JSON.saxParse("42", handler: collector)
+  let result = JSON.parse("42", handler: collector)
   #expect(result == true)
   #expect(collector.events.count == 1)
   #expect(collector.events[0] == ("integer", "42"))
@@ -110,7 +110,7 @@ final class SAXCollector: JSONSAXEventHandler {
 
 @Test func saxParseNegativeInteger() {
   let collector = SAXCollector()
-  let result = JSON.saxParse("-42", handler: collector)
+  let result = JSON.parse("-42", handler: collector)
   #expect(result == true)
   #expect(collector.events.count == 1)
   #expect(collector.events[0] == ("integer", "-42"))
@@ -118,7 +118,7 @@ final class SAXCollector: JSONSAXEventHandler {
 
 @Test func saxParseFloat() {
   let collector = SAXCollector()
-  let result = JSON.saxParse("3.14", handler: collector)
+  let result = JSON.parse("3.14", handler: collector)
   #expect(result == true)
   #expect(collector.events.count == 1)
   #expect(collector.events[0].0 == "float")
@@ -127,7 +127,7 @@ final class SAXCollector: JSONSAXEventHandler {
 
 @Test func saxParseString() {
   let collector = SAXCollector()
-  let result = JSON.saxParse("\"hello\"", handler: collector)
+  let result = JSON.parse("\"hello\"", handler: collector)
   #expect(result == true)
   #expect(collector.events.count == 1)
   #expect(collector.events[0] == ("string", "hello"))
@@ -135,7 +135,7 @@ final class SAXCollector: JSONSAXEventHandler {
 
 @Test func saxParseEmptyObject() {
   let collector = SAXCollector()
-  let result = JSON.saxParse("{}", handler: collector)
+  let result = JSON.parse("{}", handler: collector)
   #expect(result == true)
   #expect(collector.events.count == 2)
   #expect(collector.events[0].0 == "startObject")
@@ -144,7 +144,7 @@ final class SAXCollector: JSONSAXEventHandler {
 
 @Test func saxParseEmptyArray() {
   let collector = SAXCollector()
-  let result = JSON.saxParse("[]", handler: collector)
+  let result = JSON.parse("[]", handler: collector)
   #expect(result == true)
   #expect(collector.events.count == 2)
   #expect(collector.events[0].0 == "startArray")
@@ -153,7 +153,7 @@ final class SAXCollector: JSONSAXEventHandler {
 
 @Test func saxParseSimpleObject() {
   let collector = SAXCollector()
-  let result = JSON.saxParse(#"{"key": "value"}"#, handler: collector)
+  let result = JSON.parse(#"{"key": "value"}"#, handler: collector)
   #expect(result == true)
   #expect(collector.events.count == 4)
   #expect(collector.events[0].0 == "startObject")
@@ -164,7 +164,7 @@ final class SAXCollector: JSONSAXEventHandler {
 
 @Test func saxParseSimpleArray() {
   let collector = SAXCollector()
-  let result = JSON.saxParse("[1, 2, 3]", handler: collector)
+  let result = JSON.parse("[1, 2, 3]", handler: collector)
   #expect(result == true)
   #expect(collector.events.count == 5)
   #expect(collector.events[0].0 == "startArray")
@@ -176,7 +176,7 @@ final class SAXCollector: JSONSAXEventHandler {
 
 @Test func saxParseNestedObject() {
   let collector = SAXCollector()
-  let result = JSON.saxParse(#"{"a": {"b": 1}}"#, handler: collector)
+  let result = JSON.parse(#"{"a": {"b": 1}}"#, handler: collector)
   #expect(result == true)
   #expect(collector.events.count == 7)
   #expect(collector.events[0].0 == "startObject")
@@ -190,7 +190,7 @@ final class SAXCollector: JSONSAXEventHandler {
 
 @Test func saxParseNestedArray() {
   let collector = SAXCollector()
-  let result = JSON.saxParse("[[1, 2], [3]]", handler: collector)
+  let result = JSON.parse("[[1, 2], [3]]", handler: collector)
   #expect(result == true)
   #expect(collector.events.count == 9)
   #expect(collector.events[0].0 == "startArray")
@@ -206,7 +206,7 @@ final class SAXCollector: JSONSAXEventHandler {
 
 @Test func saxParseMixed() {
   let collector = SAXCollector()
-  let result = JSON.saxParse(#"{"arr": [null, true], "val": "s"}"#, handler: collector)
+  let result = JSON.parse(#"{"arr": [null, true], "val": "s"}"#, handler: collector)
   #expect(result == true)
   #expect(collector.events.count == 9)
   #expect(collector.events[0].0 == "startObject")
@@ -222,14 +222,14 @@ final class SAXCollector: JSONSAXEventHandler {
 
 @Test func saxParseErrorInvalidToken() {
   let collector = SAXCollector()
-  let result = JSON.saxParse("invalid", handler: collector)
+  let result = JSON.parse("invalid", handler: collector)
   #expect(result == false)
   #expect(collector.events[0].0 == "error")
 }
 
 @Test func saxParseErrorUnexpectedEnd() {
   let collector = SAXCollector()
-  let result = JSON.saxParse("{", handler: collector)
+  let result = JSON.parse("{", handler: collector)
   #expect(result == false)
   #expect(collector.events[0].0 == "startObject")
   #expect(collector.events[1].0 == "key")
@@ -238,7 +238,7 @@ final class SAXCollector: JSONSAXEventHandler {
 
 @Test func saxParseErrorTrailingGarbage() {
   let collector = SAXCollector()
-  let result = JSON.saxParse("1 2", handler: collector)
+  let result = JSON.parse("1 2", handler: collector)
   #expect(result == false)
   #expect(collector.events[0].0 == "integer")
   #expect(collector.events[1].0 == "error")
@@ -270,13 +270,13 @@ final class SAXCollector: JSONSAXEventHandler {
 
 @Test func saxParseInvalidEscape() {
   let collector = SAXCollector()
-  let result = JSON.saxParse("\"\\x\"", handler: collector)
+  let result = JSON.parse("\"\\x\"", handler: collector)
   #expect(result == false)
 }
 
 @Test func saxParseInvalidUnicode() {
   let collector = SAXCollector()
-  let result = JSON.saxParse("\"\\u\"", handler: collector)
+  let result = JSON.parse("\"\\u\"", handler: collector)
   // SAX parser is lenient: invalid unicode escape returns empty string, not an error
   #expect(result == true)
   #expect(collector.events[0] == ("string", ""))
@@ -284,7 +284,7 @@ final class SAXCollector: JSONSAXEventHandler {
 
 @Test func saxParseInvalidUnicodeHex() {
   let collector = SAXCollector()
-  let result = JSON.saxParse("\"\\uQQQQ\"", handler: collector)
+  let result = JSON.parse("\"\\uQQQQ\"", handler: collector)
   // SAX parser is lenient: invalid hex chars are consumed so they don't
   // end up as literal characters in the string
   #expect(result == true)
@@ -294,19 +294,19 @@ final class SAXCollector: JSONSAXEventHandler {
 
 @Test func saxParseIncompleteFloat() {
   let collector = SAXCollector()
-  let result = JSON.saxParse("1.0e+", handler: collector)
+  let result = JSON.parse("1.0e+", handler: collector)
   #expect(result == false)
 }
 
 @Test func saxParseIncompleteNumber() {
   let collector = SAXCollector()
-  let result = JSON.saxParse("-", handler: collector)
+  let result = JSON.parse("-", handler: collector)
   #expect(result == false)
 }
 
 @Test func saxParseBackslashAtEnd() {
   let collector = SAXCollector()
-  let result = JSON.saxParse("\"\\", handler: collector)
+  let result = JSON.parse("\"\\", handler: collector)
   // SAX parser is lenient: backslash at end returns empty string, not an error
   #expect(result == true)
   #expect(collector.events[0] == ("string", ""))
@@ -316,7 +316,7 @@ final class SAXCollector: JSONSAXEventHandler {
   let collector = SAXCollector()
   // "0." is actually valid in Swift (Double("0.") → 0.0), so SAX returns true
   // Use a truly invalid float like "0.0e" which has incomplete exponent
-  let result = JSON.saxParse("0.0e", handler: collector)
+  let result = JSON.parse("0.0e", handler: collector)
   #expect(result == false)
 }
 
@@ -337,7 +337,7 @@ final class SAXCollector: JSONSAXEventHandler {
   // "\u0041X" should parse as "AX", not just "A".
   let collector = SAXCollector()
   let jsonString = "{\"key\\u0041X\": 1}"
-  let ok = JSON.saxParse(jsonString, handler: collector)
+  let ok = JSON.parse(jsonString, handler: collector)
   #expect(ok)
   // The key should be "keyAX", not "keyA"
   let expectedKey = "keyAX"
@@ -401,7 +401,7 @@ final class SAXCollector: JSONSAXEventHandler {
     }
   }
   let handler = StoppingHandler()
-  let ok = JSON.saxParse("null", handler: handler)
+  let ok = JSON.parse("null", handler: handler)
   #expect(!ok)  // stopped early
   #expect(handler.didCall)
 }
@@ -453,6 +453,6 @@ final class SAXCollector: JSONSAXEventHandler {
     }
   }
   let handler = StoppingHandler()
-  let ok = JSON.saxParse(#"{"key": "value"}"#, handler: handler)
+  let ok = JSON.parse(#"{"key": "value"}"#, handler: handler)
   #expect(!ok)  // stopped early
 }

@@ -72,4 +72,11 @@ extension JSON {
 
     return .object(result)
   }
+
+  /// Applies a JSON Merge Patch (RFC 7396) in-place, mutating this value.
+  ///
+  /// - Parameter patch: The merge patch to apply.
+  public mutating func mergePatch(_ patch: JSON) {
+    self = mergePatch(patch)
+  }
 }

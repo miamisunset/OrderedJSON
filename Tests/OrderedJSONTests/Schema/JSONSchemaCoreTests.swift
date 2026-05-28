@@ -87,7 +87,7 @@ struct JSONSchemaResultTests {
   @Test("result — valid is true when no errors")
   func resultValidTrue() throws {
     let schema = try JSONSchema(schema: .object([:]))
-    let result = schema.validation(of: .string("hello"))
+    let result = schema.validating(.string("hello"))
     #expect(result.valid)
     #expect(result.errors.isEmpty)
   }
@@ -95,7 +95,7 @@ struct JSONSchemaResultTests {
   @Test("result — valid is false when errors")
   func resultValidFalse() throws {
     let schema = try JSONSchema(schema: .object(["type": .string("number")]))
-    let result = schema.validation(of: .string("hello"))
+    let result = schema.validating(.string("hello"))
     #expect(!result.valid)
     #expect(result.errors.count == 1)
   }
@@ -103,26 +103,26 @@ struct JSONSchemaResultTests {
   @Test("error description includes keyword and message")
   func errorDescription() throws {
     let schema = try JSONSchema(schema: .object(["type": .string("number")]))
-    let result = schema.validation(of: .string("hello"))
+    let result = schema.validating(.string("hello"))
     let desc = try String(describing: #require(result.errors.first))
     #expect(desc.contains("type"))
     #expect(desc.contains("expected"))
   }
 
-  @Test("throwIfInvalid throws on first error")
-  func throwIfInvalid() throws {
+  @Test("throwOnError throws on first error")
+  func throwOnError() throws {
     let schema = try JSONSchema(schema: .object(["type": .string("number")]))
-    let result = schema.validation(of: .string("hello"))
+    let result = schema.validating(.string("hello"))
     #expect(throws: JSONSchemaError.self) {
-      try result.throwIfInvalid()
+      try result.throwOnError()
     }
   }
 
-  @Test("throwIfInvalid does nothing on valid result")
-  func throwIfValidNoop() throws {
+  @Test("throwOnError does nothing on valid result")
+  func throwOnErrorNoop() throws {
     let schema = try JSONSchema(schema: .object([:]))
-    let result = schema.validation(of: .string("hello"))
-    try result.throwIfInvalid()  // should not throw
+    let result = schema.validating(.string("hello"))
+    try result.throwOnError()  // should not throw
   }
 }
 
@@ -184,7 +184,7 @@ struct JSONSchemaOutputModeTests {
   @Test("VerboseResult — wraps flat errors (basic mode)")
   func verboseResultBasic() throws {
     let schema = try JSONSchema(schema: .object(["type": .string("number")]))
-    let result = schema.validation(of: .string("hello"))
+    let result = schema.validating(.string("hello"))
     #expect(!result.valid)
     #expect(result.errors.count == 1)
     // Basic mode: verboseErrors is empty
@@ -197,7 +197,7 @@ struct JSONSchemaOutputModeTests {
       schema: .object(["type": .string("number")]),
       outputMode: .verbose
     )
-    let result = schema.validation(of: .string("hello"))
+    let result = schema.validating(.string("hello"))
     #expect(!result.valid)
     #expect(result.errors.count == 1)
     // Verbose mode: verboseErrors is populated
@@ -207,18 +207,18 @@ struct JSONSchemaOutputModeTests {
   @Test("VerboseResult — valid result has no errors")
   func verboseResultValid() throws {
     let schema = try JSONSchema(schema: .object([:]))
-    let result = schema.validation(of: .string("hello"))
+    let result = schema.validating(.string("hello"))
     #expect(result.valid)
     #expect(result.errors.isEmpty)
     #expect(result.verboseErrors.isEmpty)
   }
 
-  @Test("VerboseResult — throwIfInvalid throws on first error")
-  func verboseResultThrowIfInvalid() throws {
+  @Test("VerboseResult — throwOnError throws on first error")
+  func verboseResultThrowOnError() throws {
     let schema = try JSONSchema(schema: .object(["type": .string("number")]))
-    let result = schema.validation(of: .string("hello"))
+    let result = schema.validating(.string("hello"))
     #expect(throws: JSONSchemaError.self) {
-      try result.throwIfInvalid()
+      try result.throwOnError()
     }
   }
 
@@ -262,7 +262,7 @@ struct JSONSchemaOutputModeTests {
       ]),
       outputMode: .verbose
     )
-    let result = schema.validation(of: JSON.number(.integer(42)))
+    let result = schema.validating(JSON.number(.integer(42)))
     #expect(!result.valid)
     // allOf produces errors grouped under /allOf
     #expect(result.verboseErrors.count == 1)
@@ -298,7 +298,7 @@ struct JSONSchemaOutputModeTests {
       schema: JSON.object(["type": .string("number")]),
       outputMode: .verbose
     )
-    let result = schema.validation(of: JSON.string("hello"))
+    let result = schema.validating(JSON.string("hello"))
     #expect(result.verboseErrors.count == 1)
     #expect(result.verboseErrors[0].children.isEmpty)
   }
@@ -373,7 +373,7 @@ struct JSONSchemaIntegrationTests {
       "name": .string("Alice"),
       "age": .number(.integer(30)),
     ])
-    #expect(schema.validation(of: person).valid)
+    #expect(schema.validating(person).valid)
   }
 
   @Test("full person schema — invalid (missing required)")
@@ -394,7 +394,7 @@ struct JSONSchemaIntegrationTests {
     )
 
     let person: JSON = .object(["name": .string("Alice")])
-    let result = schema.validation(of: person)
+    let result = schema.validating(person)
     #expect(!result.valid)
     #expect(result.errors.first?.keyword == "required")
   }
@@ -420,7 +420,7 @@ struct JSONSchemaIntegrationTests {
       "name": .string("Alice"),
       "age": .string("thirty"),
     ])
-    let result = schema.validation(of: person)
+    let result = schema.validating(person)
     #expect(!result.valid)
     #expect(result.errors.first?.keyword == "type")
   }
@@ -446,7 +446,7 @@ struct JSONSchemaIntegrationTests {
       "name": .string("Alice"),
       "age": .number(.integer(300)),
     ])
-    let result = schema.validation(of: person)
+    let result = schema.validating(person)
     #expect(!result.valid)
     #expect(result.errors.first?.keyword == "maximum")
   }
@@ -454,12 +454,12 @@ struct JSONSchemaIntegrationTests {
   @Test("empty schema — passes everything")
   func emptySchema() throws {
     let schema = try JSONSchema(schema: .object([:]))
-    #expect(schema.validation(of: .null).valid)
-    #expect(schema.validation(of: .boolean(true)).valid)
-    #expect(schema.validation(of: .number(.integer(42))).valid)
-    #expect(schema.validation(of: .string("hello")).valid)
-    #expect(schema.validation(of: .array([.number(.integer(1))])).valid)
-    #expect(schema.validation(of: .object(["key": .string("val")])).valid)
+    #expect(schema.validating(.null).valid)
+    #expect(schema.validating(.boolean(true)).valid)
+    #expect(schema.validating(.number(.integer(42))).valid)
+    #expect(schema.validating(.string("hello")).valid)
+    #expect(schema.validating(.array([.number(.integer(1))])).valid)
+    #expect(schema.validating(.object(["key": .string("val")])).valid)
   }
 }
 
@@ -470,29 +470,29 @@ struct JSONSchemaBooleanTests {
   @Test("true schema — accepts everything")
   func trueSchema() throws {
     let schema = try JSONSchema(schema: .boolean(true))
-    #expect(schema.validation(of: .null).valid)
-    #expect(schema.validation(of: .boolean(true)).valid)
-    #expect(schema.validation(of: .number(.integer(42))).valid)
-    #expect(schema.validation(of: .string("hello")).valid)
-    #expect(schema.validation(of: .array([.number(.integer(1))])).valid)
-    #expect(schema.validation(of: .object([:])).valid)
+    #expect(schema.validating(.null).valid)
+    #expect(schema.validating(.boolean(true)).valid)
+    #expect(schema.validating(.number(.integer(42))).valid)
+    #expect(schema.validating(.string("hello")).valid)
+    #expect(schema.validating(.array([.number(.integer(1))])).valid)
+    #expect(schema.validating(.object([:])).valid)
   }
 
   @Test("false schema — rejects everything")
   func falseSchema() throws {
     let schema = try JSONSchema(schema: .boolean(false))
-    #expect(!schema.validation(of: .null).valid)
-    #expect(!schema.validation(of: .boolean(true)).valid)
-    #expect(!schema.validation(of: .number(.integer(42))).valid)
-    #expect(!schema.validation(of: .string("hello")).valid)
-    #expect(!schema.validation(of: .array([.number(.integer(1))])).valid)
-    #expect(!schema.validation(of: .object([:])).valid)
+    #expect(!schema.validating(.null).valid)
+    #expect(!schema.validating(.boolean(true)).valid)
+    #expect(!schema.validating(.number(.integer(42))).valid)
+    #expect(!schema.validating(.string("hello")).valid)
+    #expect(!schema.validating(.array([.number(.integer(1))])).valid)
+    #expect(!schema.validating(.object([:])).valid)
   }
 
   @Test("boolean schema — error message is 'false'")
   func falseSchemaErrorKeyword() throws {
     let schema = try JSONSchema(schema: .boolean(false))
-    let result = schema.validation(of: .string("test"))
+    let result = schema.validating(.string("test"))
     #expect(!result.valid)
     #expect(result.errors.first?.keyword == "false")
   }
@@ -505,16 +505,16 @@ struct JSONSchemaReviewEdgeCasesTests {
   @Test("not — with false boolean subschema (passes everything)")
   func notWithFalseSchema() throws {
     let schema = try JSONSchema(schema: .object(["not": .boolean(false)]))
-    #expect(schema.validation(of: .string("anything")).valid)
-    #expect(schema.validation(of: .number(.integer(42))).valid)
+    #expect(schema.validating(.string("anything")).valid)
+    #expect(schema.validating(.number(.integer(42))).valid)
   }
 
   @Test("not — with true boolean subschema (rejects everything)")
   func notWithTrueSchema() throws {
     let schema = try JSONSchema(schema: .object(["not": .boolean(true)]))
-    #expect(!schema.validation(of: .string("anything")).valid)
-    #expect(!schema.validation(of: .number(.integer(42))).valid)
-    #expect(!schema.validation(of: .null).valid)
+    #expect(!schema.validating(.string("anything")).valid)
+    #expect(!schema.validating(.number(.integer(42))).valid)
+    #expect(!schema.validating(.null).valid)
   }
 
   @Test("dependentSchemas — with false value (rejects when key present)")
@@ -526,8 +526,8 @@ struct JSONSchemaReviewEdgeCasesTests {
         ])
       ])
     )
-    #expect(schema.validation(of: .object(["name": .string("Alice")])).valid)
-    let result = schema.validation(of: .object(["credit_card": .string("1234")]))
+    #expect(schema.validating(.object(["name": .string("Alice")])).valid)
+    let result = schema.validating(.object(["credit_card": .string("1234")]))
     #expect(!result.valid)
     #expect(result.errors.first?.keyword == "dependentSchemas")
   }
@@ -540,37 +540,37 @@ struct JSONSchemaReviewEdgeCasesTests {
         "then": .boolean(false),
       ])
     )
-    #expect(!schema.validation(of: .string("hello")).valid)
-    #expect(schema.validation(of: .number(.integer(42))).valid)
+    #expect(!schema.validating(.string("hello")).valid)
+    #expect(schema.validating(.number(.integer(42))).valid)
   }
 
   @Test("minLength — multi-scalar grapheme (code point semantics)")
   func minLengthMultiScalar() throws {
     let familyEmoji = "👨‍👩‍👧"
     let schema = try JSONSchema(schema: .object(["minLength": .number(.integer(5))]))
-    #expect(schema.validation(of: .string(familyEmoji)).valid)
+    #expect(schema.validating(.string(familyEmoji)).valid)
   }
 
   @Test("maxLength — multi-scalar grapheme (code point semantics)")
   func maxLengthMultiScalar() throws {
     let familyEmoji = "👨‍👩‍👧"
     let schema = try JSONSchema(schema: .object(["maxLength": .number(.integer(4))]))
-    #expect(!schema.validation(of: .string(familyEmoji)).valid)
+    #expect(!schema.validating(.string(familyEmoji)).valid)
   }
 
   @Test("boolean schema init — true accepts everything")
   func booleanTrueInit() throws {
     let schema = try JSONSchema(schema: .boolean(true))
-    #expect(schema.validation(of: .null).valid)
-    #expect(schema.validation(of: .boolean(false)).valid)
-    #expect(schema.validation(of: .number(.integer(42))).valid)
+    #expect(schema.validating(.null).valid)
+    #expect(schema.validating(.boolean(false)).valid)
+    #expect(schema.validating(.number(.integer(42))).valid)
   }
 
   @Test("boolean schema init — false rejects everything")
   func booleanFalseInit() throws {
     let schema = try JSONSchema(schema: .boolean(false))
-    #expect(!schema.validation(of: .null).valid)
-    #expect(!schema.validation(of: .string("x")).valid)
+    #expect(!schema.validating(.null).valid)
+    #expect(!schema.validating(.string("x")).valid)
   }
 
   @Test("nested composition — allOf > anyOf > oneOf")
@@ -593,7 +593,7 @@ struct JSONSchemaReviewEdgeCasesTests {
         ])
       ])
     )
-    #expect(schema.validation(of: .number(.integer(42))).valid)
-    #expect(!schema.validation(of: .number(.integer(5))).valid)
+    #expect(schema.validating(.number(.integer(42))).valid)
+    #expect(!schema.validating(.number(.integer(5))).valid)
   }
 }

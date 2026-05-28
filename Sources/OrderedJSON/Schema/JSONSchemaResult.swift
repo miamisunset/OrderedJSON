@@ -21,7 +21,7 @@ public struct JSONSchemaResult: Hashable, Sendable {
   /// Convenience: throws the first error if validation failed, or does nothing
   /// on success. Useful with `try` for early exit on first failure.
   /// - Throws: `JSONSchemaError` — the first validation error.
-  public func throwIfInvalid() throws {
+  public func throwOnError() throws {
     if let first = errors.first {
       throw first
     }

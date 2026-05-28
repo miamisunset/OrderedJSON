@@ -50,6 +50,9 @@ extension JSON {
     public init() {}
 
     /// Sets the value for `key` to a `JSON` value.
+    /// - Note: The two parameters are unlabeled for fluent reading at the call
+    ///   site: `.set("key", value)`. The first parameter is always the key, the
+    ///   second is always the value.
     /// - Returns: `self` for chaining.
     @discardableResult
     public func set(_ key: String, _ value: JSON) -> Self {
@@ -305,7 +308,7 @@ extension JSON {
     /// Builds the JSON object and returns the serialized JSON string.
     /// - Parameter indent: Number of spaces per indent level. `nil` means compact (no indent).
     public func buildString(indent: Int? = nil) -> String {
-      return build().dump(indent: indent ?? -1)
+      return build().dump(indent: indent)
     }
   }
 
@@ -354,6 +357,8 @@ extension JSON {
     public init() {}
 
     /// Appends a `JSON` value to the array.
+    /// - Note: The parameter is unlabeled for fluent reading at the call site:
+    ///   `.add(value)`.
     /// - Returns: `self` for chaining.
     @discardableResult
     public func add(_ value: JSON) -> Self {
@@ -607,7 +612,7 @@ extension JSON {
     /// Builds the JSON array and returns the serialized JSON string.
     /// - Parameter indent: Number of spaces per indent level. `nil` means compact (no indent).
     public func buildString(indent: Int? = nil) -> String {
-      return build().dump(indent: indent ?? -1)
+      return build().dump(indent: indent)
     }
   }
 }

@@ -75,7 +75,7 @@ private func runTestSuite(draftDir: String, draft: JSONSchema.Draft) throws {
         let expectedValid = testObj["valid"]?.boolValue ?? false
 
         total += 1
-        let result = schema.validation(of: testData)
+        let result = schema.validating(testData)
         let actualValid = result.valid
 
         if actualValid == expectedValid {

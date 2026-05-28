@@ -951,7 +951,7 @@ OrderedJSON covers ~95% of `nlohmann::basic_json`'s API surface. Here are the ga
 |---------|---------------|-------------|--------|---------|
 | **`is_number_unsigned`** | Detects `uint64_t` integers | ❌ Not implemented | Swift uses `Int64` for all integers; `UInt64` isn't needed since JSON numbers have no unsigned concept per RFC 7159 | Unlikely |
 | **`is_binary` / `is_discarded`** | Binary byte array type / SAX discarded state | ❌ Not implemented | Binary CBOR/msgpack data decoded as base64 strings; discarded state is internal to SAX parsing | Possible later |
-| **`get<T>()`, `get_to()`, `get_ptr()`, `get_ref()`** | Template-based value extraction | ✅ `get<T>(T.Type) throws -> T` dispatches to `require*()` + optional value accessors | Swift's static type system makes templates less critical; use `get()`, optional properties, or throwing accessors | Low priority |
+| **`get<T>()`, `get_to()`, `get_ptr()`, `get_ref()`** | Template-based value extraction | ❌ Removed — use `require*()` methods directly | Generic dispatch adds no safety over individual methods; `requireString()`, `requireInt64()`, etc. are clearer | — |
 | **`push_back`** | Named `push_back` for arrays | ❌ Named `append` instead | Swift convention uses `append`; semantics are identical | Low priority |
 | **`operator+=`** | Compound assignment for array/object addition | ❌ Not implemented | Swift uses `append` / `+=` on arrays directly | Unlikely |
 | **`emplace_back`** | Emplace back for arrays | ❌ Covered by `emplace` | `emplace` for arrays is identical to `append` | Low priority |
@@ -1313,18 +1313,7 @@ Available accessors:
 
 ### Generic get<T>()
 
-`get<T>(T.Type) throws -> T` provides type-safe extraction with a single generic call:
-
-```swift
-let json = try JSON.parse(#"{"name": "Alice", "count": 42}"#)
-
-let name: String = try json["name"]?.get(String.self)  // "Alice"
-let count: Int64 = try json["count"]?.get(Int64.self)  // 42
-let countInt: Int = try json["count"]?.get(Int.self)   // 42
-let asDouble: Double = try json["count"]?.get(Double.self)  // 42.0
-```
-
-Supports all types that `require*()` handles: `String`, `Bool`, `Int64`, `Int`, `Int8`, `Int16`, `Int32`, `UInt`, `UInt8`, `UInt16`, `UInt32`, `UInt64`, `Double`, `Float`. Throws `JSONError.typeError` on mismatch.
+> **Removed.** Use individual `require*()` methods directly. See [Throwing Accessors](#throwing-accessors) above.
 
 ### Optional Value Accessors
 

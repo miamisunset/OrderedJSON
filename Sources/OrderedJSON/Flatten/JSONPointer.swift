@@ -30,7 +30,7 @@ public enum JSONPointerError: Error, Hashable, Sendable, CustomStringConvertible
 /// ```swift
 /// let ptr = try JSONPointer("/foo/bar/0")
 /// let value = ptr.resolve(json)  // value at path /foo/bar/0
-/// ptr.set(into: &json, value: .number(.integer(42)))
+/// ptr.set(value: .number(.integer(42)), into: &json)
 /// ```
 public struct JSONPointer: Hashable, Sendable {
   /// The path segments of this pointer.
@@ -190,9 +190,9 @@ public struct JSONPointer: Hashable, Sendable {
   /// references a non-existent key or index.
   ///
   /// - Parameters:
-  ///   - json: The JSON value to modify (in-out).
   ///   - value: The value to set at the pointer path.
-  public func set(into json: inout JSON, value: JSON) {
+  ///   - json: The JSON value to modify (in-out).
+  public func set(value: JSON, into json: inout JSON) {
     guard !segments.isEmpty else {
       json = value
       return

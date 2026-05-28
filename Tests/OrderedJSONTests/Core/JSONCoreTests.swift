@@ -170,13 +170,14 @@ import Testing
 }
 
 @Test func dumpCompact() {
-  #expect(JSON.null.dump(indent: -1) == "null")
-  #expect(JSON.boolean(true).dump(indent: -1) == "true")
-  #expect(JSON.number(.integer(42)).dump(indent: -1) == "42")
-  #expect(JSON.string("hello").dump(indent: -1) == "\"hello\"")
-  #expect(JSON.array([JSON.string("a"), JSON.number(.integer(1))]).dump(indent: -1) == "[\"a\",1]")
+  #expect(JSON.null.dump(indent: nil) == "null")
+  #expect(JSON.boolean(true).dump(indent: nil) == "true")
+  #expect(JSON.number(.integer(42)).dump(indent: nil) == "42")
+  #expect(JSON.string("hello").dump(indent: nil) == "\"hello\"")
+  #expect(
+    JSON.array([JSON.string("a"), JSON.number(.integer(1))]).dump(indent: nil) == "[\"a\",1]")
   let obj = JSON.object(["a": JSON.string("x")])
-  #expect(obj.dump(indent: -1) == "{\"a\":\"x\"}")
+  #expect(obj.dump(indent: nil) == "{\"a\":\"x\"}")
 }
 
 @Test func dumpPretty() {
@@ -215,25 +216,25 @@ import Testing
 
 @Test func dumpEnsureAscii() {
   let val = JSON.string("héllo")
-  let ascii = val.dump(indent: -1, ensureAscii: true)
+  let ascii = val.dump(indent: nil, ensureAscii: true)
   #expect(ascii == "\"h\\u00E9llo\"")
 }
 
 @Test func dumpEscapedCharacters() {
   let val = JSON.string("hello\"\n\t\r\\")
-  let dumped = val.dump(indent: -1)
+  let dumped = val.dump(indent: nil)
   #expect(dumped == "\"hello\\\"\\n\\t\\r\\\\\"")
 }
 
 @Test func dumpBackspaceFormfeed() {
   let val = JSON.string("\u{8}\u{12}")
-  let dumped = val.dump(indent: -1)
+  let dumped = val.dump(indent: nil)
   #expect(dumped == "\"\\b\\f\"")
 }
 
 @Test func dumpControlCharacters() {
   let val = JSON.string("\u{1}\u{2}")
-  let dumped = val.dump(indent: -1)
+  let dumped = val.dump(indent: nil)
   #expect(dumped == "\"\\u0001\\u0002\"")
 }
 
