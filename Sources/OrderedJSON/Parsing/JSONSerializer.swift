@@ -6,7 +6,7 @@ extension JSON {
   ///
   /// - Parameter indent: Indentation width in spaces. Use `nil` for compact
   ///   (single-line) output. Defaults to `nil`.
-  /// - Parameter indentChar: Character to use for indentation. Defaults to `" "`.
+  /// - Parameter indentCharacter: Character to use for indentation. Defaults to `" "`.
   /// - Parameter ensureAscii: If `true`, non-ASCII characters are escaped as
   ///   `\uXXXX`. Defaults to `false`.
   /// - Returns: A JSON string.
@@ -22,13 +22,17 @@ extension JSON {
   /// ```
   public func dump(
     indent: Int? = nil,
-    indentChar: Character = " ",
+    indentCharacter: Character = " ",
     ensureAscii: Bool = false
   ) -> String {
     if let indentValue = indent {
       var string = ""
       serializeJSONPretty(
-        self, indent: indentValue, indentChar: indentChar, depth: 0, ensureAscii: ensureAscii,
+        self,
+        indent: indentValue,
+        indentCharacter: indentCharacter,
+        depth: 0,
+        ensureAscii: ensureAscii,
         into: &string
       )
       return string
@@ -70,11 +74,11 @@ extension JSON {
   }
 
   private func serializeJSONPretty(
-    _ value: JSON, indent: Int, indentChar: Character, depth: Int, ensureAscii: Bool,
+    _ value: JSON, indent: Int, indentCharacter: Character, depth: Int, ensureAscii: Bool,
     into string: inout String
   ) {
-    let pad = String(repeating: String(indentChar), count: depth * indent)
-    let innerPad = String(repeating: String(indentChar), count: (depth + 1) * indent)
+    let pad = String(repeating: String(indentCharacter), count: depth * indent)
+    let innerPad = String(repeating: String(indentCharacter), count: (depth + 1) * indent)
     switch value.storage {
     case .null:
       string += "null"
@@ -93,7 +97,11 @@ extension JSON {
           if i > 0 { string += ",\n" }
           string += innerPad
           serializeJSONPretty(
-            el, indent: indent, indentChar: indentChar, depth: depth + 1, ensureAscii: ensureAscii,
+            el,
+            indent: indent,
+            indentCharacter: indentCharacter,
+            depth: depth + 1,
+            ensureAscii: ensureAscii,
             into: &string
           )
         }
@@ -114,7 +122,7 @@ extension JSON {
           serializeJSONString(key, ensureAscii: ensureAscii, into: &string)
           string += ": "
           serializeJSONPretty(
-            value, indent: indent, indentChar: indentChar, depth: depth + 1,
+            value, indent: indent, indentCharacter: indentCharacter, depth: depth + 1,
             ensureAscii: ensureAscii, into: &string
           )
         }

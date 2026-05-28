@@ -145,21 +145,21 @@ import Testing
 
 @Test func emplaceObjectNewKey() {
   var obj = JSON.object(["a": JSON.string("x")])
-  obj.emplace(key: "b", default: JSON.number(.integer(42)))
+  obj.setDefault(key: "b", JSON.number(.integer(42)))
   #expect(obj.count == 2)
   #expect(obj["b"] == JSON.number(.integer(42)))
 }
 
 @Test func emplaceObjectExistingKey() {
   var obj = JSON.object(["a": JSON.string("x")])
-  obj.emplace(key: "a", default: JSON.number(.integer(99)))
+  obj.setDefault(key: "a", JSON.number(.integer(99)))
   #expect(obj.count == 1)
   #expect(obj["a"] == JSON.string("x"))
 }
 
 @Test func emplaceObjectNonObject() {
   var str = JSON.string("hello")
-  str.emplace(key: "a", default: JSON.number(.integer(42)))  // silently ignored
+  str.setDefault(key: "a", JSON.number(.integer(42)))  // silently ignored
   #expect(str == JSON.string("hello"))
 }
 
@@ -195,7 +195,7 @@ import Testing
     "a": JSON.object(["y": JSON.number(.integer(2))]),
     "c": JSON.string("new"),
   ])
-  obj.update(with: other, mergesNested: true)
+  obj.update(with: other, mergingNested: true)
   #expect(obj["a"]?.isObject == true)
   #expect(obj["a"]?["x"] == JSON.number(.integer(1)))  // preserved
   #expect(obj["a"]?["y"] == JSON.number(.integer(2)))  // added
@@ -214,7 +214,7 @@ import Testing
       "b": JSON.object(["d": JSON.number(.integer(2))])
     ])
   ])
-  obj.update(with: other, mergesNested: true)
+  obj.update(with: other, mergingNested: true)
   #expect(obj["a"]?["b"]?["c"] == JSON.number(.integer(1)))  // preserved
   #expect(obj["a"]?["b"]?["d"] == JSON.number(.integer(2)))  // added
 }
@@ -226,7 +226,7 @@ import Testing
   let other = JSON.object([
     "a": JSON.string("replaced")  // not an object — overwrites entirely
   ])
-  obj.update(with: other, mergesNested: true)
+  obj.update(with: other, mergingNested: true)
   #expect(obj["a"] == JSON.string("replaced"))
 }
 
@@ -237,7 +237,7 @@ import Testing
   let other = JSON.object([
     "a": JSON.object(["y": JSON.number(.integer(2))])
   ])
-  obj.update(with: other)  // default: mergesNested=false
+  obj.update(with: other)  // default: mergingNested=false
   #expect(obj["a"]?["x"] == nil)  // overwritten, not merged
   #expect(obj["a"]?["y"] == JSON.number(.integer(2)))
 }
@@ -249,7 +249,7 @@ import Testing
   let other = JSON.object([
     "a": JSON.array([JSON.number(.integer(99))])  // array, not object — overwrites
   ])
-  obj.update(with: other, mergesNested: true)
+  obj.update(with: other, mergingNested: true)
   #expect(obj["a"]?.isArray == true)
   #expect(obj["a"] == JSON.array([JSON.number(.integer(99))]))
 }
@@ -261,7 +261,7 @@ import Testing
   let other = JSON.object([
     "a": JSON.null
   ])
-  obj.update(with: other, mergesNested: true)
+  obj.update(with: other, mergingNested: true)
   #expect(obj["a"] == JSON.null)  // null is not an object — overwrites
 }
 
@@ -270,7 +270,7 @@ import Testing
     "a": JSON.object(["x": JSON.number(.integer(1))]),
     "b": JSON.string("keep"),
   ])
-  obj.update(with: obj, mergesNested: true)  // self-merge is safe (value semantics)
+  obj.update(with: obj, mergingNested: true)  // self-merge is safe (value semantics)
   #expect(obj["a"]?["x"] == JSON.number(.integer(1)))
   #expect(obj["b"] == JSON.string("keep"))
 }

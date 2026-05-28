@@ -8,7 +8,6 @@ extension JSON {
   ///
   /// For non-object values, always returns `false`.
   ///
-  /// Use `containsKey(_:)` for an unlabeled shorthand equivalent.
   /// - Parameter key: The key to look up.
   /// - Returns: `true` if the key exists in this object.
   public func contains(key: String) -> Bool {
@@ -25,20 +24,6 @@ extension JSON {
   public func contains(element: JSON) -> Bool {
     guard case .array(let arr) = storage else { return false }
     return arr.contains(element)
-  }
-
-  // MARK: - containsKey
-
-  /// Returns `true` if a JSON object contains the given key.
-  ///
-  /// An unlabeled shorthand for `contains(key:)`. For non-object values,
-  /// always returns `false`.
-  ///
-  /// - Parameter key: The key to look up.
-  /// - Returns: `true` if the key exists in this object.
-  public func containsKey(_ key: String) -> Bool {
-    guard case .object(let dict) = storage else { return false }
-    return dict.keys.contains(key)
   }
 
   // MARK: - find

@@ -506,7 +506,7 @@ extension JSON {
     try json.requireFloat()
   } throws: { error in
     guard let jsonError = error as? JSONError else { return false }
-    return jsonError == JSONError.typeError(expected: "float", actual: "number")
+    return jsonError == JSONError.typeError(expected: "float", actual: "double")
   }
 }
 

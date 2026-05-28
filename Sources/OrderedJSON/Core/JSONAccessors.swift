@@ -136,14 +136,24 @@ extension JSON {
   /// Accepts both `.float` and `.integer` (widening). Uses lossless
   /// conversion via `Float(exactly:)` — rejects values that are not
   /// exactly representable as `Float` (e.g., `0.1`). For Foundation-compatible
-  /// lossy narrowing, use `doubleValue()` and cast manually.
+  /// lossy narrowing, use `requireDouble()` and cast manually.
   /// Rejects `.infinity` and subnormal values.
+  ///
+  /// The error distinguishes:
+  /// - "not a number" → `typeError(expected: "float", actual: typeName)`
+  /// - "not representable as Float" → `typeError(expected: "float", actual: "double")`
   public func requireFloat() throws -> Float {
-    let d = try requireDouble()
-    guard let result = Float(exactly: d), result.isFinite else {
+    switch storage {
+    case .number(.float(let d)):
+      guard let result = Float(exactly: d), result.isFinite else {
+        throw JSONError.typeError(expected: "float", actual: "double")
+      }
+      return result
+    case .number(.integer(let i)):
+      return Float(i)
+    default:
       throw JSONError.typeError(expected: "float", actual: typeName)
     }
-    return result
   }
 
 }
