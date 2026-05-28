@@ -44,25 +44,14 @@ Swift library that preserves JSON key order with a rich method-based API mirrori
 - All tests use `@Test` / `#expect(...)` (Swift Testing, no XCTest)
 - Prefer `package` access for testability over `public` on internal helpers
 
-## Plan Reference
-- Track active phases in `API_PLAN.md`.
-- For completed phases: summarize key outcomes + decisions in `API_PLAN.md`, then archive details if needed.
-- Use the `swift-api-design-guidelines-skill` when designing or reviewing public, private and internal APIs.
-- Keep `AGENTS.md` length under ~800–1500 tokens when possible.
-
 ## Coverage
 - Aim for 100% test coverage. Every new or changed code path must have a corresponding test.
 
 ## Workflow
 
-> **Hard Rule**: Every change goes on a dedicated feature branch — never commit or push directly to `main`. Open a PR for every branch and wait for human review before merging.
-
-- **Branch required** — every change, including documentation-only updates, starts on a new branch off `main`
-- **PR required** — open a pull request for every branch; never push to `main` directly
-- **Do not self-merge** — never use `gh pr merge --admin` or any flag that bypasses review; wait for a human to approve
-- **Pre-merge** — run `swift test --enable-code-coverage` (must pass) + `swift format lint --recursive --parallel -p .` (must be clean) + `swift format format --recursive --parallel --in-place -p .` (auto-format)
+- **Pre-push** — run `swift test --enable-code-coverage` (must pass) + `swift format lint --recursive --parallel -p .` (must be clean) + `swift format format --recursive --parallel --in-place -p .` (auto-format)
 - **Order**: lint → format → test (format first so lint sees formatted code)
-- **Merge method**: squash and merge only — keeps a clean linear history with one commit per PR
+- Direct pushes to `main` are allowed.
 
 ## Gotchas
 
