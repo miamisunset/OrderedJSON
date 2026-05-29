@@ -114,6 +114,10 @@ extension JSON {
   // MARK: - SAX Context
 
   /// Tracks SAX parser state: cursor position, handler, and accept mode.
+  ///
+  /// Bundles the current position within the source string, the optional
+  /// event handler, and a flag indicating whether validation-only mode
+  /// (accept) is active.
   private struct SAXContext {
     /// Shared position cursor.
     var cursor: ParseCursor

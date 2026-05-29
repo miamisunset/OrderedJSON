@@ -94,7 +94,8 @@ final class _ArrayReference {
   init() {}
 }
 
-/// The concrete `Encoder` implementation.
+/// The concrete `Encoder` implementation. Builds a `JSON` value from encoded
+/// `Codable` types, using reference-wrapped containers for shared mutation.
 final class _JSONEncodeImpl: Encoder {
   var codingPath: [CodingKey] = []
   var userInfo: [CodingUserInfoKey: Any]
@@ -126,6 +127,12 @@ final class _JSONEncodeImpl: Encoder {
   /// Weak reference to parent impl, so the parent can resync after child updates.
   weak var parentImpl: _JSONEncodeImpl?
 
+  /// Creates an encoder impl.
+  /// - Parameters:
+  ///   - userInfo: User info dictionary propagated to nested encoders.
+  ///   - dateEncodingStrategy: Strategy for encoding `Date` values.
+  ///   - dataEncodingStrategy: Strategy for encoding `Data` values.
+  ///   - decimalEncodingStrategy: Strategy for encoding `Decimal` values.
   init(
     userInfo: [CodingUserInfoKey: Any] = [:],
     dateEncodingStrategy: DateEncodingStrategy = .deferredToDate,

@@ -26,13 +26,13 @@ Swift library that preserves JSON key order with a rich method-based API mirrori
 2. **Rich API** — mirror nlohmann/json: subscript, type checks, modifiers, capacity, lookup, comparison, sequence, flatten/unflatten, patch/diff/merge, SAX parsing, binary formats
 3. **Flatten** — `flatten()` produces JSON Pointer keys (`/a/b/c`), `unflatten()` reconstructs
 4. **Binary formats** — CBOR, MessagePack, UBJSON, BSON, BJData support
-5. **Codable support** — `JSON` conforms to `Encodable`/`Decodable` for Foundation interop; `OrderedJSONEncoder`/`OrderedJSONDecoder` preserve key order; `JSONWithExtras<T>` captures unknown keys
+5. **Codable support** — `JSON` conforms to `Encodable`/`Decodable` for Foundation interop; `OrderedJSONEncoder`/`OrderedJSONDecoder` preserve key order; `JSONWithUnknownKeys<T>` captures unknown keys
 
 ## Key goals (Codable)
 
 6. **OrderedJSONEncoder** — encodes `Codable` types into `JSON` with key declaration order preserved
 7. **OrderedJSONDecoder** — decodes `JSON`/`Data`/`String` into `Codable` types, preserving key order
-8. **JSONWithExtras<T>** — serde-flatten style wrapper capturing unknown keys
+8. **JSONWithUnknownKeys<T>** — serde-flatten style wrapper capturing unknown keys
 9. **Full Codable surface** — all integer/unsigned widths, `decodeIfPresent`, `superEncoder`/`superDecoder`, coding path propagation
 
 ## Conventions
@@ -45,6 +45,13 @@ Swift library that preserves JSON key order with a rich method-based API mirrori
 - Prefer `package` access for testability over `public` on internal helpers
 
 - Keep `AGENTS.md` length under ~800–1500 tokens when possible.
+
+## Documentation
+
+- **Plan**: `docs/documentation-plan.md` — current doc overhaul plan (Phases 1-5)
+- **README** rewrite in progress on `docs/documentation-overhaul` branch
+- **Goal**: Swift-native framing (not "nlohmann mirror"), comprehensive DocC comments on all public APIs, internal/package APIs documented, JSON Schema section in README
+- **Pre-push** includes verifying docs match source
 
 ## Coverage
 - Aim for 100% test coverage. Every new or changed code path must have a corresponding test.

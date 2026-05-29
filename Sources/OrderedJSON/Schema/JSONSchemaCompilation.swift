@@ -17,6 +17,10 @@ struct ResolvedRef: Hashable {
 // MARK: - Resource scope
 
 /// Annotations scoped to a single base URI (established by `$id`).
+///
+/// Each `$id` keyword establishes a new resource scope. The scope collects
+/// anchors, dynamic anchors, and `$defs` entries for that URI. The root
+/// resource (no `$id`) uses an empty-string key.
 struct ResourceScope: Hashable {
   /// The base URI for this resource (the `$id` value, or empty for root).
   var baseURI: String
@@ -33,7 +37,7 @@ struct ResourceScope: Hashable {
 
 // MARK: - Compiled schema
 
-// A compiled JSON Schema with per-resource (`$id`-scoped) annotation tables.
+/// A compiled JSON Schema with per-resource (`$id`-scoped) annotation tables.
 //
 // Compilation walks the raw schema JSON once at init time:
 // - Identifies embedded resources via `$id` keywords
