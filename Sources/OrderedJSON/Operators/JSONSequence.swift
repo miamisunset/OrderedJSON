@@ -33,10 +33,15 @@ extension JSON: Sequence {
 /// Created by `JSON.makeIterator()`. Iterates array elements, object values,
 /// or a single primitive value.
 public struct JSONIterator: IteratorProtocol {
+  /// The iteration mode — array, object, single value, or empty.
   enum Mode {
+    /// Iterates over array elements in order.
     case array(IndexingIterator<[JSON]>)
+    /// Iterates over object values (keys discarded).
     case object(OrderedDictionary<String, JSON>.Iterator)
+    /// A single primitive value, yielded at most once.
     case single(JSON)
+    /// No more elements to yield.
     case empty
   }
 

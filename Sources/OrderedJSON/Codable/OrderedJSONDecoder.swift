@@ -83,6 +83,8 @@ public enum DecimalDecodingStrategy {
 
 // MARK: - Internal decoder implementation
 
+/// The concrete `Decoder` implementation. Wraps a `JSON` value and propagates
+/// decoding strategies and user info to all nested containers.
 final class _JSONDecodeImpl: Decoder {
   let json: JSON
   let codingPath: [CodingKey]
@@ -97,6 +99,14 @@ final class _JSONDecodeImpl: Decoder {
   let dataDecodingStrategy: DataDecodingStrategy
   let decimalDecodingStrategy: DecimalDecodingStrategy
 
+  /// Creates a decoder impl for the given JSON value.
+  /// - Parameters:
+  ///   - json: The JSON value to decode from.
+  ///   - userInfo: User info dictionary propagated to nested decoders.
+  ///   - codingPath: The coding path for the current decoding context.
+  ///   - dateDecodingStrategy: Strategy for decoding `Date` values.
+  ///   - dataDecodingStrategy: Strategy for decoding `Data` values.
+  ///   - decimalDecodingStrategy: Strategy for decoding `Decimal` values.
   init(
     json: JSON,
     userInfo: [CodingUserInfoKey: Any] = [:],

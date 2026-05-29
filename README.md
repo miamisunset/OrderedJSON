@@ -1,8 +1,6 @@
-# OrderedJSON
+# OrderedJSON — Swift-Native Ordered JSON
 
-> ⚠️ **Warning:** This repository was developed by a friendly AI assistant. Use at your own risk. While all code compiles, all tests pass, and the API mirrors `nlohmann::basic_json` closely, the code has not been reviewed by a human developer. Verify critical paths before using in production.
-
-A Swift library that preserves JSON key order with a rich method-based API mirroring `nlohmann::basic_json` (`JSON for Modern C++`). Includes order-preserving parsing, type checks, subscript access, modifiers, flatten/unflatten, JSON Patch/Merge Patch, SAX parsing, and binary format support (CBOR, MessagePack, UBJSON, BSON, BJData).
+A Swift library that preserves JSON key order with a rich method-based API, inspired by `nlohmann::basic_json` (`JSON for Modern C++`) but designed to be Swift-idiomatic. Includes order-preserving parsing, type checks, subscript access, modifiers, flatten/unflatten, JSON Patch/Merge Patch/Diff, SAX parsing, JSON Schema validation and inference, binary format support (CBOR, MessagePack, UBJSON, BSON, BJData), and full `Codable` interop with key-order preservation.
 
 ---
 
@@ -12,6 +10,7 @@ A Swift library that preserves JSON key order with a rich method-based API mirro
 <summary>Click to expand</summary>
 
 - [Why OrderedJSON?](#why-orderedjson)
+- [Architecture Overview](#architecture-overview)
 - [Quick Start](#quick-start)
 - [Performance](#performance)
   - [Parsing](#parsing)
@@ -46,6 +45,17 @@ A Swift library that preserves JSON key order with a rich method-based API mirro
 - [JSON Merge Patch (RFC 7396)](#json-merge-patch-rfc-7396)
 - [SAX Parsing](#sax-parsing)
 - [Binary Formats](#binary-formats)
+- [JSON Schema](#json-schema)
+  - [Creating a Schema](#creating-a-schema)
+  - [Validation](#validation)
+  - [Drafts](#drafts)
+  - [Format Options](#format-options)
+  - [Output Modes](#output-modes)
+  - [Schema Inference](#schema-inference)
+- [Swift Idioms](#swift-idioms)
+  - [@dynamicMemberLookup](#dynamicmemberlookup)
+  - [ExpressibleBy*Literal](#expressiblebyliteral)
+  - [Sendable & StrictConcurrency](#sendable--strictconcurrency)
 - [Feature Parity vs. nlohmann/json](#feature-parity-vs-nlohmann-json)
   - [Summary](#summary)
 - [Codable Support](#codable-support)
@@ -55,7 +65,7 @@ A Swift library that preserves JSON key order with a rich method-based API mirro
   - [Foundation Type Support](#foundation-type-support)
   - [Convenience: JSON.encode(_:)](#convenience-json-encode-_)
   - [Convenience: JSON.decode(_:from:)](#convenience-json-decode-_-from)
-  - [JSONWithExtras<T>](#jsonwithextras-t)
+  - [JSONWithUnknownKeys<T>](#jsonwithunknownkeys-t)
   - [Throwing Typed Accessors](#throwing-typed-accessors)
   - [Round-Trip Example](#round-trip-example)
 - [Best Practices](#best-practices)
@@ -66,9 +76,65 @@ A Swift library that preserves JSON key order with a rich method-based API mirro
 
 ## Why OrderedJSON?
 
-Standard JSON dictionaries have no defined key order — Swift's `Dictionary` and most JSON libraries treat key order as an implementation detail. But many applications depend on insertion order: API signatures, serialization formats, configuration files, and protocol buffers all benefit from deterministic ordering.
+Standard JSON dictionaries have no defined key order — Swift's `Dictionary` and most JSON libraries treat key order as an implementation detail. But many applications depend on insertion order:
 
-OrderedJSON behaves like `nlohmann::ordered_json` — keys always retain the order they were inserted or parsed in. Every `dump()` call produces the same key order as the input.
+- **API signatures** — signed requests, hash chains, deterministic serialization
+- **Serialization formats** — pretty-printed output that matches the input
+- **Configuration files** — human-readable, predictable ordering
+- **Protocol buffers** — field-number ordering preserved through JSON interchange
+- **UI rendering** — server-sent key order maps to UI layout order
+
+OrderedJSON behaves like `nlohmann::ordered_json` — keys always retain the order they were inserted or parsed in. Every `dump()` call produces the same key order as the input. Unlike Foundation's `JSONSerialization` (which sorts keys alphabetically), OrderedJSON guarantees deterministic, insertion-order output.
+
+---
+
+## Architecture Overview
+
+OrderedJSON is organized as a single `JSON` struct wrapping an internal `Storage` enum:
+
+```
+┌──────────────────────────────────────────────────┐
+│                    JSON struct                    │
+│  @dynamicMemberLookup, Hashable, Sendable        │
+│                                                   │
+│  ┌────────────────────────────────────────────┐   │
+│  │               Storage enum                │   │
+│  │  .null │ .boolean │ .number │ .string     │   │
+│  │  .object(OrderedDictionary) │ .array      │   │
+│  └────────────────────────────────────────────┘   │
+│                                                   │
+│  ┌────── Access ──────┐  ┌──── Modifiers ─────┐  │
+│  │ subscript [key]     │  │ clear, remove      │  │
+│                                                   │
+│  │ value(forKey:default:) │  │ setDefault, update │  │
+│                                                   │
+│  │ parse(String)  │   │ cbor()      │   │ parse(handler:)││
+
+│  │ parse(Data)    │   │ msgPack()   │   │ accept         ││
+
+│  │ dump(indent:)  │   │ ubjson()    │   └────────────────┘│
+
+│  └───────────────┘   │ bson()      │                    │
+
+│                      │ bjdata()    │                    │
+│                      └─────────────┘              │
+│                                                   │
+│  ┌── Flatten ──┐  ┌── Patch ───┐  ┌── Schema ──┐│
+│  │ flatten()   │  │ patch()    │  │ schema()   ││
+│  │ unflatten() │  │ diff()     │  │ validate() ││
+│  └─────────────┘  │mergePatch()│  │ isValid()  ││
+│                    └────────────┘  │validating()││
+│                                    └─────────────┘│
+│                                                   │
+│  ┌── Codable ────────────────────────────────────┐│
+│  │ OrderedJSONEncoder / OrderedJSONDecoder       ││
+│  │ JSON.encode(_:) / JSON.decode(_:from:)       ││
+│  │ JSONWithUnknownKeys<T>                             ││
+│  └───────────────────────────────────────────────┘│
+└──────────────────────────────────────────────────┘
+```
+
+Source files are organized by concern in `Sources/OrderedJSON/{Core,Parsing,Access,Modifiers,Flatten,Patch,SAX,Binary,Operators,Builder,Codable,Schema}/`.
 
 ---
 
@@ -88,7 +154,7 @@ print(value.count)        // 3
 print(value["z"])         // Optional(JSON(.integer(1)))
 
 // Encode back — same key order, deterministic output
-let output = value.dump(-1) // compact JSON string
+let output = value.dump() // compact JSON string
 // output == `{"z":1,"a":2,"m":3}`
 ```
 
@@ -113,7 +179,7 @@ Parsing is single-pass recursive descent with no intermediate AST — JSON value
 
 `dump()` performs a single recursive traversal with string formatting. Performance is linear in the value count.
 
-- **Compact output** (`indent: -1`): Minimal overhead — mostly string escaping and concatenation.
+- **Compact output**: Minimal overhead — mostly string escaping and concatenation.
 - **Pretty-printed** (`indent: 2`): Slightly more overhead due to whitespace insertion per nesting level.
 
 ### Binary Formats
@@ -180,7 +246,7 @@ let num   = JSON.number(.integer(42))      // integer number
 let flt   = JSON.number(.float(3.14))      // float number
 let bool  = JSON.boolean(true)             // boolean
 let nul   = JSON.null                      // null
-let nul2  = JSON.nullValue()               // null (alternative)
+let nul2  = JSON.null                       // null (alternative)
 
 // Convenience initializers — shorter for simple types
 let s     = JSON("hello")                  // string
@@ -416,7 +482,7 @@ let pretty = value.dump(indent: 2)
 // }
 ```
 
-`dump(indent: -1)` is the standard compact format. `dump(indent: 2)` is the typical pretty-printed format. The key order is always preserved regardless of indent value.
+`dump()` produces compact JSON (no whitespace). `dump(indent: 2)` produces pretty-printed JSON. The key order is always preserved regardless of indent value.
 
 ---
 
@@ -439,7 +505,7 @@ x.isArray        // false
 x.isPrimitive    // true  (null/boolean/number/string)
 x.isStructured   // false (object/array)
 
-x.type           // JSONType.number
+x.type           // JSON.JSONType.number
 x.typeName       // "number"
 ```
 
@@ -471,18 +537,18 @@ mutable["name"] = JSON.string("Bob")
 mutable["items"]?[0] = JSON.number(.integer(99))
 
 // Throwing access — throws JSONTypeError / JSONOutOfRangeError
-try json.at("name")      // JSON.string("Alice")
-try json.at(0)            // throws — root is not array
-try json.at("missing")    // throws — key not found
+try json.at(key: "name")      // JSON.string("Alice")
+try json.at(index: 0)         // throws — root is not array
+try json.at(key: "missing")   // throws — key not found
 
 // Value with default — returns default for missing keys or indices
-json.value("name", default: JSON.null)       // JSON.string("Alice")
-json.value("missing", default: JSON("x"))    // JSON.string("x")
+json.value(forKey: "name", default: JSON.null)       // JSON.string("Alice")
+json.value(forKey: "missing", default: JSON("x"))    // JSON.string("x")
 
 // Array value with default
 let arr = JSON.array([.string("a"), .number(.integer(1))])
-arr.value(0, default: JSON.null)      // JSON.string("a")
-arr.value(99, default: JSON("x"))     // JSON.string("x") — out of bounds
+arr.value(at: 0, default: JSON.null)      // JSON.string("a")
+arr.value(at: 99, default: JSON("x"))     // JSON.string("x") — out of bounds
 ```
 
 **When to use each:**
@@ -507,10 +573,9 @@ json.isEmpty   // false
 json.first     // Optional(JSON.number(.integer(1)))  — first value
 json.last      // Optional(JSON.number(.integer(3)))  — last value
 
-json.contains("b")   // true  — key exists in object
-json.count("b")      // 1     — each key appears at most once
-json.find("b")       // Optional(JSON.number(.integer(2)))  — value for key
-json.find("missing") // nil
+json.contains(key: "b")   // true  — key exists in object
+json.find(key: "b")       // Optional(JSON.number(.integer(2)))  — value for key
+json.find(key: "missing") // nil
 ```
 
 On objects, `contains` checks key existence. For arrays, `contains(element)` checks element presence using `==`. `find` retrieves the value for a key. `first`/`last` give you the first and last values in insertion order.
@@ -521,8 +586,8 @@ let arr = JSON.array([
   .number(.integer(1)),
   .boolean(true)
 ])
-arr.contains(.string("a"))     // true — element exists
-arr.contains(.string("z"))     // false — element missing
+arr.contains(element: .string("a"))     // true — element exists
+arr.contains(element: .string("z"))     // false — element missing
 ```
 
 ---
@@ -538,19 +603,19 @@ var json = JSON.parse("""
 
 json.clear()              // remove all keys/elements
 json["a"] = JSON(10)      // set via subscript
-json.erase("a")           // remove key from object
-json.erase(0)             // remove first element (array only)
+json.remove(key: "a")           // remove key from object
+json.remove(at: 0)             // remove first element (array only)
 
 // Array operations
 var arr = JSON.array([JSON(1), JSON(2), JSON(3)])
 arr.append(JSON(4))                       // [1, 2, 3, 4]
 arr.insert(JSON(0), at: 0)               // [0, 1, 2, 3, 4]
-arr.emplace(JSON(5))                     // append if array, no-op for objects
+arr.append(JSON(5))                     // append if array, no-op for objects
 
 // Object operations
 var obj = JSON.object(["x": JSON(1)])
-obj.emplace(key: "y", default: JSON(2))   // adds if key absent
-obj.emplace(key: "x", default: JSON(99))  // no-op — key exists
+obj.setDefault(key: "y", JSON(2))   // adds if key absent
+obj.setDefault(key: "x", JSON(99))  // no-op — key exists
 obj.update(with: JSON.object(["y": JSON(3), "z": JSON(4)]))  // merge keys
 
 // Recursive merge — nested objects are merged, not replaced
@@ -560,7 +625,7 @@ var config = JSON.object([
 let patch = JSON.object([
   "app": JSON.object(["lang": JSON.string("fr")])  // only override lang
 ])
-config.update(with: patch, mergeObjects: true)
+config.update(with: patch, mergingNested: true)
 // config["app"]["theme"] == "dark"  (preserved)
 // config["app"]["lang"] == "fr"    (updated)
 // Without mergeObjects: app would be replaced entirely, losing "theme"
@@ -570,7 +635,7 @@ var a = JSON(1), b = JSON(2)
 a.swap(with: &b)  // a == 2, b == 1
 ```
 
-**Key distinction:** `append`/`insert` work on arrays. `emplace`/`update` work on objects. `erase` works on both — use a string key for objects, an integer index for arrays.
+**Key distinction:** `append`/`insert` work on arrays. `setDefault`/`update` work on objects. `remove` works on both — use a string key for objects, an integer index for arrays.
 
 ---
 
@@ -685,24 +750,24 @@ let value = try ptr.resolveOrThrow(json)
 var json = JSON.object(["a": JSON.number(.integer(1))])
 
 let ptr = try JSONPointer("/b/c")
-ptr.set(into: &json, value: JSON.string("deep"))
+ptr.set(value: JSON.string("deep"), into: &json)
 // json == {"a": 1, "b": {"c": "deep"}}
 
 // Root pointer replaces the entire value
 let root = try JSONPointer("")
-root.set(into: &json, value: JSON.number(.integer(42)))
+root.set(value: JSON.number(.integer(42)), into: &json)
 // json == 42
 
 // "-" token appends to an array
 var arr = JSON.array([JSON.string("a")])
 let append = try JSONPointer("/-")
-append.set(into: &arr, value: JSON.string("b"))
+append.set(value: JSON.string("b"), into: &arr)
 // arr == ["a", "b"]
 
 // If the target is not an array, "-" creates one
 var obj = JSON.object([:])
 let force = try JSONPointer("/-")
-force.set(into: &obj, value: JSON.string("first"))
+force.set(value: JSON.string("first"), into: &obj)
 // obj == ["first"] (was an object, now an array)
 ```
 
@@ -749,22 +814,23 @@ null < boolean < number < string < object < array
 This means `JSON.null < JSON.boolean(true)` is true, and `JSON.null < JSON.string("x")` is true. Objects compare by key count first, then by each key-value pair. Arrays compare by element count first, then by each element.
 
 ```swift
-// Type ordering examples
-JSON.null < JSON.boolean(true)                // true
-JSON.boolean(false) < JSON.number(.integer(1)) // true
-JSON.number(.integer(1)) < JSON.string("a")    // true
-JSON.string("a") < JSON.object(["x": JSON(1)]) // true
-JSON.object(["x": JSON(1)]) < JSON.array([JSON(1)]) // true
+// Type ordering examples (same-type comparisons only)
+JSON.null < JSON.boolean(true)                // true (null < any non-null)
+JSON.boolean(false) < JSON.boolean(true)       // true
+JSON.number(.integer(1)) < JSON.number(.integer(2))  // true
+JSON.string("a") < JSON.string("b")            // true
+JSON.object(["x": JSON(1)]) < JSON.object(["x": JSON(1), "y": JSON(2)]) // true (by count)
+JSON.array([JSON(1)]) < JSON.array([JSON(1), JSON(2)]) // true (by count)
 ```
 
 ### Mixed number comparison
 
-Integers and floats are compared as numbers, not types:
+The `<` and `>` operators compare integers and floats as numbers. However, `==` treats `.integer` and `.float` as distinct enum cases — `42` as integer and `42.0` as float are **not** equal:
 
 ```swift
 JSON.number(.integer(1)) < JSON.number(.float(2.5))    // true
-JSON.number(.integer(42)) == JSON.number(.float(42.0))  // true
-JSON.number(.float(42.0)) == JSON.number(.integer(42))  // true
+JSON.number(.integer(42)) == JSON.number(.float(42.0))  // false (different enum cases)
+JSON.number(.float(42.0)) == JSON.number(.integer(42))  // false
 ```
 
 ---
@@ -784,19 +850,19 @@ for value in obj {
   print(value)  // 10, 20 (values only)
 }
 
-// Key-value pairs
+// Key-value pairs via keyValuePairs()
 for (key, value) in obj.keyValuePairs() {
   print("\(key): \(value)")  // x: 10, y: 20
 }
 ```
 
-When iterating an object, `Sequence` yields values in insertion order. Use `items()` to get both keys and values together.
+When iterating an object, `Sequence` yields values in insertion order. Use `keyValuePairs()` to get both keys and values together.
 
 ---
 
 ## JSON Patch (RFC 6902)
 
-JSON Patch defines a sequence of operations to transform a JSON document. OrderedJSON supports both non-mutating (`patch`) and mutating (`patchInPlace`) application.
+JSON Patch defines a sequence of operations to transform a JSON document. OrderedJSON supports both non-mutating (`applying`) and mutating (`patch`) application.
 
 ```swift
 let source = JSON.parse("""
@@ -810,11 +876,11 @@ let patch = JSON.parse("""
   """)
 
 // Non-mutating — returns a new value
-let patched = try source.patch(patch)
+let patched = try source.applying(patch)
 
 // Mutating — modifies in place
 var mutable = source
-try mutable.patchInPlace(patch)
+try mutable.patch(patch)
 ```
 
 Supported operations: `add`, `remove`, `replace`, `copy`, `move`, `test`. The `test` operation returns `JSONPatchError.testFailed` if the test fails, matching `nlohmann/json` behavior.
@@ -888,7 +954,7 @@ class MyHandler: JSONSAXEventHandler {
   func parseError(_ e: JSONParseError, data: Data) -> Bool { print(e); return false }
 }
 
-let ok = JSON.saxParse("""{"a": 1}""", handler: MyHandler())
+let ok = JSON.parse("""{"a": 1}""", handler: MyHandler())
 // Prints: { key: a int: 1 }
 
 // Non-throwing validation — returns true for valid JSON
@@ -896,7 +962,7 @@ JSON.accept("""{"valid": 1}""")   // true
 JSON.accept("invalid")            // false
 ```
 
-Return `false` from any handler method to abort parsing early. `accept()` is a convenience wrapper that returns `Bool` instead of throwing.
+Return `false` from any handler method to abort parsing early. `accept()` is a convenience wrapper that returns `Bool` instead of throwing — it validates a JSON string without constructing a `JSON` value.
 
 ---
 
@@ -919,27 +985,227 @@ let json = JSON.object([
 ])
 
 // CBOR
-let cbor = json.toCBOR()
-let back = try JSON.fromCBOR(cbor)
+let cbor = json.cbor()
+let back = try JSON(cbor: cbor)
 
 // MessagePack
-let msg = json.toMsgPack()
-let back2 = try JSON.fromMsgPack(msg)
+let msg = json.msgPack()
+let back2 = try JSON(msgPack: msg)
 
 // UBJSON
-let ubj = json.toUBJSON()
-let back3 = try JSON.fromUBJSON(ubj)
+let ubj = json.ubjson()
+let back3 = try JSON(ubjson: ubj)
 
 // BSON
-let bson = json.toBSON()
-let back4 = try JSON.fromBSON(bson)
+let bson = json.bson()
+let back4 = try JSON(bson: bson)
 
 // BJData
-let bjd = json.toBJData()
-let back5 = try JSON.fromBJData(bjd)
+let bjd = json.bjdata()
+let back5 = try JSON(bjdata: bjd)
 ```
 
 All five formats preserve key order during encode and decode round-trips.
+
+---
+
+## JSON Schema
+
+OrderedJSON provides full JSON Schema validation and inference. Create a compiled schema from a schema JSON document, then validate documents against it. Supports Draft 7 and Draft 2020-12.
+
+### Creating a Schema
+
+```swift
+let schemaJSON = JSON.parse("""
+  {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "name": {"type": "string"},
+      "age": {"type": "integer", "minimum": 0}
+    },
+    "required": ["name"]
+  }
+  """)
+
+let schema = try JSONSchema(schema: schemaJSON)
+```
+
+You can also specify the draft explicitly:
+
+```swift
+let schema = try JSONSchema(schema: schemaJSON, draft: .draft7)
+```
+
+The `.auto` draft (default) detects the draft from the `$schema` keyword, falling back to `.draft202012` if absent.
+
+### Validation
+
+Three validation methods:
+
+```swift
+// Throw on first error — returns true on success
+let valid = try schema.validate(document)
+
+// Collect all errors — returns VerboseResult (never throws)
+let result = schema.validating(document)
+
+// Simple boolean check — never throws
+if schema.isValid(document) {
+  print("Document is valid")
+}
+```
+
+`VerboseResult` wraps `JSONSchemaResult` with optional hierarchical errors:
+
+```swift
+let result = schema.validating(document)
+print(result.valid)   // true or false
+
+// Access flat errors
+for error in result.errors {
+  print("[\(error.keyword)] \(error.message)")
+  print("  instance: \(error.instancePath)")
+  print("  schema:   \(error.schemaPath)")
+}
+
+// Throw if invalid
+try result.throwOnError()
+```
+
+`JSONSchemaError` includes:
+
+```swift
+let error: JSONSchemaError
+error.instancePath    // "/name" — JSON Pointer to the failing value
+error.schemaPath      // "/properties/name/type" — JSON Pointer to the failing keyword
+error.keyword         // "type" — the keyword that failed
+error.message         // "expected string, got number"
+error.failedValue     // Optional(JSON) — the value that failed validation
+error.parentSchema    // Optional(JSON) — the parent schema node
+```
+
+### Drafts
+
+```swift
+JSONSchema.Draft.draft7         // JSON Schema Draft 7 (2018) — OpenAPI 3.0
+JSONSchema.Draft.draft202012    // JSON Schema Draft 2020-12 (2022) — current standard
+JSONSchema.Draft.auto           // Auto-detect from $schema keyword
+```
+
+### Format Options
+
+Control which string formats are validated:
+
+```swift
+var formatOptions = JSONSchemaFormatOptions()
+// All formats enabled by default
+
+formatOptions.disable(.email)
+formatOptions.enable(.email)
+
+formatOptions.isEnabled(.dateTime)  // true/false
+```
+
+Supported formats: `dateTime`, `date`, `time`, `duration`, `email`, `hostname`, `ipv4`, `ipv6`, `uuid`, `uri`, `uriReference`, `jsonPointer`, `regex`.
+
+### Output Modes
+
+```swift
+JSONSchema.OutputMode.basic     // Flat list of errors (default)
+JSONSchema.OutputMode.verbose   // Hierarchical errors with nested sub-errors
+```
+
+In verbose mode, `VerboseError` captures nested validation failures:
+
+```swift
+struct VerboseError: Hashable, Sendable {
+  let error: JSONSchemaError
+  let children: [VerboseError]   // Sub-errors from allOf/anyOf/oneOf/if-then-else
+}
+```
+
+### Schema Inference
+
+Generate a JSON Schema that describes an existing JSON instance:
+
+```swift
+let instance = JSON.parse("""
+  {"name": "Alice", "age": 30, "tags": ["admin", "user"]}
+  """)
+
+// Generate raw schema JSON
+let generatedSchema = JSONSchemaGeneration.generate(from: instance)
+
+// Or get a compiled schema directly
+let schema = try instance.schema()
+// Uses draft 2020-12 by default, returns JSONSchema ready for validation
+
+// With custom options
+let schema = try instance.schema(
+  draft: .draft202012,
+  formatOptions: JSONSchemaFormatOptions(),
+  outputMode: .verbose
+)
+```
+
+Inference rules:
+- `null` → `{"type": "null"}`
+- `boolean` → `{"type": "boolean"}`
+- `integer` → `{"type": "integer"}`
+- `float` → `{"type": "number"}`
+- `string` → `{"type": "string"}`
+- `array` (homogeneous) → `{"type": "array", "items": <schema>}`
+- `array` (heterogeneous) → `{"type": "array", "prefixItems": [...]}`
+- `object` → `{"type": "object", "properties": {...}, "required": [...], "additionalProperties": false}`
+
+---
+
+## Swift Idioms
+
+OrderedJSON embraces Swift language features to make JSON manipulation feel natural.
+
+### @dynamicMemberLookup
+
+Access object keys via dot-notation instead of bracket subscripts:
+
+```swift
+let json = try JSON.parse(#"{"user": {"name": "Alice", "age": 30}}"#)
+
+// Dot-notation access
+json.user.name   // JSON.string("Alice") — equivalent to json["user"]["name"]
+json.user.age    // JSON.number(.integer(30))
+
+// Missing keys return .null (not nil)
+json.missingKey  // JSON.null
+
+// Setting via dot-notation
+var mutable = json
+mutable.user.name = JSON.string("Bob")
+```
+
+This works for any depth of nesting — `json.a.b.c.d` resolves the same as `json["a"]["b"]["c"]["d"]`.
+
+### ExpressibleBy*Literal
+
+> **Note:** `ExpressibleByArrayLiteral`, `ExpressibleByDictionaryLiteral`, and `ExpressibleByStringLiteral` conformances are intentionally **not** implemented. Swift's literal syntax for dictionaries and arrays cannot be overloaded to produce `JSON` values without losing type safety (e.g., `["key": "value"]` is ambiguous — it could be a Swift dictionary or a JSON object). Use the explicit factory methods (`JSON.object([:])`, `JSON.array([...])`) or convenience initializers instead.
+
+### Sendable & StrictConcurrency
+
+`JSON` is a `Hashable` and `Sendable` value type — it is safe to pass across concurrency domains and use with `@Sendable` closures:
+
+```swift
+// Thread-safe by design — JSON is a struct, all stored properties are Sendable
+let json = try JSON.parse("{\"key\": \"value\"}")
+
+// Safe to use in Task isolation boundaries
+Task {
+  let value = json["key"]
+  // value is Sendable
+}
+```
+
+The library is built with Swift 6 language mode (`StrictConcurrency`) enabled. All public APIs are explicitly `Sendable`-annotated where needed.
 
 ---
 
@@ -954,7 +1220,7 @@ OrderedJSON covers ~95% of `nlohmann::basic_json`'s API surface. Here are the ga
 | **`get<T>()`, `get_to()`, `get_ptr()`, `get_ref()`** | Template-based value extraction | ❌ Removed — use `require*()` methods directly | Generic dispatch adds no safety over individual methods; `requireString()`, `requireInt64()`, etc. are clearer | — |
 | **`push_back`** | Named `push_back` for arrays | ❌ Named `append` instead | Swift convention uses `append`; semantics are identical | Low priority |
 | **`operator+=`** | Compound assignment for array/object addition | ❌ Not implemented | Swift uses `append` / `+=` on arrays directly | Unlikely |
-| **`emplace_back`** | Emplace back for arrays | ❌ Covered by `emplace` | `emplace` for arrays is identical to `append` | Low priority |
+| **`emplace_back`** | Emplace back for arrays | ❌ Covered by `append` | `append` for arrays covers this | Low priority |
 | **`begin` / `end` / `cbegin` / `cend` / `rbegin` / `rend`** | Explicit iterator API | ❌ Not implemented | Swift `Sequence`/`Collection` conformance provides equivalent iteration with `for-in` loops | Possible later |
 | **`front` / `back`** | First/last element access | ❌ Named `first` / `last` | Same semantics, Swift-familiar naming | Low priority |
 | **`meta()`** | Returns library version info | ❌ Not implemented | C++-specific; Swift packages track version via `Package.swift` | Unlikely |
@@ -968,14 +1234,15 @@ OrderedJSON covers ~95% of `nlohmann::basic_json`'s API surface. Here are the ga
 All major feature categories from `nlohmann/json` are implemented:
 
 - ✅ Factory methods, type checks, subscript/at/value access
-- ✅ Modifiers (clear, erase, append, insert, emplace, update, swap)
+- ✅ Modifiers (clear, remove, append, insert, setDefault, update, swap)
 - ✅ Comparison operators (==, !=, <, <=, >, >=)
-- ✅ Sequence conformance (for-in, items())
+- ✅ Sequence conformance (for-in, keyValuePairs())
 - ✅ Parsing (parse, accept) and serialization (dump)
-- ✅ SAX parsing (saxParse)
+- ✅ SAX parsing (parse(handler:))
 - ✅ Flatten/unflatten, JSON Pointer (resolve, set)
-- ✅ JSON Patch (patch, patchInPlace, diff) and Merge Patch (mergePatch)
+- ✅ JSON Patch (applying, patch, diff) and Merge Patch (mergePatch)
 - ✅ All five binary formats (CBOR, MessagePack, UBJSON, BSON, BJData)
+- ✅ JSON Schema validation and inference
 - ✅ Hashable, Sendable, and full documentation
 
 The missing features are either **Swift-inappropriate** (C++ stream operators, allocators, string literals, unsigned integer distinction) or **naming differences** (`append` vs `push_back`, `first`/`last` vs `front`/`back`). None affect the library's ability to serve as a complete ordered JSON implementation for Swift.
@@ -1021,7 +1288,7 @@ let json = try encoder.encode(Person(name: "Alice", age: 30))
 // json is a JSON object with keys in declaration order: ["name", "age"]
 
 // Or encode directly to a compact JSON string
-let string = try encoder.encodeToString(Person(name: "Bob", age: 25))
+let string = try encoder.encodeAsString(Person(name: "Bob", age: 25))
 // "{\"name\":\"Bob\",\"age\":25}"
 ```
 
@@ -1225,9 +1492,9 @@ let p4 = try JSON.decode(Person.self, from: "{\"name\": \"Dave\", \"age\": 45,}"
 
 These live in `Sources/OrderedJSON/Codable/JSON+Decode.swift` and depend on `OrderedJSONDecoder`.
 
-### JSONWithExtras<T>
+### JSONWithUnknownKeys<T>
 
-Capture unknown JSON keys as extras while decoding known fields into a strongly-typed struct — similar to `#[serde(flatten)]` in serde.
+Capture unknown JSON keys while decoding known fields into a strongly-typed struct — similar to `#[serde(flatten)]` in serde.
 
 ```swift
 struct Person: Codable {
@@ -1240,26 +1507,26 @@ let data = Data(#"""
   """#.utf8)
 
 let wrapped = try OrderedJSONDecoder().decode(
-  JSONWithExtras<Person>.self, from: data)
+  JSONWithUnknownKeys<Person>.self, from: data)
 
 // Known fields
 wrapped.value.name  // "Alice"
 wrapped.value.age   // 30
 
-// Unknown keys captured as extras
-wrapped.extras["color"]  // .string("blue")
-wrapped.extras["city"]   // .string("NYC")
+// Unknown keys captured
+wrapped.unknownKeys["color"]  // .string("blue")
+wrapped.unknownKeys["city"]   // .string("NYC")
 ```
 
-`JSONWithExtras` works by:
+`JSONWithUnknownKeys` works by:
 1. Decoding all keys as raw `JSON` values
 2. Decoding `T` while tracking which keys it accesses via `decode(...)` and `decodeNil(forKey:)`
-3. Treating unaccessed keys as extras
+3. Treating unaccessed keys as unknown keys
 
 **Known limitations:**
-- All key access methods (`decode(...)`, `decodeNil(forKey:)`, and `contains(_:)`) mark keys as "accessed". This prevents `decodeIfPresent` probes from leaking into extras. Use `decodeIfPresent` for optional fields rather than `contains` + `decodeNil`.
+- All key access methods (`decode(...)`, `decodeNil(forKey:)`, and `contains(_:)`) mark keys as "accessed". This prevents `decodeIfPresent` probes from leaking into unknown keys. Use `decodeIfPresent` for optional fields rather than `contains` + `decodeNil`.
 - `T` must encode/decode as a keyed object; single-value and unkeyed containers are not supported
-- Extras must be a JSON object when encoding; non-object extras throw `EncodingError.invalidValue`
+- Unknown keys must be a JSON object when encoding; non-object values throw `EncodingError.invalidValue`
 
 ### Throwing Typed Accessors
 
@@ -1361,8 +1628,8 @@ let encoder = OrderedJSONEncoder()
 let json = try encoder.encode(original)
 
 // Serialize to string
-let jsonString = json.dump(indent: -1)
-// {"name":"Alice","age":30,"address":null}
+let jsonString = json.dump()
+// {"name":"Alice","age":30}
 
 // Parse back
 let parsed = try JSON.parse(jsonString)
@@ -1384,3 +1651,6 @@ let roundTripped = try decoder.decode(Person.self, from: parsed)
 - **Order preservation**: Use `JSON.parse()` for order-preserving parsing and `dump(-1)` for compact serialization.
 - **Flatten round-trip**: `flatten()` followed by `unflatten()` returns the original value. Empty containers become `null` after round-trip — avoid flattening if you need to preserve empty arrays/objects.
 - **Choose access pattern**: Use `[]` for optional access, `at()` for throwing access, `value()` for default-value access.
+- **Builder vs factory**: Use builders for complex deeply nested structures; use factory methods/inits for simple literals.
+- **Schema validation**: Use `isValid()` for simple boolean checks, `validating()` to collect all errors, `validate()` to throw on first error.
+- **Concurrency**: `JSON` is a value type — pass it freely across actors and tasks without locks.
