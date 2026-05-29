@@ -2,7 +2,7 @@ import Testing
 
 @testable import OrderedJSON
 
-struct JSONSequenceTests {
+@Suite("Sequence Tests") struct JSONSequenceTests {
   @Test("sequence array") func sequenceArray() {
     let arr = JSON.array([
       JSON.string("a"),
@@ -86,7 +86,7 @@ struct JSONSequenceTests {
   }
 }
 
-struct JSONKeyValuePairsTests {
+@Suite("Key Value Pairs Tests") struct JSONKeyValuePairsTests {
   @Test("key value pairs object") func keyValuePairsObject() {
     let obj = JSON.object([
       "a": JSON.string("x"),

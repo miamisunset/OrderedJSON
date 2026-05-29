@@ -2,7 +2,7 @@ import Testing
 
 @testable import OrderedJSON
 
-struct JSONComparisonTests {
+@Suite("Comparison Tests") struct JSONComparisonTests {
   @Test("comparison less than null") func comparisonLessThanNull() {
     #expect(JSON.null < JSON.boolean(true))
     #expect(JSON.null < JSON.number(.integer(0)))

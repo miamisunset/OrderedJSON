@@ -177,7 +177,8 @@ import Testing
     #expect(dict["a~/b"] == JSON.number(.integer(3)))
   }
 
-  @Test("flatten unflatten round trip with empty containers") func flattenUnflattenRoundTripWithEmptyContainers() throws {
+  @Test("flatten unflatten round trip with empty containers")
+  func flattenUnflattenRoundTripWithEmptyContainers() throws {
     // Empty arrays/objects flatten to null; round-trip preserves the null
     let original = JSON.object([
       "emptyObj": .object([:]),

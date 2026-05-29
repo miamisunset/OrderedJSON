@@ -95,7 +95,8 @@ import Testing
       #expect(val.isBoolean == (val == JSON.boolean(true) || val == JSON.boolean(false)))
       #expect(
         val.isNumber
-          == (val.isNull == false && val.isBoolean == false && val.isString == false && val.isObject == false && val.isArray == false)
+          == (val.isNull == false && val.isBoolean == false && val.isString == false
+            && val.isObject == false && val.isArray == false)
       )
     }
   }
@@ -325,7 +326,8 @@ import Testing
     #expect(json.intValue == 1)
   }
 
-  @Test("int value on float with fraction returns nil") func intValueOnFloatWithFractionReturnsNil() {
+  @Test("int value on float with fraction returns nil") func intValueOnFloatWithFractionReturnsNil()
+  {
     let json = JSON.number(.float(1.5))
     #expect(json.intValue == nil)
   }

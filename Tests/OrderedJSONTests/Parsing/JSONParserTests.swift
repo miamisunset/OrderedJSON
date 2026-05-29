@@ -173,7 +173,9 @@ import Testing
   }
 
   @Test("parse error expected colon") func parseErrorExpectedColon() throws {
-    #expect(throws: JSONParseError.expectedColon(line: 1, column: 6)) { try JSON.parse("{\"a\" 1}") }
+    #expect(throws: JSONParseError.expectedColon(line: 1, column: 6)) {
+      try JSON.parse("{\"a\" 1}")
+    }
   }
 
   @Test("parse error expected close brace") func parseErrorExpectedCloseBrace() throws {
@@ -183,7 +185,9 @@ import Testing
   }
 
   @Test("parse error expected close bracket") func parseErrorExpectedCloseBracket() throws {
-    #expect(throws: JSONParseError.expectedCloseBracket(line: 1, column: 3)) { try JSON.parse("[1") }
+    #expect(throws: JSONParseError.expectedCloseBracket(line: 1, column: 3)) {
+      try JSON.parse("[1")
+    }
   }
 
   @Test("parse error expected string") func parseErrorExpectedString() throws {
@@ -339,7 +343,8 @@ import Testing
     }
   }
 
-  @Test("parse high surrogate not followed by backslash") func parseHighSurrogateNotFollowedByBackslash() throws {
+  @Test("parse high surrogate not followed by backslash")
+  func parseHighSurrogateNotFollowedByBackslash() throws {
     #expect(throws: JSONParseError.invalidUnicodeEscape(line: 1, column: 8)) {
       try JSON.parse("\"\\uD800X\"")
     }
@@ -419,7 +424,8 @@ import Testing
     #expect(result == JSON.number(.float(9_223_372_036_854_775_808.0)))
   }
 
-  @Test("parse large negative integer beyond int64 min") func parseLargeNegativeIntegerBeyondInt64Min() throws {
+  @Test("parse large negative integer beyond int64 min")
+  func parseLargeNegativeIntegerBeyondInt64Min() throws {
     // Value < Int64.min should be stored as .float(Double)
     let result = try JSON.parse("-9223372036854775809")
     #expect(result.isFloat)

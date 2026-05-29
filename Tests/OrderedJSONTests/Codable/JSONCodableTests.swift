@@ -5,7 +5,7 @@ import Testing
 
 // MARK: - JSON Codable conformance
 
-struct JSONCodableConformanceTests {
+@Suite("Codable Conformance Tests") struct JSONCodableConformanceTests {
   @Test("codable encode json object") func codableEncodeJSONObject() throws {
     let json = JSON.object([
       "name": .string("Alice"),
@@ -59,7 +59,7 @@ struct JSONCodableConformanceTests {
 
 // MARK: - OrderedJSONEncoder
 
-struct OrderedJSONEncoderTests {
+@Suite("OrderedJSONEncoder Tests") struct OrderedJSONEncoderTests {
   @Test("ordered encoder simple struct") func orderedEncoderSimpleStruct() throws {
     struct Person: Encodable {
       let name: String
@@ -132,7 +132,7 @@ struct OrderedJSONEncoderTests {
 
 // MARK: - OrderedJSONDecoder
 
-struct OrderedJSONDecoderTests {
+@Suite("OrderedJSONDecoder Tests") struct OrderedJSONDecoderTests {
   @Test("ordered decoder from json") func orderedDecoderFromJSON() throws {
     let json = JSON.object([
       "name": .string("Alice"),
@@ -183,7 +183,7 @@ struct OrderedJSONDecoderTests {
 
 // MARK: - JSONWithUnknownKeys
 
-struct JSONWithExtrasTests {
+@Suite("JSONWithExtras Tests") struct JSONWithExtrasTests {
   @Test("json with extras decode") func jsonWithExtrasDecode() throws {
     struct Person: Decodable {
       let name: String
@@ -234,7 +234,9 @@ struct JSONWithExtrasTests {
     #expect(wrapped.unknownKeys.isEmpty)
   }
 
-  @Test("json with extras contains marks accessed") func jsonWithExtrasContainsMarksAccessed() throws {
+  @Test("json with extras contains marks accessed") func jsonWithExtrasContainsMarksAccessed()
+    throws
+  {
     // Regression: contains(_:) should mark the key as accessed
     // so that decodeIfPresent probes don't leak keys into extras
     struct TestStruct: Decodable {
@@ -259,7 +261,9 @@ struct JSONWithExtrasTests {
     #expect(decoded.unknownKeys["z"] == .string("extra"))
   }
 
-  @Test("json with extras date strategy propagated") func jsonWithExtrasDateStrategyPropagated() throws {
+  @Test("json with extras date strategy propagated") func jsonWithExtrasDateStrategyPropagated()
+    throws
+  {
     // Regression: date/data/decimal strategies must propagate to the tracking decoder
     struct Person: Decodable {
       let name: String
@@ -278,7 +282,9 @@ struct JSONWithExtrasTests {
     #expect(decoded.unknownKeys["extra"] == .string("extra_key"))
   }
 
-  @Test("json with extras data strategy propagated") func jsonWithExtrasDataStrategyPropagated() throws {
+  @Test("json with extras data strategy propagated") func jsonWithExtrasDataStrategyPropagated()
+    throws
+  {
     // Regression: data decoding strategy must propagate to the tracking decoder
     struct Container: Decodable {
       let data: Data
@@ -294,7 +300,8 @@ struct JSONWithExtrasTests {
     #expect(decoded.unknownKeys["extra"] == .number(.integer(42)))
   }
 
-  @Test("json with extras decimal strategy propagated") func jsonWithExtrasDecimalStrategyPropagated() throws {
+  @Test("json with extras decimal strategy propagated")
+  func jsonWithExtrasDecimalStrategyPropagated() throws {
     // Regression: decimal decoding strategy must propagate to the tracking decoder
     struct Container: Decodable {
       let amount: Decimal
@@ -313,7 +320,7 @@ struct JSONWithExtrasTests {
 
 // MARK: - Throwing accessors
 
-struct JSONCodableThrowingAccessorTests {
+@Suite("Codable Throwing Accessor Tests") struct JSONCodableThrowingAccessorTests {
   @Test("string value success") func stringValueSuccess() throws {
     let json = JSON.string("hello")
     #expect(try json.requireString() == "hello")
@@ -345,7 +352,7 @@ struct JSONCodableThrowingAccessorTests {
 
 // MARK: - Convenience decode
 
-struct JSONConvenienceDecodeTests {
+@Suite("Convenience Decode Tests") struct JSONConvenienceDecodeTests {
   @Test("convenience decode from string") func convenienceDecodeFromString() throws {
     struct Person: Decodable {
       let name: String
@@ -376,7 +383,7 @@ struct JSONConvenienceDecodeTests {
 
 // MARK: - Number normalization
 
-struct JSONNumberNormalizationTests {
+@Suite("Number Normalization Tests") struct JSONNumberNormalizationTests {
   @Test("number normalization clean double") func numberNormalizationCleanDouble() throws {
     let data = Data("42.0".utf8)
     let decoded = try JSONDecoder().decode(JSON.self, from: data)
@@ -384,7 +391,8 @@ struct JSONNumberNormalizationTests {
     #expect(decoded == .number(.integer(42)))
   }
 
-  @Test("number normalization fractional double") func numberNormalizationFractionalDouble() throws {
+  @Test("number normalization fractional double") func numberNormalizationFractionalDouble() throws
+  {
     let data = Data("3.14".utf8)
     let decoded = try JSONDecoder().decode(JSON.self, from: data)
     #expect(decoded.isFloat)
@@ -399,7 +407,7 @@ struct JSONNumberNormalizationTests {
 
 // MARK: - Integer and unsigned width accessors
 
-struct JSONIntegerWidthTests {
+@Suite("Integer Width Tests") struct JSONIntegerWidthTests {
   @Test("require int8 value success") func requireInt8ValueSuccess() throws {
     let json = JSON.number(.integer(42))
     #expect(try json.requireInt8() == 42)
@@ -490,7 +498,9 @@ struct JSONIntegerWidthTests {
     #expect(error == JSONError.typeError(expected: "float", actual: "string"))
   }
 
-  @Test("require float value rejects lossy double") func requireFloatValueRejectsLossyDouble() throws {
+  @Test("require float value rejects lossy double") func requireFloatValueRejectsLossyDouble()
+    throws
+  {
     // 0.1 is not exactly representable as Float
     let json = JSON.number(.float(0.1))
     let error = #expect(throws: JSONError.self) {
@@ -523,7 +533,7 @@ struct JSONIntegerWidthTests {
 
 // MARK: - Integer and unsigned width encoding/decoding
 
-struct JSONIntegerWidthCodingTests {
+@Suite("Integer Width Coding Tests") struct JSONIntegerWidthCodingTests {
   @Test("encode decode int8") func encodeDecodeInt8() throws {
     struct Value: Codable {
       let x: Int8
@@ -649,7 +659,7 @@ struct JSONIntegerWidthCodingTests {
 
 // MARK: - Optional / decodeIfPresent
 
-struct JSONDecodeIfPresentTests {
+@Suite("Decode If Present Tests") struct JSONDecodeIfPresentTests {
   @Test("decode if present present") func decodeIfPresentPresent() throws {
     struct Person: Decodable {
       let name: String
@@ -702,8 +712,9 @@ struct JSONDecodeIfPresentTests {
 
 // MARK: - Round-trip via OrderedJSONEncoder → dump → parse → OrderedJSONDecoder
 
-struct JSONRoundTripTests {
-  @Test("ordered json encoder decoder round trip") func orderedJSONEncoderDecoderRoundTrip() throws {
+@Suite("Round Trip Tests") struct JSONRoundTripTests {
+  @Test("ordered json encoder decoder round trip") func orderedJSONEncoderDecoderRoundTrip() throws
+  {
     struct Person: Codable {
       let name: String
       let age: Int
@@ -719,7 +730,8 @@ struct JSONRoundTripTests {
     #expect(roundTripped.age == 30)
   }
 
-  @Test("ordered json encoder decoder array round trip") func orderedJSONEncoderDecoderArrayRoundTrip() throws {
+  @Test("ordered json encoder decoder array round trip")
+  func orderedJSONEncoderDecoderArrayRoundTrip() throws {
     let encoder = OrderedJSONEncoder()
     let json = try encoder.encode([1, 2, 3])
     let jsonString = json.dump(indent: nil)
@@ -729,7 +741,8 @@ struct JSONRoundTripTests {
     #expect(arr == [1, 2, 3])
   }
 
-  @Test("ordered json encoder decoder nested round trip") func orderedJSONEncoderDecoderNestedRoundTrip() throws {
+  @Test("ordered json encoder decoder nested round trip")
+  func orderedJSONEncoderDecoderNestedRoundTrip() throws {
     struct Address: Codable {
       let city: String
       let zip: String
@@ -756,7 +769,7 @@ struct JSONRoundTripTests {
 
 // MARK: - Nested container via explicit nestedContainer(keyedBy:forKey:)
 
-struct JSONNestedContainerTests {
+@Suite("Nested Container Tests") struct JSONNestedContainerTests {
   @Test("explicit nested container encode") func explicitNestedContainerEncode() throws {
     struct Inner: Encodable {
       let x: Int
@@ -787,7 +800,9 @@ struct JSONNestedContainerTests {
     #expect(json["inner"]?["x"] == .number(.integer(42)))
   }
 
-  @Test("explicit nested unkeyed container encode") func explicitNestedUnkeyedContainerEncode() throws {
+  @Test("explicit nested unkeyed container encode") func explicitNestedUnkeyedContainerEncode()
+    throws
+  {
     struct Wrapper: Encodable {
       let items: [Int]
 
@@ -816,7 +831,7 @@ struct JSONNestedContainerTests {
 
 // MARK: - Key order preservation through OrderedJSONDecoder
 
-struct JSONKeyOrderTests {
+@Suite("Key Order Tests") struct JSONKeyOrderTests {
   @Test("ordered decoder key order for struct") func orderedDecoderKeyOrderForStruct() throws {
     struct Ordered: Decodable {
       let z: String
@@ -846,8 +861,9 @@ struct JSONKeyOrderTests {
 
 // MARK: - JSONWithUnknownKeys: extras must be object
 
-struct JSONWithExtrasValidationTests {
-  @Test("json with extras non object extras throws on encode") func jsonWithExtrasNonObjectExtrasThrowsOnEncode() throws {
+@Suite("JSONWithExtras Validation Tests") struct JSONWithExtrasValidationTests {
+  @Test("json with extras non object extras throws on encode")
+  func jsonWithExtrasNonObjectExtrasThrowsOnEncode() throws {
     struct Person: Codable {
       let name: String
     }
@@ -871,7 +887,7 @@ struct JSONWithExtrasValidationTests {
 
 // MARK: - Coding path propagation
 
-struct JSONCodingPathTests {
+@Suite("Coding Path Tests") struct JSONCodingPathTests {
   @Test("coding path includes keys") func codingPathIncludesKeys() throws {
     struct Inner: Decodable {
       let x: Int
@@ -898,7 +914,7 @@ struct JSONCodingPathTests {
 
 // MARK: - Super encoder
 
-struct JSONSuperEncoderTests {
+@Suite("Super Encoder Tests") struct JSONSuperEncoderTests {
   @Test("super encoder writes under super key") func superEncoderWritesUnderSuperKey() throws {
     class Base: Encodable {
       let baseValue: Int = 42
@@ -940,7 +956,7 @@ struct JSONSuperEncoderTests {
 
 // MARK: - Top-level JSON.encode(_:) and JSON.decode(_:from:) convenience
 
-struct JSONTopLevelConvenienceTests {
+@Suite("Top Level Convenience Tests") struct JSONTopLevelConvenienceTests {
   @Test("top level encode struct") func topLevelEncodeStruct() throws {
     struct Person: Encodable {
       let name: String
@@ -1019,7 +1035,7 @@ struct JSONTopLevelConvenienceTests {
 
 // MARK: - Foundation type interop
 
-struct JSONFoundationInteropTests {
+@Suite("Foundation Interop Tests") struct JSONFoundationInteropTests {
   @Test("foundation date default") func foundationDateDefault() throws {
     struct Container: Codable {
       let timestamp: Date
@@ -1053,7 +1069,8 @@ struct JSONFoundationInteropTests {
     #expect(back.timestamp.timeIntervalSince1970 == 1_234_567_890)
   }
 
-  @Test("foundation date milliseconds since 1970") func foundationDateMillisecondsSince1970() throws {
+  @Test("foundation date milliseconds since 1970") func foundationDateMillisecondsSince1970() throws
+  {
     struct Container: Codable {
       let timestamp: Date
     }
@@ -1185,7 +1202,9 @@ struct JSONFoundationInteropTests {
     #expect(back.amount == decimal)
   }
 
-  @Test("foundation decimal as number huge throws") func foundationDecimalAsNumberHugeThrows() throws {
+  @Test("foundation decimal as number huge throws") func foundationDecimalAsNumberHugeThrows()
+    throws
+  {
     // Regression test: Decimal with huge exponent must not cause Int64(Double.infinity) crash
     struct Container: Codable {
       let amount: Decimal
@@ -1244,7 +1263,7 @@ struct JSONFoundationInteropTests {
 
 // MARK: - Invalid input error handling
 
-struct JSONInvalidInputTests {
+@Suite("Invalid Input Tests") struct JSONInvalidInputTests {
   @Test("invalid url string throws") func invalidURLStringThrows() throws {
     struct Container: Decodable {
       let url: URL
@@ -1325,7 +1344,7 @@ struct JSONInvalidInputTests {
 
 // MARK: - Optional Date via decodeIfPresent
 
-struct JSONOptionalDateTests {
+@Suite("Optional Date Tests") struct JSONOptionalDateTests {
   @Test("foundation optional date present") func foundationOptionalDatePresent() throws {
     struct Container: Decodable {
       let timestamp: Date?
@@ -1359,7 +1378,7 @@ struct JSONOptionalDateTests {
 
 // MARK: - Strategy propagation through custom closures
 
-struct JSONStrategyPropagationTests {
+@Suite("Strategy Propagation Tests") struct JSONStrategyPropagationTests {
   @Test("strategy propagation in deferred date") func strategyPropagationInDeferredDate() throws {
     // When .deferredToDate is used, a child impl is created internally.
     // Verify that the child impl receives the configured strategies.

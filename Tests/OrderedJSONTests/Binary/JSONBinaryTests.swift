@@ -604,7 +604,8 @@ struct JSONMsgPackTests {
     #expect(decoded == json)
   }
 
-  @Test("msg pack string len exceeds data (throws)") func msgPackStringLenExceedsDataThrows() throws {
+  @Test("msg pack string len exceeds data (throws)") func msgPackStringLenExceedsDataThrows() throws
+  {
     // MsgPack string 32 with length > available data should throw
     let bytes: [UInt8] = [0xDB, 0xFF, 0xFF, 0xFF, 0xFF]
     let data = Data(bytes)
@@ -750,14 +751,18 @@ struct JSONUBJSONTests {
     #expect(decoded == json)
   }
 
-  @Test("ubjson string len int16 negative (throws)") func ubjsonStringLenInt16NegativeThrows() throws {
+  @Test("ubjson string len int16 negative (throws)") func ubjsonStringLenInt16NegativeThrows()
+    throws
+  {
     // UBJSON string with Int16 length = -1 should throw
     let bytes: [UInt8] = [0x53, 0x49, 0xFF, 0xFF, 0x41]
     let data = Data(bytes)
     #expect(throws: JSONError.self) { try JSON(ubjson: data) }
   }
 
-  @Test("ubjson string len int32 negative (throws)") func ubjsonStringLenInt32NegativeThrows() throws {
+  @Test("ubjson string len int32 negative (throws)") func ubjsonStringLenInt32NegativeThrows()
+    throws
+  {
     // UBJSON string with Int32 length = -1 should throw
     let bytes: [UInt8] = [0x53, 0x6C, 0xFF, 0xFF, 0xFF, 0xFF, 0x41]
     let data = Data(bytes)
@@ -1003,7 +1008,8 @@ struct JSONBSONTests {
     #expect(decoded["arr"]?[0] == JSON.number(.integer(1)))
   }
 
-  @Test("bson truncated string no null terminator (throws)") func bsonTruncatedStringNoNullTerminatorThrows() throws {
+  @Test("bson truncated string no null terminator (throws)")
+  func bsonTruncatedStringNoNullTerminatorThrows() throws {
     // BSON string element (type 0x02) without null terminator should throw
     // Document: [length][type=0x02][key "a"][string length][string without null]
     let bytes: [UInt8] = [
@@ -1019,7 +1025,9 @@ struct JSONBSONTests {
     #expect(throws: JSONError.self) { try JSON(bson: data) }
   }
 
-  @Test("bson cstring key no null terminator (throws)") func bsonCStringKeyNoNullTerminatorThrows() throws {
+  @Test("bson cstring key no null terminator (throws)") func bsonCStringKeyNoNullTerminatorThrows()
+    throws
+  {
     // BSON C-string key without null terminator should throw (decodeBSONCString)
     // Document: [length][type=0x10][key without null][int32][null]
     // The key "ab" has no null terminator — decodeBSONCString must throw
@@ -1184,14 +1192,18 @@ struct JSONBJDataTests {
     #expect(decoded == json)
   }
 
-  @Test("bjdata string len int16 negative (throws)") func bjdataStringLenInt16NegativeThrows() throws {
+  @Test("bjdata string len int16 negative (throws)") func bjdataStringLenInt16NegativeThrows()
+    throws
+  {
     // BJData string with Int16 length = -1 should throw
     let bytes: [UInt8] = [0x53, 0x49, 0xFF, 0xFF, 0x41]
     let data = Data(bytes)
     #expect(throws: JSONError.self) { try JSON(bjdata: data) }
   }
 
-  @Test("bjdata string len int32 negative (throws)") func bjdataStringLenInt32NegativeThrows() throws {
+  @Test("bjdata string len int32 negative (throws)") func bjdataStringLenInt32NegativeThrows()
+    throws
+  {
     // BJData string with Int32 length = -1 should throw
     let bytes: [UInt8] = [0x53, 0x6C, 0xFF, 0xFF, 0xFF, 0xFF, 0x41]
     let data = Data(bytes)
@@ -1267,7 +1279,9 @@ struct JSONOverflowTests {
     #expect(d == Double(large))
   }
 
-  @Test("cbor negative int overflow becomes float") func cborNegativeIntOverflowBecomesFloat() throws {
+  @Test("cbor negative int overflow becomes float") func cborNegativeIntOverflowBecomesFloat()
+    throws
+  {
     // CBOR major type 1 (negative integer) with 8-byte argument
     // Value: -1 - 2^64 = overflow case
     // Encode argument = UInt64.max, so result = -1 - UInt64.max which overflows Int64

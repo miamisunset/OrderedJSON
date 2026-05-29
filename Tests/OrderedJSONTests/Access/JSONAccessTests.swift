@@ -252,7 +252,8 @@ import Testing
 
   @Test("value key non object") func valueKeyNonObject() {
     let str = JSON.string("hello")
-    #expect(str.value(forKey: "key", default: JSON.number(.integer(42))) == JSON.number(.integer(42)))
+    #expect(
+      str.value(forKey: "key", default: JSON.number(.integer(42))) == JSON.number(.integer(42)))
   }
 
   @Test("value index with default") func valueIndexWithDefault() {

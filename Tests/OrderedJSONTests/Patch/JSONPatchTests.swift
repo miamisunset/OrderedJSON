@@ -169,7 +169,7 @@ struct JSONPatchBasicTests {
 
 @Suite("JSONPatch error tests")
 struct JSONPatchErrorTests {
-  @Test("patch test fail") func patchTestFail() throws {
+  @Test("patch test fail") func patchTestFail() {
     let json = JSON.object([
       "foo": JSON.string("bar")
     ])
@@ -184,7 +184,7 @@ struct JSONPatchErrorTests {
     #expect(error == .formatError("Test failed: value mismatch"))
   }
 
-  @Test("patch invalid operation") func patchInvalidOperation() throws {
+  @Test("patch invalid operation") func patchInvalidOperation() {
     let json = JSON.object(["foo": JSON.string("bar")])
     let patch = JSON.array([
       JSON.object([
@@ -196,21 +196,21 @@ struct JSONPatchErrorTests {
     #expect(error == .formatError("Unknown operation: unknown"))
   }
 
-  @Test("patch invalid patch format") func patchInvalidPatchFormat() throws {
+  @Test("patch invalid patch format") func patchInvalidPatchFormat() {
     let json = JSON.object(["foo": JSON.string("bar")])
     let patch = JSON.string("not an array")
     let error = #expect(throws: JSONError.self) { try json.applying(patch) }
     #expect(error == .formatError("Patch must be an array of operations"))
   }
 
-  @Test("patch operation not object") func patchOperationNotObject() throws {
+  @Test("patch operation not object") func patchOperationNotObject() {
     let json = JSON.object(["foo": JSON.string("bar")])
     let patch = JSON.array([JSON.string("not object")])
     let error = #expect(throws: JSONError.self) { try json.applying(patch) }
     #expect(error == .formatError("Each operation must be an object"))
   }
 
-  @Test("patch missing op") func patchMissingOp() throws {
+  @Test("patch missing op") func patchMissingOp() {
     let json = JSON.object(["foo": JSON.string("bar")])
     let patch = JSON.array([
       JSON.object(["path": JSON.string("/foo")])
@@ -219,7 +219,7 @@ struct JSONPatchErrorTests {
     #expect(error == .formatError("Missing 'op' field"))
   }
 
-  @Test("patch missing path") func patchMissingPath() throws {
+  @Test("patch missing path") func patchMissingPath() {
     let json = JSON.object(["foo": JSON.string("bar")])
     let patch = JSON.array([
       JSON.object(["op": JSON.string("add"), "value": JSON.string("x")])
@@ -228,7 +228,7 @@ struct JSONPatchErrorTests {
     #expect(error == .formatError("Missing 'path' field"))
   }
 
-  @Test("patch add missing value") func patchAddMissingValue() throws {
+  @Test("patch add missing value") func patchAddMissingValue() {
     let json = JSON.object(["foo": JSON.string("bar")])
     let patch = JSON.array([
       JSON.object(["op": JSON.string("add"), "path": JSON.string("/baz")])
@@ -237,7 +237,7 @@ struct JSONPatchErrorTests {
     #expect(error == .formatError("Missing 'value' field for add"))
   }
 
-  @Test("patch replace missing value") func patchReplaceMissingValue() throws {
+  @Test("patch replace missing value") func patchReplaceMissingValue() {
     let json = JSON.object(["foo": JSON.string("bar")])
     let patch = JSON.array([
       JSON.object(["op": JSON.string("replace"), "path": JSON.string("/foo")])
@@ -246,7 +246,7 @@ struct JSONPatchErrorTests {
     #expect(error == .formatError("Missing 'value' field for replace"))
   }
 
-  @Test("patch copy missing from") func patchCopyMissingFrom() throws {
+  @Test("patch copy missing from") func patchCopyMissingFrom() {
     let json = JSON.object(["foo": JSON.string("bar")])
     let patch = JSON.array([
       JSON.object(["op": JSON.string("copy"), "path": JSON.string("/baz")])
@@ -255,7 +255,7 @@ struct JSONPatchErrorTests {
     #expect(error == .formatError("Missing 'from' field for copy"))
   }
 
-  @Test("patch move missing from") func patchMoveMissingFrom() throws {
+  @Test("patch move missing from") func patchMoveMissingFrom() {
     let json = JSON.object(["foo": JSON.string("bar")])
     let patch = JSON.array([
       JSON.object(["op": JSON.string("move"), "path": JSON.string("/foo")])
@@ -264,7 +264,7 @@ struct JSONPatchErrorTests {
     #expect(error == .formatError("Missing 'from' field for move"))
   }
 
-  @Test("patch test missing value") func patchTestMissingValue() throws {
+  @Test("patch test missing value") func patchTestMissingValue() {
     let json = JSON.object(["foo": JSON.string("bar")])
     let patch = JSON.array([
       JSON.object(["op": JSON.string("test"), "path": JSON.string("/foo")])
@@ -273,7 +273,7 @@ struct JSONPatchErrorTests {
     #expect(error == .formatError("Missing 'value' field for test"))
   }
 
-  @Test("patch copy path not found") func patchCopyPathNotFound() throws {
+  @Test("patch copy path not found") func patchCopyPathNotFound() {
     let json = JSON.object(["foo": JSON.string("bar")])
     let patch = JSON.array([
       JSON.object([
@@ -286,7 +286,7 @@ struct JSONPatchErrorTests {
     #expect(error == .formatError("Path not found"))
   }
 
-  @Test("patch move path not found") func patchMovePathNotFound() throws {
+  @Test("patch move path not found") func patchMovePathNotFound() {
     let json = JSON.object(["foo": JSON.string("bar")])
     let patch = JSON.array([
       JSON.object([
@@ -299,7 +299,7 @@ struct JSONPatchErrorTests {
     #expect(error == .formatError("Path not found"))
   }
 
-  @Test("patch append to non array") func patchAppendToNonArray() throws {
+  @Test("patch append to non array") func patchAppendToNonArray() {
     let json = JSON.object(["foo": JSON.string("bar")])
     let patch = JSON.array([
       JSON.object([
@@ -312,7 +312,7 @@ struct JSONPatchErrorTests {
     #expect(error == .formatError("Cannot append to non-array"))
   }
 
-  @Test("patch dash token in from rejected") func patchDashTokenInFromRejected() throws {
+  @Test("patch dash token in from rejected") func patchDashTokenInFromRejected() {
     let patch = JSON.array([
       JSON.object([
         "op": .string("copy"),
@@ -326,7 +326,7 @@ struct JSONPatchErrorTests {
     #expect(error == .formatError("Path not found"))
   }
 
-  @Test("patch traverse beyond append") func patchTraverseBeyondAppend() throws {
+  @Test("patch traverse beyond append") func patchTraverseBeyondAppend() {
     let json = JSON.array([JSON.string("a")])
     let patch = JSON.array([
       JSON.object([
@@ -339,7 +339,7 @@ struct JSONPatchErrorTests {
     #expect(error == .formatError("Cannot traverse beyond '-' append marker"))
   }
 
-  @Test("patch index into non array") func patchIndexIntoNonArray() throws {
+  @Test("patch index into non array") func patchIndexIntoNonArray() {
     let json = JSON.object(["foo": JSON.string("bar")])
     let patch = JSON.array([
       JSON.object([
@@ -352,7 +352,7 @@ struct JSONPatchErrorTests {
     #expect(error == .formatError("Cannot index into non-array"))
   }
 
-  @Test("patch key into non object") func patchKeyIntoNonObject() throws {
+  @Test("patch key into non object") func patchKeyIntoNonObject() {
     let json = JSON.array([JSON.string("a")])
     let patch = JSON.array([
       JSON.object([
@@ -365,7 +365,7 @@ struct JSONPatchErrorTests {
     #expect(error == .formatError("Cannot key into non-object"))
   }
 
-  @Test("patch key not found in set") func patchKeyNotFoundInSet() throws {
+  @Test("patch key not found in set") func patchKeyNotFoundInSet() {
     let json = JSON.object(["a": JSON.object(["x": JSON.string("y")])])
     let patch = JSON.array([
       JSON.object([
@@ -378,7 +378,7 @@ struct JSONPatchErrorTests {
     #expect(error == .formatError("Key not found: b"))
   }
 
-  @Test("patch key not found in remove") func patchKeyNotFoundInRemove() throws {
+  @Test("patch key not found in remove") func patchKeyNotFoundInRemove() {
     let json = JSON.object(["a": JSON.object(["x": JSON.string("y")])])
     let patch = JSON.array([
       JSON.object([
@@ -390,7 +390,7 @@ struct JSONPatchErrorTests {
     #expect(error == .formatError("Key not found: b"))
   }
 
-  @Test("patch replace array out of bounds") func patchReplaceArrayOutOfBounds() throws {
+  @Test("patch replace array out of bounds") func patchReplaceArrayOutOfBounds() {
     let json = JSON.array([JSON.string("a")])
     let patch = JSON.array([
       JSON.object([
@@ -403,7 +403,7 @@ struct JSONPatchErrorTests {
     #expect(error == .formatError("Array index out of bounds for replace"))
   }
 
-  @Test("patch add array append beyond") func patchAddArrayAppendBeyond() throws {
+  @Test("patch add array append beyond") func patchAddArrayAppendBeyond() {
     let json = JSON.array([JSON.string("a")])
     let patch = JSON.array([
       JSON.object([
@@ -416,7 +416,7 @@ struct JSONPatchErrorTests {
     #expect(error == .formatError("Array index out of bounds for add"))
   }
 
-  @Test("patch remove index into non array") func patchRemoveIndexIntoNonArray() throws {
+  @Test("patch remove index into non array") func patchRemoveIndexIntoNonArray() {
     let json = JSON.object(["foo": JSON.string("bar")])
     let patch = JSON.array([
       JSON.object([
@@ -428,7 +428,7 @@ struct JSONPatchErrorTests {
     #expect(error == .formatError("Cannot index into non-array for remove"))
   }
 
-  @Test("patch remove array out of bounds") func patchRemoveArrayOutOfBounds() throws {
+  @Test("patch remove array out of bounds") func patchRemoveArrayOutOfBounds() {
     let json = JSON.array([JSON.string("a")])
     let patch = JSON.array([
       JSON.object([
@@ -440,7 +440,7 @@ struct JSONPatchErrorTests {
     #expect(error == .formatError("Array index out of bounds for remove"))
   }
 
-  @Test("patch remove key into non object") func patchRemoveKeyIntoNonObject() throws {
+  @Test("patch remove key into non object") func patchRemoveKeyIntoNonObject() {
     let json = JSON.array([JSON.string("a")])
     let patch = JSON.array([
       JSON.object([
@@ -452,7 +452,7 @@ struct JSONPatchErrorTests {
     #expect(error == .formatError("Cannot key into non-object for remove"))
   }
 
-  @Test("patch array index out of bounds traverse") func patchArrayIndexOutOfBoundsTraverse() throws {
+  @Test("patch array index out of bounds traverse") func patchArrayIndexOutOfBoundsTraverse() {
     let json = JSON.array([JSON.array([JSON.string("a")])])
     let patch = JSON.array([
       JSON.object([
