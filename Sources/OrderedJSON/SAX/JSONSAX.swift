@@ -22,7 +22,7 @@ import Foundation
 /// }
 /// JSON.saxParse(#"{"key":"value"}"#, handler: Collector())
 /// ```
-public protocol JSONSAXEventHandler: AnyObject {
+public protocol JSONSAXEventHandler {
   /// Called when a JSON `null` value is parsed.
   func null() -> Bool
   /// Called when a JSON boolean value is parsed.
