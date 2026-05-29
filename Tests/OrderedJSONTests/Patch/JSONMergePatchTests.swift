@@ -4,7 +4,10 @@ import Testing
 
 // MARK: - JSON Merge Patch (RFC 7396) Tests
 
-@Test func mergePatchReplaceScalar() {
+@Suite("JSON merge patch tests")
+struct JSONMergePatchTests {
+
+@Test("merge patch replace scalar") func mergePatchReplaceScalar() {
   let target = JSON.object(["foo": JSON.string("bar")])
   let patch = JSON.object(["foo": JSON.string("baz")])
   let result = target.mergePatch(patch)
@@ -12,7 +15,7 @@ import Testing
   #expect(result == expected)
 }
 
-@Test func mergePatchAddKey() {
+@Test("merge patch add key") func mergePatchAddKey() {
   let target = JSON.object(["foo": JSON.string("bar")])
   let patch = JSON.object(["baz": JSON.string("qux")])
   let result = target.mergePatch(patch)
@@ -23,7 +26,7 @@ import Testing
   #expect(result == expected)
 }
 
-@Test func mergePatchRemoveKey() {
+@Test("merge patch remove key") func mergePatchRemoveKey() {
   let target = JSON.object([
     "foo": JSON.string("bar"),
     "baz": JSON.string("qux"),
@@ -34,7 +37,7 @@ import Testing
   #expect(result == expected)
 }
 
-@Test func mergePatchRecursive() {
+@Test("merge patch recursive") func mergePatchRecursive() {
   let target = JSON.object([
     "a": JSON.object([
       "b": JSON.string("c")
@@ -55,7 +58,7 @@ import Testing
   #expect(result == expected)
 }
 
-@Test func mergePatchRecursiveReplace() {
+@Test("merge patch recursive replace") func mergePatchRecursiveReplace() {
   let target = JSON.object([
     "a": JSON.object([
       "b": JSON.string("c")
@@ -75,14 +78,14 @@ import Testing
   #expect(result == expected)
 }
 
-@Test func mergePatchNullTarget() {
+@Test("merge patch null target") func mergePatchNullTarget() {
   let target = JSON.object(["foo": JSON.string("bar")])
   let patch = JSON.null
   let result = target.mergePatch(patch)
   #expect(result.isNull)
 }
 
-@Test func mergePatchReplacesNonObject() {
+@Test("merge patch replaces non object") func mergePatchReplacesNonObject() {
   let target = JSON.string("original")
   let patch = JSON.object(["foo": JSON.string("bar")])
   let result = target.mergePatch(patch)
@@ -91,14 +94,14 @@ import Testing
   #expect(result == expected)
 }
 
-@Test func mergePatchScalarReplacesObject() {
+@Test("merge patch scalar replaces object") func mergePatchScalarReplacesObject() {
   let target = JSON.object(["foo": JSON.string("bar")])
   let patch = JSON.string("scalar")
   let result = target.mergePatch(patch)
   #expect(result == JSON.string("scalar"))
 }
 
-@Test func mergePatchNoChanges() {
+@Test("merge patch no changes") func mergePatchNoChanges() {
   let target = JSON.object([
     "foo": JSON.string("bar"),
     "baz": JSON.number(.integer(42)),
@@ -108,7 +111,7 @@ import Testing
   #expect(result == target)
 }
 
-@Test func mergePatchAddsAndRemoves() {
+@Test("merge patch adds and removes") func mergePatchAddsAndRemoves() {
   let target = JSON.object([
     "a": JSON.string("1"),
     "b": JSON.string("2"),
@@ -125,7 +128,7 @@ import Testing
   #expect(result == expected)
 }
 
-@Test func mergePatchDeeplyNested() {
+@Test("merge patch deeply nested") func mergePatchDeeplyNested() {
   let target = JSON.object([
     "level1": JSON.object([
       "level2": JSON.object([
@@ -151,4 +154,5 @@ import Testing
     ])
   ])
   #expect(result == expected)
+}
 }

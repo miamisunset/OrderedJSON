@@ -5,7 +5,9 @@ import Testing
 
 // MARK: - Object Builder
 
-@Test func objectBuilderSimpleValues() {
+struct JSONObjectBuilderTests {
+
+@Test("object builder simple values") func objectBuilderSimpleValues() {
   let json = JSON.ObjectBuilder()
     .set("name", "Alice")
     .set("age", 30)
@@ -21,7 +23,7 @@ import Testing
   #expect(json["pi"] == .number(.float(3.14)))
 }
 
-@Test func objectBuilderKeyOrder() {
+@Test("object builder key order") func objectBuilderKeyOrder() {
   let json = JSON.ObjectBuilder()
     .set("z", "last")
     .set("a", "first")
@@ -34,7 +36,7 @@ import Testing
   #expect(keys?[2] == "m")
 }
 
-@Test func objectBuilderNestedObject() {
+@Test("object builder nested object") func objectBuilderNestedObject() {
   let json = JSON.ObjectBuilder()
     .set("name", "Alice")
     .set(
@@ -51,7 +53,7 @@ import Testing
   #expect(json["address"]?["zip"] == .string("10001"))
 }
 
-@Test func objectBuilderNestedArray() {
+@Test("object builder nested array") func objectBuilderNestedArray() {
   let json = JSON.ObjectBuilder()
     .set(
       "tags",
@@ -67,7 +69,7 @@ import Testing
   #expect(json["tags"]?[1] == .string("user"))
 }
 
-@Test func objectBuilderExplicitJSON() {
+@Test("object builder explicit json") func objectBuilderExplicitJSON() {
   let json = JSON.ObjectBuilder()
     .set("null", .null)
     .set("int", .number(.integer(42)))
@@ -82,7 +84,7 @@ import Testing
   #expect(json["array"]?[0] == .string("a"))
 }
 
-@Test func objectBuilderRemove() {
+@Test("object builder remove") func objectBuilderRemove() {
   let json = JSON.ObjectBuilder()
     .set("a", 1)
     .set("b", 2)
@@ -96,7 +98,7 @@ import Testing
   #expect(json["b"] == nil)
 }
 
-@Test func objectBuilderRemoveNonExistent() {
+@Test("object builder remove non existent") func objectBuilderRemoveNonExistent() {
   let json = JSON.ObjectBuilder()
     .set("a", 1)
     .remove("nonexistent")
@@ -106,7 +108,7 @@ import Testing
   #expect(json["a"] == .number(.integer(1)))
 }
 
-@Test func objectBuilderCount() {
+@Test("object builder count") func objectBuilderCount() {
   let builder = JSON.ObjectBuilder()
   #expect(builder.count == 0)
 
@@ -114,7 +116,7 @@ import Testing
   #expect(builder.count == 2)
 }
 
-@Test func objectBuilderBuildString() {
+@Test("object builder build string") func objectBuilderBuildString() {
   let str = JSON.ObjectBuilder()
     .set("x", 1)
     .set("y", "hello")
@@ -123,7 +125,7 @@ import Testing
   #expect(str == #"{"x":1,"y":"hello"}"#)
 }
 
-@Test func objectBuilderBuildStringWithIndent() {
+@Test("object builder build string with indent") func objectBuilderBuildStringWithIndent() {
   let str = JSON.ObjectBuilder()
     .set("x", 1)
     .set("y", "hello")
@@ -138,7 +140,7 @@ import Testing
   #expect(str == expected)
 }
 
-@Test func objectBuilderInt64Value() {
+@Test("object builder int64 value") func objectBuilderInt64Value() {
   let large: Int64 = 9_000_000_000_000_000_000
   let json = JSON.ObjectBuilder()
     .set("large", large)
@@ -147,7 +149,7 @@ import Testing
   #expect(json["large"] == .number(.integer(large)))
 }
 
-@Test func objectBuilderFloatValue() {
+@Test("object builder float value") func objectBuilderFloatValue() {
   let json = JSON.ObjectBuilder()
     .set("temp", Float(98.6))
     .build()
@@ -155,7 +157,7 @@ import Testing
   #expect(json["temp"]?.isFloat == true)
 }
 
-@Test func objectBuilderArrayOfJSON() {
+@Test("object builder array of json") func objectBuilderArrayOfJSON() {
   let json = JSON.ObjectBuilder()
     .set("items", [.string("a"), .number(.integer(1)), .boolean(true)])
     .build()
@@ -167,7 +169,7 @@ import Testing
   #expect(json["items"]?[2] == .boolean(true))
 }
 
-@Test func objectBuilderUInt() {
+@Test("object builder uint") func objectBuilderUInt() {
   let json = JSON.ObjectBuilder()
     .set("small", UInt(42))
     .set("large", UInt(Int64.max))
@@ -177,7 +179,7 @@ import Testing
   #expect(json["large"] == .number(.integer(Int64.max)))
 }
 
-@Test func objectBuilderUInt64Overflow() {
+@Test("object builder uint64 overflow") func objectBuilderUInt64Overflow() {
   let big = UInt64(Int64.max) + 1
   let json = JSON.ObjectBuilder()
     .set("overflow", big)
@@ -188,7 +190,7 @@ import Testing
   #expect(json["overflow"] == .number(.float(Double(big))))
 }
 
-@Test func objectBuilderSetNull() {
+@Test("object builder set null") func objectBuilderSetNull() {
   let json = JSON.ObjectBuilder()
     .set("a", 1)
     .setNull("b")
@@ -197,7 +199,7 @@ import Testing
   #expect(json["b"] == .null)
 }
 
-@Test func objectBuilderSetIfPresent() {
+@Test("object builder set if present") func objectBuilderSetIfPresent() {
   let json = JSON.ObjectBuilder()
     .set("a", 1)
     .setIfPresent("b", "hello" as String?)
@@ -209,7 +211,7 @@ import Testing
   #expect(json["c"] == nil)
 }
 
-@Test func objectBuilderSetIfPresentBool() {
+@Test("object builder set if present bool") func objectBuilderSetIfPresentBool() {
   let json = JSON.ObjectBuilder()
     .setIfPresent("active", true as Bool?)
     .setIfPresent("missing", nil as Bool?)
@@ -219,7 +221,7 @@ import Testing
   #expect(json["active"] == .boolean(true))
 }
 
-@Test func objectBuilderSetIfPresentInt() {
+@Test("object builder set if present int") func objectBuilderSetIfPresentInt() {
   let json = JSON.ObjectBuilder()
     .setIfPresent("val", 42 as Int?)
     .setIfPresent("nil", nil as Int?)
@@ -229,7 +231,7 @@ import Testing
   #expect(json["val"] == .number(.integer(42)))
 }
 
-@Test func objectBuilderSetIfPresentDouble() {
+@Test("object builder set if present double") func objectBuilderSetIfPresentDouble() {
   let json = JSON.ObjectBuilder()
     .setIfPresent("val", 3.14 as Double?)
     .setIfPresent("nil", nil as Double?)
@@ -239,7 +241,7 @@ import Testing
   #expect(json["val"] == .number(.float(3.14)))
 }
 
-@Test func objectBuilderSetIfPresentFloat() {
+@Test("object builder set if present float") func objectBuilderSetIfPresentFloat() {
   let json = JSON.ObjectBuilder()
     .setIfPresent("val", Float(1.5) as Float?)
     .setIfPresent("nil", nil as Float?)
@@ -249,7 +251,7 @@ import Testing
   #expect(json["val"]?.isFloat == true)
 }
 
-@Test func objectBuilderSetIfPresentUInt() {
+@Test("object builder set if present uint") func objectBuilderSetIfPresentUInt() {
   let json = JSON.ObjectBuilder()
     .setIfPresent("small", UInt?(42))
     .setIfPresent("nil", nil as UInt?)
@@ -259,7 +261,7 @@ import Testing
   #expect(json["small"] == .number(.integer(42)))
 }
 
-@Test func objectBuilderSetIfPresentJSON() {
+@Test("object builder set if present json") func objectBuilderSetIfPresentJSON() {
   let json = JSON.ObjectBuilder()
     .set("a", 1)
     .setIfPresent("b", JSON?(.string("hello")))
@@ -270,7 +272,7 @@ import Testing
   #expect(json["b"] == .string("hello"))
 }
 
-@Test func objectBuilderSetIfPresentJSONArray() {
+@Test("object builder set if present json array") func objectBuilderSetIfPresentJSONArray() {
   let json = JSON.ObjectBuilder()
     .setIfPresent("items", [JSON]?([.string("a"), .number(.integer(1))]))
     .setIfPresent("nil", nil as [JSON]?)
@@ -281,7 +283,7 @@ import Testing
   #expect(json["items"]?[0] == .string("a"))
 }
 
-@Test func objectBuilderSetIfPresentObjectBuilder() {
+@Test("object builder set if present object builder") func objectBuilderSetIfPresentObjectBuilder() {
   let json = JSON.ObjectBuilder()
     .set("a", 1)
     .setIfPresent(
@@ -299,7 +301,7 @@ import Testing
   #expect(json["addr"]?["city"] == .string("NYC"))
 }
 
-@Test func objectBuilderSetIfPresentArrayBuilder() {
+@Test("object builder set if present array builder") func objectBuilderSetIfPresentArrayBuilder() {
   let json = JSON.ObjectBuilder()
     .set("a", 1)
     .setIfPresent(
@@ -318,7 +320,7 @@ import Testing
   #expect(json["tags"]?[0] == .string("x"))
 }
 
-@Test func objectBuilderMerge() {
+@Test("object builder merge") func objectBuilderMerge() {
   let merged = JSON.ObjectBuilder()
     .set("a", 1)
     .set("b", 2)
@@ -336,7 +338,7 @@ import Testing
   #expect(merged["d"] == .number(.integer(4)))
 }
 
-@Test func objectBuilderMergeOverwrites() {
+@Test("object builder merge overwrites") func objectBuilderMergeOverwrites() {
   let merged = JSON.ObjectBuilder()
     .set("a", 1)
     .set("b", 2)
@@ -353,7 +355,7 @@ import Testing
   #expect(merged["c"] == .number(.integer(3)))
 }
 
-@Test func objectBuilderMergeKeyOrder() {
+@Test("object builder merge key order") func objectBuilderMergeKeyOrder() {
   let merged = JSON.ObjectBuilder()
     .set("a", 1)
     .set("b", 2)
@@ -370,9 +372,13 @@ import Testing
   #expect(keys?[2] == "c")  // "c" appended at end
 }
 
+}
+
 // MARK: - Array Builder
 
-@Test func arrayBuilderSimpleValues() {
+struct JSONArrayBuilderTests {
+
+@Test("array builder simple values") func arrayBuilderSimpleValues() {
   let json = JSON.ArrayBuilder()
     .add("a")
     .add(42)
@@ -388,7 +394,7 @@ import Testing
   #expect(json[3] == .number(.float(3.14)))
 }
 
-@Test func arrayBuilderNestedObject() {
+@Test("array builder nested object") func arrayBuilderNestedObject() {
   let json = JSON.ArrayBuilder()
     .add("hello")
     .add(
@@ -405,7 +411,7 @@ import Testing
   #expect(json[1]?["y"] == .number(.integer(2)))
 }
 
-@Test func arrayBuilderNestedArray() {
+@Test("array builder nested array") func arrayBuilderNestedArray() {
   let json = JSON.ArrayBuilder()
     .add("outer")
     .add(
@@ -422,7 +428,7 @@ import Testing
   #expect(json[1]?[1] == .number(.integer(99)))
 }
 
-@Test func arrayBuilderExplicitJSON() {
+@Test("array builder explicit json") func arrayBuilderExplicitJSON() {
   let json = JSON.ArrayBuilder()
     .add(.null)
     .add(.number(.integer(42)))
@@ -436,7 +442,7 @@ import Testing
   #expect(json[3] == .boolean(false))
 }
 
-@Test func arrayBuilderCount() {
+@Test("array builder count") func arrayBuilderCount() {
   let builder = JSON.ArrayBuilder()
   #expect(builder.count == 0)
 
@@ -444,7 +450,7 @@ import Testing
   #expect(builder.count == 3)
 }
 
-@Test func arrayBuilderBuildString() {
+@Test("array builder build string") func arrayBuilderBuildString() {
   let str = JSON.ArrayBuilder()
     .add(1)
     .add("two")
@@ -454,7 +460,7 @@ import Testing
   #expect(str == #"[1,"two",true]"#)
 }
 
-@Test func arrayBuilderBuildStringWithIndent() {
+@Test("array builder build string with indent") func arrayBuilderBuildStringWithIndent() {
   let str = JSON.ArrayBuilder()
     .add(1)
     .add("two")
@@ -469,7 +475,7 @@ import Testing
   #expect(str == expected)
 }
 
-@Test func arrayBuilderInt64Value() {
+@Test("array builder int64 value") func arrayBuilderInt64Value() {
   let large: Int64 = 9_000_000_000_000_000_000
   let json = JSON.ArrayBuilder()
     .add(large)
@@ -478,7 +484,7 @@ import Testing
   #expect(json[0] == .number(.integer(large)))
 }
 
-@Test func arrayBuilderFloatValue() {
+@Test("array builder float value") func arrayBuilderFloatValue() {
   let json = JSON.ArrayBuilder()
     .add(Float(3.14))
     .build()
@@ -486,7 +492,7 @@ import Testing
   #expect(json[0]?.isFloat == true)
 }
 
-@Test func arrayBuilderArrayOfJSON() {
+@Test("array builder array of json") func arrayBuilderArrayOfJSON() {
   let json = JSON.ArrayBuilder()
     .add([.string("x"), .number(.integer(1))])
     .build()
@@ -496,7 +502,7 @@ import Testing
   #expect(json[0]?[1] == .number(.integer(1)))
 }
 
-@Test func arrayBuilderUInt() {
+@Test("array builder uint") func arrayBuilderUInt() {
   let json = JSON.ArrayBuilder()
     .add(UInt(42))
     .add(UInt(Int64.max))
@@ -506,7 +512,7 @@ import Testing
   #expect(json[1] == .number(.integer(Int64.max)))
 }
 
-@Test func arrayBuilderUInt64Overflow() {
+@Test("array builder uint64 overflow") func arrayBuilderUInt64Overflow() {
   let big = UInt64(Int64.max) + 1
   let json = JSON.ArrayBuilder()
     .add(big)
@@ -516,7 +522,7 @@ import Testing
   #expect(json[0] == .number(.float(Double(big))))
 }
 
-@Test func arrayBuilderAddNull() {
+@Test("array builder add null") func arrayBuilderAddNull() {
   let json = JSON.ArrayBuilder()
     .add("a")
     .addNull()
@@ -525,7 +531,7 @@ import Testing
   #expect(json[1] == .null)
 }
 
-@Test func arrayBuilderAppendContentsOfBuilder() {
+@Test("array builder append contents of builder") func arrayBuilderAppendContentsOfBuilder() {
   let combined = JSON.ArrayBuilder()
     .add("a")
     .add("b")
@@ -543,7 +549,7 @@ import Testing
   #expect(combined[3] == .string("d"))
 }
 
-@Test func arrayBuilderAppendContentsOfArray() {
+@Test("array builder append contents of array") func arrayBuilderAppendContentsOfArray() {
   let combined = JSON.ArrayBuilder()
     .add(1)
     .add(2)
@@ -557,7 +563,7 @@ import Testing
   #expect(combined[3] == .number(.integer(3)))
 }
 
-@Test func arrayBuilderAddIfPresent() {
+@Test("array builder add if present") func arrayBuilderAddIfPresent() {
   let json = JSON.ArrayBuilder()
     .add("a")
     .addIfPresent("hello" as String?)
@@ -575,7 +581,7 @@ import Testing
   #expect(json[3] == .boolean(true))
 }
 
-@Test func arrayBuilderAddIfPresentUInt() {
+@Test("array builder add if present uint") func arrayBuilderAddIfPresentUInt() {
   let json = JSON.ArrayBuilder()
     .addIfPresent(UInt?(42))
     .addIfPresent(nil as UInt?)
@@ -585,7 +591,7 @@ import Testing
   #expect(json[0] == .number(.integer(42)))
 }
 
-@Test func arrayBuilderAddIfPresentJSON() {
+@Test("array builder add if present json") func arrayBuilderAddIfPresentJSON() {
   let json = JSON.ArrayBuilder()
     .add("a")
     .addIfPresent(JSON?(.string("hello")))
@@ -596,7 +602,7 @@ import Testing
   #expect(json[1] == .string("hello"))
 }
 
-@Test func arrayBuilderAddIfPresentObjectBuilder() {
+@Test("array builder add if present object builder") func arrayBuilderAddIfPresentObjectBuilder() {
   let json = JSON.ArrayBuilder()
     .add("a")
     .addIfPresent(
@@ -613,7 +619,7 @@ import Testing
   #expect(json[1]?["x"] == .number(.integer(1)))
 }
 
-@Test func arrayBuilderAddIfPresentArrayBuilder() {
+@Test("array builder add if present array builder") func arrayBuilderAddIfPresentArrayBuilder() {
   let json = JSON.ArrayBuilder()
     .add("a")
     .addIfPresent(
@@ -630,7 +636,7 @@ import Testing
   #expect(json[1]?[0] == .string("inner"))
 }
 
-@Test func arrayBuilderAddIfPresentDouble() {
+@Test("array builder add if present double") func arrayBuilderAddIfPresentDouble() {
   let json = JSON.ArrayBuilder()
     .addIfPresent(3.14 as Double?)
     .addIfPresent(nil as Double?)
@@ -640,9 +646,13 @@ import Testing
   #expect(json[0] == .number(.float(3.14)))
 }
 
+}
+
 // MARK: - Builder round-trip
 
-@Test func builderRoundTripWithEncoderDecoder() throws {
+struct JSONBuilderRoundTripTests {
+
+@Test("builder round trip with encoder decoder") func builderRoundTripWithEncoderDecoder() throws {
   struct Person: Codable {
     let name: String
     let age: Int
@@ -665,4 +675,5 @@ import Testing
   #expect(person.name == "Alice")
   #expect(person.age == 30)
   #expect(person.tags == ["admin", "user"])
+}
 }
