@@ -105,9 +105,9 @@ OrderedJSON is organized as a single `JSON` struct wrapping an internal `Storage
 │                                                   │
 │  ┌────── Access ──────┐  ┌──── Modifiers ─────┐  │
 │  │ subscript [key]     │  │ clear, remove      │  │
-
+│                                                   │
 │  │ value(forKey:default:) │  │ setDefault, update │  │
-
+│                                                   │
 │  │ parse(String)  │   │ cbor()      │   │ parse(handler:)││
 
 │  │ parse(Data)    │   │ msgPack()   │   │ accept         ││

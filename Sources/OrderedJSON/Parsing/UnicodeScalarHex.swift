@@ -1,7 +1,5 @@
 /// Named constants for common Unicode scalar values used in JSON parsing.
 /// Improves readability over raw hex literals throughout the parser.
-/// Named constants for common Unicode scalar values used in JSON parsing.
-/// Improves readability over raw hex literals throughout the parser.
 package enum UnicodeScalarHex {
   /// Space character (U+0020).
   static let space: UInt32 = 0x20

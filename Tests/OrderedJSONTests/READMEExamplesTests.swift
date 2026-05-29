@@ -1,5 +1,4 @@
 import Foundation
-import OrderedCollections
 import Testing
 
 @testable import OrderedJSON
@@ -218,17 +217,17 @@ import Testing
 @Test func readmeTypeChecks() throws {
   let json = try JSON.parse("{\"x\": 1, \"y\": [2], \"z\": null}")
 
-  let x = json["x"]!
-  #expect(!x.isNull)
-  #expect(!x.isBoolean)
+  let x = try #require(json["x"])
+  #expect(x.isNull == false)
+  #expect(x.isBoolean == false)
   #expect(x.isNumber)
   #expect(x.isInteger)
-  #expect(!x.isFloat)
-  #expect(!x.isString)
-  #expect(!x.isObject)
-  #expect(!x.isArray)
+  #expect(x.isFloat == false)
+  #expect(x.isString == false)
+  #expect(x.isObject == false)
+  #expect(x.isArray == false)
   #expect(x.isPrimitive)
-  #expect(!x.isStructured)
+  #expect(x.isStructured == false)
 
   #expect(x.type == JSON.JSONType.number)
   #expect(x.typeName == "number")
@@ -282,7 +281,7 @@ import Testing
     """)
 
   #expect(json.count == 3)
-  #expect(!json.isEmpty)
+  #expect(json.isEmpty == false)
 
   #expect(json.first == JSON.number(.integer(1)))
   #expect(json.last == JSON.number(.integer(3)))
@@ -504,8 +503,8 @@ import Testing
   // Note: < supports mixed number comparison, but == does NOT.
   // Integer and float are distinct enum cases in JSONNumber.
   #expect(JSON.number(.integer(1)) < JSON.number(.float(2.5)))
-  #expect(!(JSON.number(.integer(42)) == JSON.number(.float(42.0))))
-  #expect(!(JSON.number(.float(42.0)) == JSON.number(.integer(42))))
+  #expect(JSON.number(.integer(42)) != JSON.number(.float(42.0)))
+  #expect(JSON.number(.float(42.0)) != JSON.number(.integer(42)))
 }
 
 // MARK: - Sequence Conformance
@@ -653,7 +652,7 @@ import Testing
 
   // accept() validation
   #expect(JSON.accept("{\"valid\": 1}"))
-  #expect(!JSON.accept("invalid"))
+  #expect(JSON.accept("invalid") == false)
 }
 
 // MARK: - Binary Formats
@@ -758,7 +757,7 @@ import Testing
 @Test func readmeSchemaFormatOptions() throws {
   var formatOptions = JSONSchemaFormatOptions()
   formatOptions.disable(.email)
-  #expect(!formatOptions.isEnabled(.email))
+  #expect(formatOptions.isEnabled(.email) == false)
   formatOptions.enable(.email)
   #expect(formatOptions.isEnabled(.email))
   #expect(formatOptions.isEnabled(.dateTime))
