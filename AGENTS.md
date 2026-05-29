@@ -46,13 +46,6 @@ Swift library that preserves JSON key order with a rich method-based API mirrori
 
 - Keep `AGENTS.md` length under ~800–1500 tokens when possible.
 
-## Documentation
-
-- **Plan**: `docs/documentation-plan.md` — current doc overhaul plan (Phases 1-5)
-- **README** rewrite in progress on `docs/documentation-overhaul` branch
-- **Goal**: Swift-native framing (not "nlohmann mirror"), comprehensive DocC comments on all public APIs, internal/package APIs documented, JSON Schema section in README
-- **Pre-push** includes verifying docs match source
-
 ## Coverage
 - Aim for 100% test coverage. Every new or changed code path must have a corresponding test.
 
