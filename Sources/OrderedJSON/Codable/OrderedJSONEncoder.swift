@@ -396,11 +396,29 @@ final class _JSONKeyedEncodingContainer<Key: CodingKey>: KeyedEncodingContainerP
   }
 
   func encode(_ value: Double, forKey key: Key) throws {
+    guard !value.isNaN && !value.isInfinite else {
+      throw EncodingError.invalidValue(
+        value,
+        EncodingError.Context(
+          codingPath: codingPath + [key],
+          debugDescription: "\(value) is not representable as a JSON number"
+        )
+      )
+    }
     ref.dict[key.stringValue] = .number(.float(value))
     impl.syncKeyed()
   }
 
   func encode(_ value: Float, forKey key: Key) throws {
+    guard !value.isNaN && !value.isInfinite else {
+      throw EncodingError.invalidValue(
+        value,
+        EncodingError.Context(
+          codingPath: codingPath + [key],
+          debugDescription: "\(value) is not representable as a JSON number"
+        )
+      )
+    }
     ref.dict[key.stringValue] = .number(.float(Double(value)))
     impl.syncKeyed()
   }
@@ -639,11 +657,29 @@ final class _JSONUnkeyedEncodingContainer: UnkeyedEncodingContainer {
   }
 
   func encode(_ value: Double) throws {
+    guard !value.isNaN && !value.isInfinite else {
+      throw EncodingError.invalidValue(
+        value,
+        EncodingError.Context(
+          codingPath: codingPath,
+          debugDescription: "\(value) is not representable as a JSON number"
+        )
+      )
+    }
     ref.elements.append(.number(.float(value)))
     impl.syncUnkeyed()
   }
 
   func encode(_ value: Float) throws {
+    guard !value.isNaN && !value.isInfinite else {
+      throw EncodingError.invalidValue(
+        value,
+        EncodingError.Context(
+          codingPath: codingPath,
+          debugDescription: "\(value) is not representable as a JSON number"
+        )
+      )
+    }
     ref.elements.append(.number(.float(Double(value))))
     impl.syncUnkeyed()
   }
@@ -801,11 +837,29 @@ struct _JSONSingleValueEncodingContainer: SingleValueEncodingContainer {
   }
 
   mutating func encode(_ value: Double) throws {
+    guard !value.isNaN && !value.isInfinite else {
+      throw EncodingError.invalidValue(
+        value,
+        EncodingError.Context(
+          codingPath: codingPath,
+          debugDescription: "\(value) is not representable as a JSON number"
+        )
+      )
+    }
     impl.json = .number(.float(value))
     impl.syncKeyed()
   }
 
   mutating func encode(_ value: Float) throws {
+    guard !value.isNaN && !value.isInfinite else {
+      throw EncodingError.invalidValue(
+        value,
+        EncodingError.Context(
+          codingPath: codingPath,
+          debugDescription: "\(value) is not representable as a JSON number"
+        )
+      )
+    }
     impl.json = .number(.float(Double(value)))
     impl.syncKeyed()
   }

@@ -162,6 +162,22 @@ final class _JSONDecodeImpl: Decoder {
 
 // MARK: - Foundation type decoding helpers
 
+/// Wraps a JSONError thrown by a require*() call into DecodingError.dataCorrupted.
+private func wrapJSONError<T>(_ expression: () throws -> T, codingPath: [CodingKey],
+  debugDescription: String? = nil) throws -> T
+{
+  do {
+    return try expression()
+  } catch let error as JSONError {
+    throw DecodingError.dataCorrupted(
+      DecodingError.Context(
+        codingPath: codingPath,
+        debugDescription: debugDescription ?? String(describing: error)
+      )
+    )
+  }
+}
+
 package func decodeDate(
   from json: JSON, with strategy: DateDecodingStrategy, codingPath: [CodingKey],
   dateDecodingStrategy: DateDecodingStrategy,
@@ -179,11 +195,11 @@ package func decodeDate(
     )
     return try Date(from: impl)
   case .secondsSince1970:
-    return try Date(timeIntervalSince1970: json.requireDouble())
+    return try Date(timeIntervalSince1970: wrapJSONError({ try json.requireDouble() }, codingPath: codingPath))
   case .millisecondsSince1970:
-    return try Date(timeIntervalSince1970: json.requireDouble() / 1000.0)
+    return try Date(timeIntervalSince1970: wrapJSONError({ try json.requireDouble() }, codingPath: codingPath) / 1000.0)
   case .iso8601:
-    let string = try json.requireString()
+    let string = try wrapJSONError({ try json.requireString() }, codingPath: codingPath)
     let formatter = ISO8601DateFormatter()
     formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
     guard let date = formatter.date(from: string) else {
@@ -196,7 +212,7 @@ package func decodeDate(
     }
     return date
   case .formatted(let formatter):
-    let string = try json.requireString()
+    let string = try wrapJSONError({ try json.requireString() }, codingPath: codingPath)
     guard let date = formatter.date(from: string) else {
       throw DecodingError.dataCorrupted(
         DecodingError.Context(
@@ -234,7 +250,7 @@ package func decodeData(
     )
     return try Data(from: impl)
   case .base64:
-    let string = try json.requireString()
+    let string = try wrapJSONError({ try json.requireString() }, codingPath: codingPath)
     guard let data = Data(base64Encoded: string) else {
       throw DecodingError.dataCorrupted(
         DecodingError.Context(
@@ -260,7 +276,7 @@ package func decodeDecimal(
 ) throws -> Decimal {
   switch strategy {
   case .asString:
-    let string = try json.requireString()
+    let string = try wrapJSONError({ try json.requireString() }, codingPath: codingPath)
     guard let decimal = Decimal(string: string) else {
       throw DecodingError.dataCorrupted(
         DecodingError.Context(
@@ -291,7 +307,7 @@ package func decodeDecimal(
 package func decodeURL(
   from json: JSON, codingPath: [CodingKey]
 ) throws -> URL {
-  let string = try json.requireString()
+  let string = try wrapJSONError({ try json.requireString() }, codingPath: codingPath)
   guard let url = URL(string: string) else {
     throw DecodingError.dataCorrupted(
       DecodingError.Context(
@@ -306,7 +322,7 @@ package func decodeURL(
 package func decodeUUID(
   from json: JSON, codingPath: [CodingKey]
 ) throws -> UUID {
-  let string = try json.requireString()
+  let string = try wrapJSONError({ try json.requireString() }, codingPath: codingPath)
   guard let uuid = UUID(uuidString: string) else {
     throw DecodingError.dataCorrupted(
       DecodingError.Context(
@@ -316,6 +332,24 @@ package func decodeUUID(
     )
   }
   return uuid
+}
+
+// MARK: - JSONError → DecodingError wrapping
+
+/// Wraps a JSONError thrown by a require*() call into DecodingError.typeMismatch
+/// with a coding path that includes the current key.
+private func decodeJSON<T>(_ expression: () throws -> T, codingPath: [CodingKey]) throws -> T {
+  do {
+    return try expression()
+  } catch let error as JSONError {
+    throw DecodingError.typeMismatch(
+      T.self,
+      DecodingError.Context(
+        codingPath: codingPath,
+        debugDescription: String(describing: error)
+      )
+    )
+  }
 }
 
 // MARK: - Keyed decoding container
@@ -349,61 +383,61 @@ struct _JSONKeyedDecodingContainer<Key: CodingKey>: KeyedDecodingContainerProtoc
   }
 
   func decode(_: Bool.Type, forKey key: Key) throws -> Bool {
-    try valueForKey(key) { try $0.requireBool() }
+    try valueForKey(key) { json in try decodeJSON({ try json.requireBool() }, codingPath: codingPath + [key]) }
   }
 
   func decode(_: String.Type, forKey key: Key) throws -> String {
-    try valueForKey(key) { try $0.requireString() }
+    try valueForKey(key) { json in try decodeJSON({ try json.requireString() }, codingPath: codingPath + [key]) }
   }
 
   func decode(_: Int64.Type, forKey key: Key) throws -> Int64 {
-    try valueForKey(key) { try $0.requireInt64() }
+    try valueForKey(key) { json in try decodeJSON({ try json.requireInt64() }, codingPath: codingPath + [key]) }
   }
 
   func decode(_: Int.Type, forKey key: Key) throws -> Int {
-    try valueForKey(key) { try $0.requireInt() }
+    try valueForKey(key) { json in try decodeJSON({ try json.requireInt() }, codingPath: codingPath + [key]) }
   }
 
   func decode(_: Double.Type, forKey key: Key) throws -> Double {
-    try valueForKey(key) { try $0.requireDouble() }
+    try valueForKey(key) { json in try decodeJSON({ try json.requireDouble() }, codingPath: codingPath + [key]) }
   }
 
   func decode(_: Float.Type, forKey key: Key) throws -> Float {
-    try valueForKey(key) { try $0.requireFloat() }
+    try valueForKey(key) { json in try decodeJSON({ try json.requireFloat() }, codingPath: codingPath + [key]) }
   }
 
   // MARK: - Integer and unsigned widths
 
   func decode(_: Int8.Type, forKey key: Key) throws -> Int8 {
-    try valueForKey(key) { try $0.requireInt8() }
+    try valueForKey(key) { json in try decodeJSON({ try json.requireInt8() }, codingPath: codingPath + [key]) }
   }
 
   func decode(_: Int16.Type, forKey key: Key) throws -> Int16 {
-    try valueForKey(key) { try $0.requireInt16() }
+    try valueForKey(key) { json in try decodeJSON({ try json.requireInt16() }, codingPath: codingPath + [key]) }
   }
 
   func decode(_: Int32.Type, forKey key: Key) throws -> Int32 {
-    try valueForKey(key) { try $0.requireInt32() }
+    try valueForKey(key) { json in try decodeJSON({ try json.requireInt32() }, codingPath: codingPath + [key]) }
   }
 
   func decode(_: UInt.Type, forKey key: Key) throws -> UInt {
-    try valueForKey(key) { try $0.requireUInt() }
+    try valueForKey(key) { json in try decodeJSON({ try json.requireUInt() }, codingPath: codingPath + [key]) }
   }
 
   func decode(_: UInt8.Type, forKey key: Key) throws -> UInt8 {
-    try valueForKey(key) { try $0.requireUInt8() }
+    try valueForKey(key) { json in try decodeJSON({ try json.requireUInt8() }, codingPath: codingPath + [key]) }
   }
 
   func decode(_: UInt16.Type, forKey key: Key) throws -> UInt16 {
-    try valueForKey(key) { try $0.requireUInt16() }
+    try valueForKey(key) { json in try decodeJSON({ try json.requireUInt16() }, codingPath: codingPath + [key]) }
   }
 
   func decode(_: UInt32.Type, forKey key: Key) throws -> UInt32 {
-    try valueForKey(key) { try $0.requireUInt32() }
+    try valueForKey(key) { json in try decodeJSON({ try json.requireUInt32() }, codingPath: codingPath + [key]) }
   }
 
   func decode(_: UInt64.Type, forKey key: Key) throws -> UInt64 {
-    try valueForKey(key) { try $0.requireUInt64() }
+    try valueForKey(key) { json in try decodeJSON({ try json.requireUInt64() }, codingPath: codingPath + [key]) }
   }
 
   func decode<T: Decodable>(_: T.Type, forKey key: Key) throws -> T {
@@ -574,61 +608,61 @@ struct _JSONUnkeyedDecodingContainer: UnkeyedDecodingContainer {
   }
 
   mutating func decode(_: Bool.Type) throws -> Bool {
-    try currentElement().requireBool()
+    try decodeJSON({ try currentElement().requireBool() }, codingPath: codingPath)
   }
 
   mutating func decode(_: String.Type) throws -> String {
-    try currentElement().requireString()
+    try decodeJSON({ try currentElement().requireString() }, codingPath: codingPath)
   }
 
   mutating func decode(_: Int64.Type) throws -> Int64 {
-    try currentElement().requireInt64()
+    try decodeJSON({ try currentElement().requireInt64() }, codingPath: codingPath)
   }
 
   mutating func decode(_: Int.Type) throws -> Int {
-    try currentElement().requireInt()
+    try decodeJSON({ try currentElement().requireInt() }, codingPath: codingPath)
   }
 
   mutating func decode(_: Double.Type) throws -> Double {
-    try currentElement().requireDouble()
+    try decodeJSON({ try currentElement().requireDouble() }, codingPath: codingPath)
   }
 
   mutating func decode(_: Float.Type) throws -> Float {
-    try currentElement().requireFloat()
+    try decodeJSON({ try currentElement().requireFloat() }, codingPath: codingPath)
   }
 
   // MARK: - Integer and unsigned widths
 
   mutating func decode(_: Int8.Type) throws -> Int8 {
-    try currentElement().requireInt8()
+    try decodeJSON({ try currentElement().requireInt8() }, codingPath: codingPath)
   }
 
   mutating func decode(_: Int16.Type) throws -> Int16 {
-    try currentElement().requireInt16()
+    try decodeJSON({ try currentElement().requireInt16() }, codingPath: codingPath)
   }
 
   mutating func decode(_: Int32.Type) throws -> Int32 {
-    try currentElement().requireInt32()
+    try decodeJSON({ try currentElement().requireInt32() }, codingPath: codingPath)
   }
 
   mutating func decode(_: UInt.Type) throws -> UInt {
-    try currentElement().requireUInt()
+    try decodeJSON({ try currentElement().requireUInt() }, codingPath: codingPath)
   }
 
   mutating func decode(_: UInt8.Type) throws -> UInt8 {
-    try currentElement().requireUInt8()
+    try decodeJSON({ try currentElement().requireUInt8() }, codingPath: codingPath)
   }
 
   mutating func decode(_: UInt16.Type) throws -> UInt16 {
-    try currentElement().requireUInt16()
+    try decodeJSON({ try currentElement().requireUInt16() }, codingPath: codingPath)
   }
 
   mutating func decode(_: UInt32.Type) throws -> UInt32 {
-    try currentElement().requireUInt32()
+    try decodeJSON({ try currentElement().requireUInt32() }, codingPath: codingPath)
   }
 
   mutating func decode(_: UInt64.Type) throws -> UInt64 {
-    try currentElement().requireUInt64()
+    try decodeJSON({ try currentElement().requireUInt64() }, codingPath: codingPath)
   }
 
   mutating func decode<T: Decodable>(_: T.Type) throws -> T {
