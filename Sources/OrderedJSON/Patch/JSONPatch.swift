@@ -117,16 +117,15 @@ extension JSON {
     var current = json
     for segment in segments {
       if segment == "-" { return nil }  // '-' is only valid as add target, not resolve
-      if let index = Int(segment) {
-        guard case .array(let arr) = current.storage,
-          index >= 0, index < arr.count
-        else { return nil }
+      switch current.storage {
+      case .array(let arr):
+        guard let index = Int(segment), index >= 0, index < arr.count else { return nil }
         current = arr[index]
-      } else {
-        guard case .object(let dict) = current.storage,
-          let value = dict[segment]
-        else { return nil }
+      case .object(let dict):
+        guard let value = dict[segment] else { return nil }
         current = value
+      default:
+        return nil
       }
     }
     return current
@@ -161,6 +160,9 @@ extension JSON {
       guard case .array(let arr) = json.storage else {
         throw JSONError.formatError("Cannot append to non-array")
       }
+      if !isAdd {
+        throw JSONError.formatError("'-' append marker is only valid for add operations")
+      }
       if isLast {
         var copy = arr
         copy.append(value)
@@ -170,8 +172,9 @@ extension JSON {
       }
     }
 
-    if let idx = Int(segment) {
-      guard case .array(let arr) = json.storage else {
+    switch json.storage {
+    case .array(let arr):
+      guard let idx = Int(segment) else {
         throw JSONError.formatError("Cannot index into non-array")
       }
       if isLast {
@@ -202,10 +205,8 @@ extension JSON {
         copy[idx] = updatedChild
         return .array(copy)
       }
-    } else {
-      guard case .object(var dict) = json.storage else {
-        throw JSONError.formatError("Cannot key into non-object")
-      }
+
+    case .object(var dict):
       if isLast {
         dict[segment] = value
         return .object(dict)
@@ -219,6 +220,9 @@ extension JSON {
         dict[segment] = updatedChild
         return .object(dict)
       }
+
+    default:
+      throw JSONError.formatError("Cannot key into non-object")
     }
   }
 
@@ -227,8 +231,9 @@ extension JSON {
     let segment = segments[index]
     let isLast = index == segments.count - 1
 
-    if let idx = Int(segment) {
-      guard case .array(let arr) = json.storage else {
+    switch json.storage {
+    case .array(let arr):
+      guard let idx = Int(segment) else {
         throw JSONError.formatError("Cannot index into non-array for remove")
       }
       guard idx >= 0, idx < arr.count else {
@@ -244,10 +249,8 @@ extension JSON {
         copy[idx] = updatedChild
         return .array(copy)
       }
-    } else {
-      guard case .object(var dict) = json.storage else {
-        throw JSONError.formatError("Cannot key into non-object for remove")
-      }
+
+    case .object(var dict):
       if isLast {
         guard dict.keys.contains(segment) else {
           throw JSONError.formatError("Key not found: \(segment)")
@@ -262,6 +265,9 @@ extension JSON {
         dict[segment] = updatedChild
         return .object(dict)
       }
+
+    default:
+      throw JSONError.formatError("Cannot key into non-object for remove")
     }
   }
 }
@@ -360,7 +366,7 @@ extension JSON {
         }
       }
       if s.count > minCount {
-        for i in minCount..<s.count {
+        for i in (minCount..<s.count).reversed() {
           let opPath = path.isEmpty ? "/\(i)" : "\(path)/\(i)"
           operations.append(
             .object([

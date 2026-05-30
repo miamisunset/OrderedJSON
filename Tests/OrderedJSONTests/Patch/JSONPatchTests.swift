@@ -339,7 +339,7 @@ struct JSONPatchErrorTests {
     #expect(error == .formatError("Cannot traverse beyond '-' append marker"))
   }
 
-  @Test("patch index into non array") func patchIndexIntoNonArray() {
+  @Test("patch index into non array treats as key") func patchIndexIntoNonArray() throws {
     let json = JSON.object(["foo": JSON.string("bar")])
     let patch = JSON.array([
       JSON.object([
@@ -348,8 +348,10 @@ struct JSONPatchErrorTests {
         "value": JSON.string("x"),
       ])
     ])
-    let error = #expect(throws: JSONError.self) { try json.applying(patch) }
-    #expect(error == .formatError("Cannot index into non-array"))
+    // Per RFC 6901: numeric tokens on objects are member keys, not array indices
+    let result = try json.applying(patch)
+    let expected = JSON.object(["foo": JSON.string("bar"), "0": JSON.string("x")])
+    #expect(result == expected)
   }
 
   @Test("patch key into non object") func patchKeyIntoNonObject() {
@@ -362,7 +364,7 @@ struct JSONPatchErrorTests {
       ])
     ])
     let error = #expect(throws: JSONError.self) { try json.applying(patch) }
-    #expect(error == .formatError("Cannot key into non-object"))
+    #expect(error == .formatError("Cannot index into non-array"))
   }
 
   @Test("patch key not found in set") func patchKeyNotFoundInSet() {
@@ -416,7 +418,7 @@ struct JSONPatchErrorTests {
     #expect(error == .formatError("Array index out of bounds for add"))
   }
 
-  @Test("patch remove index into non array") func patchRemoveIndexIntoNonArray() {
+  @Test("patch remove index into non array treats as key") func patchRemoveIndexIntoNonArray() {
     let json = JSON.object(["foo": JSON.string("bar")])
     let patch = JSON.array([
       JSON.object([
@@ -424,8 +426,9 @@ struct JSONPatchErrorTests {
         "path": JSON.string("/0"),
       ])
     ])
+    // Per RFC 6901: numeric tokens on objects are member keys. Key "0" doesn't exist.
     let error = #expect(throws: JSONError.self) { try json.applying(patch) }
-    #expect(error == .formatError("Cannot index into non-array for remove"))
+    #expect(error == .formatError("Key not found: 0"))
   }
 
   @Test("patch remove array out of bounds") func patchRemoveArrayOutOfBounds() {
@@ -449,7 +452,7 @@ struct JSONPatchErrorTests {
       ])
     ])
     let error = #expect(throws: JSONError.self) { try json.applying(patch) }
-    #expect(error == .formatError("Cannot key into non-object for remove"))
+    #expect(error == .formatError("Cannot index into non-array for remove"))
   }
 
   @Test("patch array index out of bounds traverse") func patchArrayIndexOutOfBoundsTraverse() {
