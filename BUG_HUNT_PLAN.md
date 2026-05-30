@@ -359,3 +359,22 @@ Phase 13 (Memory/Perf)     → low risk
 ```
 
 Each phase: write targeted test cases, run them, record any failures, fix the bug, verify fix.
+
+**IMPORTANT: Commit all changes from each phase before moving to the next phase.** Uncommitted changes across multiple phases are at risk of being lost (e.g., by `git clean` or working tree resets). Each phase should produce a self-contained commit with its source changes and test files.
+
+---
+
+## Lost Edge Case Test Files
+
+The following edge case test files were created during the bug hunt but **lost** before they could be committed (deleted by `git clean -fd`, not in stash because they were untracked new files). They need to be recreated from the checklists above:
+
+| File | Phase | Checklist Items |
+|------|-------|-----------------|
+| `Tests/OrderedJSONTests/Access/JSONAccessEdgeCaseTests.swift` | 9 (Accessors) | dynamicMember setter, subscript nil removal, intValue/doubleValue NaN, requireFloat/requireDouble |
+| `Tests/OrderedJSONTests/Codable/JSONCodableEdgeCaseTests.swift` | 7 (Codable) | Key order preservation, JSONWithUnknownKeys, strategy edge cases, encodeAsString, super encoder |
+| `Tests/OrderedJSONTests/Flatten/JSONFlattenEdgeCaseTests.swift` | 5 (Flatten) | Key escaping (`~`, `/`, `~0`, `~1` round-trip), empty objects/arrays, root-only value, non-primitive validation |
+| `Tests/OrderedJSONTests/Modifiers/JSONModifierEdgeCaseTests.swift` | 8 (Modifiers) | update(mergingNested:), setDefault autoclosure, remove negative index, swap inout semantics |
+| `Tests/OrderedJSONTests/Parsing/JSONParserEdgeCaseTests.swift` | 1 (Parser) | Surrogate pairs, trailing commas, number edge cases, string edge cases, depth limit, SAX accept mode, trailing data |
+| `Tests/OrderedJSONTests/Patch/JSONPatchEdgeCaseTests.swift` | 3 (Patch) | Path parsing (`~0`/`~1` order), `-` append marker, move/copy overlap, test with NaN, array remove index shifts, empty path |
+
+Each file above was a `@Suite` struct with `@Test` methods covering the edge cases listed in its phase's checklist section. Recreate by following the checklist items in the corresponding phase section above.

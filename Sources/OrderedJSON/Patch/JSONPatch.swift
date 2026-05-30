@@ -100,7 +100,7 @@ extension JSON {
   }
 
   private func parsePatchPath(_ path: String) -> [String] {
-    if path.isEmpty || path == "/" { return [] }
+    if path.isEmpty { return [] }
     return path.dropFirst().split(separator: "/", omittingEmptySubsequences: false).map {
       $0.replacingOccurrences(of: "~1", with: "/").replacingOccurrences(of: "~0", with: "~")
     }

@@ -129,7 +129,12 @@ extension JSON {
         segments.first?.isEmpty == true
         ? segments.dropFirst().filter { !$0.isEmpty }
         : segments.filter { !$0.isEmpty }
-      guard !parts.isEmpty else { continue }
+      // Handle root pointer (key "" or "/"): set the entire root value.
+      // This is needed for scalar roots that flatten to { "": value }.
+      guard !parts.isEmpty else {
+        root = value
+        continue
+      }
       // RFC 6901 §4: unescape ~0 (tilde) and ~1 (slash) in each segment.
       // Must iterate sequentially to handle overlapping ~00 (double tilde).
       parts = parts.map { unescapeJSONPointerSegment($0) }

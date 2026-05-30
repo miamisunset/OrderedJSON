@@ -574,18 +574,24 @@ extension JSON {
       }
     case UnicodeScalarHex.minus, UnicodeScalarHex.zero...UnicodeScalarHex.nine:  // -, 0-9
       if ctx.currentScalar?.value == UnicodeScalarHex.minus { ctx.advance() }
+      var hadDigit = false
       while let s = ctx.currentScalar, s.value >= UnicodeScalarHex.zero,
         s.value <= UnicodeScalarHex.nine
       {
+        hadDigit = true
         ctx.advance()
       }
+      guard hadDigit else { return false }
       if let s = ctx.currentScalar, s.value == UnicodeScalarHex.dot {  // .
         ctx.advance()
+        var hadFrac = false
         while let s = ctx.currentScalar, s.value >= UnicodeScalarHex.zero,
           s.value <= UnicodeScalarHex.nine
         {
+          hadFrac = true
           ctx.advance()
         }
+        guard hadFrac else { return false }
       }
       if let s = ctx.currentScalar,
         s.value == UnicodeScalarHex.eLower || s.value == UnicodeScalarHex.eUpper
@@ -596,11 +602,14 @@ extension JSON {
         {  // +, -
           ctx.advance()
         }
+        var hadExp = false
         while let s = ctx.currentScalar, s.value >= UnicodeScalarHex.zero,
           s.value <= UnicodeScalarHex.nine
         {
+          hadExp = true
           ctx.advance()
         }
+        guard hadExp else { return false }
       }
       return true
     default:

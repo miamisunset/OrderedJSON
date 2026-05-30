@@ -31,6 +31,10 @@ public struct OrderedJSONEncoder {
       decimalEncodingStrategy: decimalEncodingStrategy
     )
     try value.encode(to: impl)
+    // Sync container state in case the value encoded an empty container
+    // (no encode calls → json still .null, but objectRef/arrayRef is set)
+    impl.syncKeyed()
+    impl.syncUnkeyed()
     return impl.json
   }
 
@@ -359,6 +363,9 @@ final class _JSONKeyedEncodingContainer<Key: CodingKey>: KeyedEncodingContainerP
     )
     child.codingPath = codingPath + [key]
     try value.encode(to: child)
+    // Sync child's container state in case it was empty (no encodes → json still .null)
+    child.syncKeyed()
+    child.syncUnkeyed()
     ref.dict[key.stringValue] = child.json
     impl.syncKeyed()
   }
@@ -599,6 +606,9 @@ final class _JSONUnkeyedEncodingContainer: UnkeyedEncodingContainer {
       decimalEncodingStrategy: impl.decimalEncodingStrategy
     )
     try value.encode(to: child)
+    // Sync child's container state in case it was empty (no encodes → json still .null)
+    child.syncKeyed()
+    child.syncUnkeyed()
     ref.elements.append(child.json)
     impl.syncUnkeyed()
   }
