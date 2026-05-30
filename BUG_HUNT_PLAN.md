@@ -18,6 +18,7 @@ Systematically find correctness bugs, edge-case crashes, and logic errors across
   2. `-` append marker didn't check `isAdd` — `replace` at `/-` silently appended instead of erroring
   3. `diff` generated trailing removes in ascending index order, causing out-of-bounds errors on apply — now generates in descending order
 - **Phase 4 completed**: Added `JSONMergePatchEdgeCaseTests.swift` (50 tests). Found and fixed 1 bug: `mergePatchInternal` performed recursive merge when target value existed at a key but was not an object (e.g., null, string, number). Per RFC 7396, recursive merge only applies when both target and patch values are objects. Added `case .object` check to the recursive merge condition.
+- **Phase 7 completed**: Added `JSONCodableEdgeCaseTests.swift` (63 tests, 1014 lines). Found and fixed bugs: (1) `JSONError` leaked through decoder's Foundation type helpers and primitive decode methods instead of being wrapped in `DecodingError`; (2) `OrderedJSONEncoder` stored NaN/Infinity Double/Float as `.number(.float(...))` instead of throwing `EncodingError.invalidValue`; (3) `_JSONSingleValueDecodingContainer` (15 methods) and `_TrackingKeyedDecodingContainer` (14 methods) also leaked `JSONError` directly through `require*()` calls — all now wrapped in `decodeJSON()`; (4) `decodeJSON`/`wrapJSONError` changed from `private` to `package` so `JSONWithUnknownKeys.swift` can share them.
 
 ### Still lost (not yet recreated)
 
