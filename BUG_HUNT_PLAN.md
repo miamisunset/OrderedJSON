@@ -12,6 +12,12 @@ Systematically find correctness bugs, edge-case crashes, and logic errors across
 - **SIGBUS crash fix**: Split `JSONSchemaKeywordTests.swift` (2838→1923 lines) by extracting Phase 6 edge case suites into `JSONSchemaPhase6EdgeCaseTests.swift` (403 lines). Resolves swiftpm-testing-helper signal 10 crash on large test binaries.
 - **Compilation test expectations fix**: Updated circular `$ref` detection test to match current source behavior (`keyword: "$ref"`, `message: "circular reference"`).
 - **Phase 6 edge case file** recovered from lost state (was in "Lost Edge Case Test Files" list).
+- **Phase 2 completed**: Added `JSONBinaryEdgeCaseTests.swift` (716 lines) covering all 12 checklist items. All 1332 tests pass. No bugs found in binary format decoders — existing bounds checks and guards are complete and correct.
+- **Phase 3 completed**: Added `JSONPatchEdgeCaseTests.swift` (71 tests, 716 lines). Found and fixed 3 bugs:
+  1. Numeric tokens on objects treated as array indices — `resolvePointer`/`traverseAndSet`/`traverseAndRemove` now check storage type before parsing numeric segments (per RFC 6901)
+  2. `-` append marker didn't check `isAdd` — `replace` at `/-` silently appended instead of erroring
+  3. `diff` generated trailing removes in ascending index order, causing out-of-bounds errors on apply — now generates in descending order
+- **Phase 4 completed**: Added `JSONMergePatchEdgeCaseTests.swift` (50 tests). Found and fixed 1 bug: `mergePatchInternal` performed recursive merge when target value existed at a key but was not an object (e.g., null, string, number). Per RFC 7396, recursive merge only applies when both target and patch values are objects. Added `case .object` check to the recursive merge condition.
 
 ### Still lost (not yet recreated)
 
@@ -394,6 +400,5 @@ The following edge case test files were created during the bug hunt but **lost**
 | `Tests/OrderedJSONTests/Flatten/JSONFlattenEdgeCaseTests.swift` | 5 (Flatten) | Key escaping (`~`, `/`, `~0`, `~1` round-trip), empty objects/arrays, root-only value, non-primitive validation |
 | `Tests/OrderedJSONTests/Modifiers/JSONModifierEdgeCaseTests.swift` | 8 (Modifiers) | update(mergingNested:), setDefault autoclosure, remove negative index, swap inout semantics |
 | `Tests/OrderedJSONTests/Parsing/JSONParserEdgeCaseTests.swift` | 1 (Parser) | Surrogate pairs, trailing commas, number edge cases, string edge cases, depth limit, SAX accept mode, trailing data |
-| `Tests/OrderedJSONTests/Patch/JSONPatchEdgeCaseTests.swift` | 3 (Patch) | Path parsing (`~0`/`~1` order), `-` append marker, move/copy overlap, test with NaN, array remove index shifts, empty path |
 
 Each file above was a `@Suite` struct with `@Test` methods covering the edge cases listed in its phase's checklist section. Recreate by following the checklist items in the corresponding phase section above.
