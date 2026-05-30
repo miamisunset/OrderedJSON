@@ -151,7 +151,7 @@ struct JSONSchemaRefTests {
     #expect(!schema.validating(.number(.integer(-1))).valid)
   }
 
-  @Test("$ref — cycle detection via self-reference guard")
+  @Test("$ref — cycle detection via recursion depth")
   func refCycle() throws {
     let schema = try JSONSchema(
       schema: .object([
@@ -163,9 +163,9 @@ struct JSONSchemaRefTests {
     )
     let result = schema.validating(.string("anything"))
     #expect(!result.valid)
-    // Self-reference guard fires with keyword "$ref"
+    // Circular $ref detection fires with keyword "$ref"
     #expect(result.errors.first?.keyword == "$ref")
-    #expect(result.errors.first?.message.contains("circular reference") == true)
+    #expect(result.errors.first?.message.contains("circular") == true)
   }
 
   @Test("$ref — nested in properties")

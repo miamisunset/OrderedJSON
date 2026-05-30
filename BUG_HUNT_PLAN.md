@@ -4,6 +4,25 @@
 
 Systematically find correctness bugs, edge-case crashes, and logic errors across all modules of the OrderedJSON Swift library. Each phase produces a list of concrete bugs to fix (or confirms no bugs exist for that area). Phases are ordered by risk/difficulty so we find the most impactful bugs earliest.
 
+## Session Status (2026-05-30)
+
+### Completed in this session
+
+- **Phase 10 edge case tests** recreated and committed: `JSONComparisonEdgeCaseTests.swift` (305 lines)
+- **SIGBUS crash fix**: Split `JSONSchemaKeywordTests.swift` (2838→1923 lines) by extracting Phase 6 edge case suites into `JSONSchemaPhase6EdgeCaseTests.swift` (403 lines). Resolves swiftpm-testing-helper signal 10 crash on large test binaries.
+- **Compilation test expectations fix**: Updated circular `$ref` detection test to match current source behavior (`keyword: "$ref"`, `message: "circular reference"`).
+- **Phase 6 edge case file** recovered from lost state (was in "Lost Edge Case Test Files" list).
+
+### Still lost (not yet recreated)
+
+The following edge case test files remain lost and need recreation (see checklists in their phase sections):
+- `JSONAccessEdgeCaseTests.swift` (Phase 9)
+- `JSONCodableEdgeCaseTests.swift` (Phase 7)
+- `JSONFlattenEdgeCaseTests.swift` (Phase 5)
+- `JSONModifierEdgeCaseTests.swift` (Phase 8)
+- `JSONParserEdgeCaseTests.swift` (Phase 1)
+- `JSONPatchEdgeCaseTests.swift` (Phase 3)
+
 ---
 
 ## Phase 1 — Parser (JSONParser + SAX)
