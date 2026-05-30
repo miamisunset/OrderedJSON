@@ -756,8 +756,10 @@ extension JSONSchema {
         let cached = compiled.precompiledPatterns[pattern]
       {
         regex = cached.regex
+      } else if let r = try? NSRegularExpression(pattern: pattern, options: []) {
+        regex = r
       } else {
-        regex = try! NSRegularExpression(pattern: pattern, options: [])
+        continue
       }
       for (key, val) in dict {
         let range = NSRange(key.startIndex..<key.endIndex, in: key)

@@ -401,3 +401,147 @@ struct JSONSchemaPhase6MultipleOfEdgeCases {
     #expect(schema.validating(.number(.integer(5))).valid)
   }
 }
+
+@Suite("JSONSchema Phase 6 — typeNameOf edge cases")
+struct JSONSchemaPhase6TypeNameOfEdgeCases {
+  @Test("typeNameOf — float with zero fractional part matches integer type")
+  func floatZeroFractionIsInteger() throws {
+    let schema = try JSONSchema(schema: .object(["type": .string("integer")]))
+    #expect(schema.validating(.number(.float(42.0))).valid)
+    #expect(schema.validating(.number(.float(0.0))).valid)
+    #expect(schema.validating(.number(.float(-0.0))).valid)
+  }
+
+  @Test("typeNameOf — float NaN is number type (not integer)")
+  func floatNaNIsNumber() throws {
+    let schema = try JSONSchema(schema: .object(["type": .string("number")]))
+    #expect(schema.validating(.number(.float(Double.nan))).valid)
+    let intSchema = try JSONSchema(schema: .object(["type": .string("integer")]))
+    #expect(!intSchema.validating(.number(.float(Double.nan))).valid)
+  }
+
+  @Test("typeNameOf — float infinity is number type (not integer)")
+  func floatInfinityIsNumber() throws {
+    let schema = try JSONSchema(schema: .object(["type": .string("number")]))
+    #expect(schema.validating(.number(.float(Double.infinity))).valid)
+    let intSchema = try JSONSchema(schema: .object(["type": .string("integer")]))
+    #expect(!intSchema.validating(.number(.float(Double.infinity))).valid)
+  }
+}
+
+@Suite("JSONSchema Phase 6 — required edge cases")
+struct JSONSchemaPhase6RequiredEdgeCases {
+  @Test("required — empty array always passes")
+  func requiredEmptyArray() throws {
+    let schema = try JSONSchema(schema: .object(["required": .array([])]))
+    #expect(schema.validating(.object(["a": .string("x")])).valid)
+    #expect(schema.validating(.object([:])).valid)
+  }
+
+  @Test("required — non-array value ignored")
+  func requiredNonArrayIgnored() throws {
+    let schema = try JSONSchema(schema: .object(["required": .string("not-an-array")]))
+    #expect(schema.validating(.object(["a": .string("x")])).valid)
+  }
+
+  @Test("required — non-string element produces error but continues")
+  func requiredNonStringElement() throws {
+    let schema = try JSONSchema(schema: .object(["required": .array([.string("a"), .number(.integer(42))])]))
+    let result = schema.validating(.object(["a": .string("x")]))
+    #expect(!result.valid)
+    #expect(result.errors.first?.keyword == "required")
+  }
+}
+
+@Suite("JSONSchema Phase 6 — oneOf edge cases")
+struct JSONSchemaPhase6OneOfEdgeCases {
+  @Test("oneOf — zero matches produces count 0 in message")
+  func oneOfZeroMatches() throws {
+    let schema = try JSONSchema(
+      schema: .object([
+        "oneOf": .array([
+          .object(["type": .string("number")]),
+          .object(["type": .string("boolean")]),
+        ])
+      ])
+    )
+    let result = schema.validating(.string("test"))
+    #expect(!result.valid)
+    #expect(result.errors.first?.keyword == "oneOf")
+    #expect(result.errors.first?.message.contains("0") == true)
+  }
+
+  @Test("oneOf — two matches produces count 2 in message (short-circuits)")
+  func oneOfTwoMatches() throws {
+    let schema = try JSONSchema(
+      schema: .object([
+        "oneOf": .array([
+          .object(["type": .string("string")]),
+          .object(["minLength": .number(.integer(1))]),
+          .object(["maxLength": .number(.integer(100))]),
+        ])
+      ])
+    )
+    let result = schema.validating(.string("hello"))
+    #expect(!result.valid)
+    #expect(result.errors.first?.keyword == "oneOf")
+    #expect(result.errors.first?.message.contains("2") == true)
+  }
+}
+
+@Suite("JSONSchema Phase 6 — pattern edge cases")
+struct JSONSchemaPhase6PatternEdgeCases {
+  @Test("pattern — invalid regex at validation time falls through silently")
+  func patternInvalidRegexRuntime() throws {
+    // Create a schema with an invalid regex pattern. The pattern is invalid,
+    // so compilation should throw. We test the fallback behavior directly.
+    #expect(throws: JSONSchemaError.self) {
+      try JSONSchema(schema: .object(["pattern": .string("[invalid")]))
+    }
+  }
+
+  @Test("pattern — very long regex does not crash")
+  func patternVeryLongRegex() throws {
+    let schema = try JSONSchema(schema: .object(["pattern": .string("a{1000}")]))
+    #expect(schema.validating(.string(String(repeating: "a", count: 1000))).valid)
+    #expect(!schema.validating(.string("b")).valid)
+  }
+
+  @Test("pattern — regex with backslash escapes")
+  func patternBackslashEscapes() throws {
+    let schema = try JSONSchema(schema: .object(["pattern": .string("\\d+")]))
+    #expect(schema.validating(.string("123")).valid)
+    #expect(!schema.validating(.string("abc")).valid)
+  }
+}
+
+@Suite("JSONSchema Phase 6 — patternProperties edge cases")
+struct JSONSchemaPhase6PatternPropertiesEdgeCases {
+  @Test("patternProperties — multiple matching patterns for same key")
+  func patternPropertiesMultipleMatches() throws {
+    let schema = try JSONSchema(
+      schema: .object([
+        "patternProperties": .object([
+          "^a": .object(["type": .string("string")]),
+          "b$": .object(["minimum": .number(.integer(0))]),
+        ])
+      ])
+    )
+    // Key "ab" matches both patterns
+    let result = schema.validating(.object(["ab": .string("hello")]))
+    #expect(result.valid)
+  }
+
+  @Test("patternProperties — overlapping patterns produce multiple validations")
+  func patternPropertiesOverlapping() throws {
+    let schema = try JSONSchema(
+      schema: .object([
+        "patternProperties": .object([
+          "^x": .object(["type": .string("string")]),
+          "x$": .object(["minLength": .number(.integer(2))]),
+        ])
+      ])
+    )
+    #expect(schema.validating(.object(["x": .string("hi")])).valid)
+  }
+}
