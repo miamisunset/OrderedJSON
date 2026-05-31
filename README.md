@@ -90,49 +90,7 @@ OrderedJSON behaves like `nlohmann::ordered_json` — keys always retain the ord
 
 ## Architecture Overview
 
-OrderedJSON is organized as a single `JSON` struct wrapping an internal `Storage` enum:
-
-```
-┌──────────────────────────────────────────────────┐
-│                    JSON struct                    │
-│  @dynamicMemberLookup, Hashable, Sendable        │
-│                                                   │
-│  ┌────────────────────────────────────────────┐   │
-│  │               Storage enum                │   │
-│  │  .null │ .boolean │ .number │ .string     │   │
-│  │  .object(OrderedDictionary) │ .array      │   │
-│  └────────────────────────────────────────────┘   │
-│                                                   │
-│  ┌────── Access ──────┐  ┌──── Modifiers ─────┐  │
-│  │ subscript [key]     │  │ clear, remove      │  │
-│                                                   │
-│  │ value(forKey:default:) │  │ setDefault, update │  │
-│                                                   │
-│  │ parse(String)  │   │ cbor()      │   │ parse(handler:)││
-
-│  │ parse(Data)    │   │ msgPack()   │   │ accept         ││
-
-│  │ dump(indent:)  │   │ ubjson()    │   └────────────────┘│
-
-│  └───────────────┘   │ bson()      │                    │
-
-│                      │ bjdata()    │                    │
-│                      └─────────────┘              │
-│                                                   │
-│  ┌── Flatten ──┐  ┌── Patch ───┐  ┌── Schema ──┐│
-│  │ flatten()   │  │ patch()    │  │ schema()   ││
-│  │ unflatten() │  │ diff()     │  │ validate() ││
-│  └─────────────┘  │mergePatch()│  │ isValid()  ││
-│                    └────────────┘  │validating()││
-│                                    └─────────────┘│
-│                                                   │
-│  ┌── Codable ────────────────────────────────────┐│
-│  │ OrderedJSONEncoder / OrderedJSONDecoder       ││
-│  │ JSON.encode(_:) / JSON.decode(_:from:)       ││
-│  │ JSONWithUnknownKeys<T>                             ││
-│  └───────────────────────────────────────────────┘│
-└──────────────────────────────────────────────────┘
-```
+The core type is a single `JSON` struct wrapping an internal `Storage` enum (6 cases: `.null`, `.boolean`, `.number`, `.string`, `.object(OrderedDictionary)`, `.array`). It uses `@dynamicMemberLookup` for dot-notation key access and conforms to `Hashable`, `Comparable`, and `Sendable`.
 
 Source files are organized by concern in `Sources/OrderedJSON/{Core,Parsing,Access,Modifiers,Flatten,Patch,SAX,Binary,Operators,Builder,Codable,Schema}/`.
 
@@ -272,6 +230,15 @@ let obj = JSON.object([
 ```
 
 Use `JSON.number(.integer(...))` for whole numbers and `JSON.number(.float(...))` for decimals. This distinction matters — it is preserved through `dump()` and `parse()` round-trips.
+
+### JSONNumber
+
+`JSONNumber` is the public enum backing numeric JSON values, with two cases:
+
+- `.integer(Int64)` — whole numbers in the range `Int64.min...Int64.max`
+- `.float(Double)` — floating-point values (including fractional and large-magnitude numbers)
+
+The distinction is preserved through serialization: `.integer(42)` dumps as `42`, while `.float(42.0)` dumps as `42.0`. Parsing a number without a fractional part or exponent produces `.integer`, preserving integer type through round-trips. Use `numberValue` to retrieve the raw `JSONNumber` from a JSON value.
 
 ---
 
@@ -456,11 +423,29 @@ Error kinds:
 
 Always wrap untrusted input in `do {} catch {}`.
 
+### JSONError
+
+Beyond parsing, other operations throw `JSONError` — a general-purpose error enum with six cases:
+
+| Case | Thrown by | Description |
+|------|-----------|-------------|
+| `.invalidString` | JSON Pointer | Invalid JSON pointer string format |
+| `.expectedObject` | Subscript, `at()`, `value()` | Operation requires an object but value is not an object |
+| `.keyNotFound(String)` | `at(key:)` | A key was not found in a JSON object |
+| `.indexOutOfBounds(Int)` | `at(index:)` | An index was out of bounds for a JSON array |
+| `.typeError(expected:, actual:)` | `at()`, `require*()` | Type mismatch between expected and actual types |
+| `.formatError(String)` | Patch, binary formats | A JSON Patch or binary format error with a message |
+
+These errors conform to `Error`, `Sendable`, and `Hashable`, and include descriptive messages via `CustomStringConvertible`.
+
 ---
 
 ## Encoding / Serialization
 
-`dump()` converts a `JSON` value back into a JSON string. It accepts an `indent` parameter: use `-1` for compact output (no whitespace) or a positive integer for pretty-printing.
+`dump()` converts a `JSON` value back into a JSON string. It accepts an `indent` parameter: omit or pass `nil` for compact output (no whitespace) or a positive integer for pretty-printing. Two additional parameters customize output:
+
+- `indentCharacter` — character used for indentation (default: `" "`)
+- `ensureAscii` — if `true`, non-ASCII characters are escaped as `\uXXXX` (default: `false`)
 
 ```swift
 import OrderedJSON
@@ -480,9 +465,12 @@ let pretty = value.dump(indent: 2)
 //   "name": "Bob",
 //   "age": 25
 // }
+
+// ASCII-safe output — non-ASCII chars escaped
+let escaped = value.dump(ensureAscii: true)
 ```
 
-`dump()` produces compact JSON (no whitespace). `dump(indent: 2)` produces pretty-printed JSON. The key order is always preserved regardless of indent value.
+`dump()` produces compact JSON (no whitespace). `dump(indent: 2)` produces pretty-printed JSON. The key order is always preserved regardless of indent value. Use `dump(indent: 2, indentCharacter: "\t")` for tab-indented output.
 
 ---
 
@@ -508,6 +496,19 @@ x.isStructured   // false (object/array)
 x.type           // JSON.JSONType.number
 x.typeName       // "number"
 ```
+
+`type` returns a `JSON.JSONType` enum with six cases matching the JSON specification:
+
+| Case | JSON type | Description |
+|------|-----------|-------------|
+| `.null` | `null` | Absent value |
+| `.boolean` | `boolean` | `true` or `false` |
+| `.number` | `number` | Integer or floating-point |
+| `.string` | `string` | Unicode text |
+| `.object` | `object` | Key-value pairs |
+| `.array` | `array` | Ordered elements |
+
+`typeName` returns the human-readable string (e.g., `"number"`, `"object"`).
 
 The type hierarchy follows `nlohmann/json`: `null < boolean < number < string < object < array`. This ordering is used by comparison operators (see Comparison section).
 
@@ -602,6 +603,7 @@ var json = JSON.parse("""
   """)
 
 json.clear()              // remove all keys/elements
+json.cleared()            // non-mutating — returns cleared copy
 json["a"] = JSON(10)      // set via subscript
 json.remove(key: "a")           // remove key from object
 json.remove(at: 0)             // remove first element (array only)
@@ -703,6 +705,10 @@ let ptr1 = try JSONPointer("/foo/bar")
 // Root pointer (empty string)
 let root = try JSONPointer("")
 root.segments  // [] (empty)
+
+// Direct segment array — skips parsing, useful when segments are pre-computed
+let segs = try JSONPointer(segments: ["foo", "bar", "0"])
+segs.segments  // ["foo", "bar", "0"]
 
 // URI fragment — strips # prefix and percent-decodes
 let ptr2 = try JSONPointer(fragment: "#/c%25d")
@@ -1648,7 +1654,7 @@ let roundTripped = try decoder.decode(Person.self, from: parsed)
 - **Numeric types**: Use `.integer(Int64)` for whole numbers and `.float(Double)` for decimals to preserve type information through encoding/decoding.
 - **Error handling**: Wrap parsing from untrusted sources in `do {} catch {}`.
 - **Thread safety**: `JSON` is `Hashable` and `Sendable`, safe to use in collections and across concurrency domains.
-- **Order preservation**: Use `JSON.parse()` for order-preserving parsing and `dump(-1)` for compact serialization.
+- **Order preservation**: Use `JSON.parse()` for order-preserving parsing and `dump()` for compact serialization.
 - **Flatten round-trip**: `flatten()` followed by `unflatten()` returns the original value. Empty containers become `null` after round-trip — avoid flattening if you need to preserve empty arrays/objects.
 - **Choose access pattern**: Use `[]` for optional access, `at()` for throwing access, `value()` for default-value access.
 - **Builder vs factory**: Use builders for complex deeply nested structures; use factory methods/inits for simple literals.
