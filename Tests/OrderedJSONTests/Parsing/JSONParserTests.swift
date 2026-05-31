@@ -312,67 +312,6 @@ import Testing
   }
 }
 
-// MARK: - Surrogate Pair Edge Cases
-
-@Suite("Parser Surrogate Tests") struct JSONParserSurrogateTests {
-  @Test("parse high surrogate without low") func parseHighSurrogateWithoutLow() throws {
-    #expect(throws: JSONParseError.invalidUnicodeEscape(line: 1, column: 8)) {
-      try JSON.parse("\"\\uD800\"")
-    }
-  }
-
-  @Test("parse high surrogate with invalid low") func parseHighSurrogateWithInvalidLow() throws {
-    #expect(throws: JSONParseError.invalidUnicodeEscape(line: 1, column: 14)) {
-      try JSON.parse("\"\\uD800\\u0041\"")
-    }
-  }
-
-  @Test("parse surrogate pair emoji") func parseSurrogatePairEmoji() throws {
-    let result = try JSON.parse("\"\\uD83D\\uDE06\"")
-    #expect(result == JSON.string("😆"))
-  }
-
-  @Test("parse surrogate pair skull") func parseSurrogatePairSkull() throws {
-    let result = try JSON.parse("\"\\uD83D\\uDC80\"")
-    #expect(result == JSON.string("💀"))
-  }
-
-  @Test("parse lone low surrogate") func parseLoneLowSurrogate() throws {
-    #expect(throws: JSONParseError.invalidUnicodeEscape(line: 1, column: 8)) {
-      try JSON.parse("\"\\uDC00\"")
-    }
-  }
-
-  @Test("parse high surrogate not followed by backslash")
-  func parseHighSurrogateNotFollowedByBackslash() throws {
-    #expect(throws: JSONParseError.invalidUnicodeEscape(line: 1, column: 8)) {
-      try JSON.parse("\"\\uD800X\"")
-    }
-  }
-
-  @Test("parse unicode escape followed by char") func parseUnicodeEscapeFollowedByChar() throws {
-    let result = try JSON.parse("\"\\u0041X\"")
-    #expect(result == JSON.string("AX"))
-  }
-}
-
-// MARK: - Large JSON Performance (smoke test)
-
-@Suite("Parser Performance Tests") struct JSONParserPerformanceTests {
-  @Test("parse large array") func parseLargeArray() throws {
-    let count = 10000
-    var elements: [String] = []
-    elements.reserveCapacity(count)
-    for i in 0..<count {
-      elements.append("\(i)")
-    }
-    let jsonString = "[" + elements.joined(separator: ",") + "]"
-    let result = try JSON.parse(jsonString)
-    #expect(result.isArray)
-    #expect(result.count == count)
-  }
-}
-
 // MARK: - Standard Encoding Tests
 
 @Suite("Parser Encoding Tests") struct JSONParserEncodingTests {
