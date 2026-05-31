@@ -618,6 +618,92 @@ struct JSONMsgPackTests {
     let data = Data(bytes)
     #expect(throws: JSONError.self) { try JSON(msgPack: data) }
   }
+
+  // MARK: - Truncated data bounds checks
+
+  @Test("msg pack truncated uint16 (throws)") func msgPackTruncatedUInt16() throws {
+    // 0xCD (uint16) with only 1 byte (needs 2)
+    let data = Data([0xCD, 0x01])
+    #expect(throws: JSONError.self) { try JSON(msgPack: data) }
+  }
+
+  @Test("msg pack truncated uint32 (throws)") func msgPackTruncatedUInt32() throws {
+    // 0xCE (uint32) with only 2 bytes (needs 4)
+    let data = Data([0xCE, 0x00, 0x01])
+    #expect(throws: JSONError.self) { try JSON(msgPack: data) }
+  }
+
+  @Test("msg pack truncated uint64 (throws)") func msgPackTruncatedUInt64() throws {
+    // 0xCF (uint64) with only 4 bytes (needs 8)
+    let data = Data([0xCF, 0x00, 0x00, 0x00, 0x01])
+    #expect(throws: JSONError.self) { try JSON(msgPack: data) }
+  }
+
+  @Test("msg pack truncated uint8 (throws)") func msgPackTruncatedUInt8() throws {
+    // 0xCC (uint8) with no data byte
+    let data = Data([0xCC])
+    #expect(throws: JSONError.self) { try JSON(msgPack: data) }
+  }
+
+  @Test("msg pack truncated int8 (throws)") func msgPackTruncatedInt8() throws {
+    // 0xD0 (int8) with no data byte
+    let data = Data([0xD0])
+    #expect(throws: JSONError.self) { try JSON(msgPack: data) }
+  }
+
+  @Test("msg pack truncated float32 (throws)") func msgPackTruncatedFloat32() throws {
+    // 0xCA (float32) with only 2 bytes (needs 4)
+    let data = Data([0xCA, 0x00, 0x00])
+    #expect(throws: JSONError.self) { try JSON(msgPack: data) }
+  }
+
+  @Test("msg pack truncated float64 (throws)") func msgPackTruncatedFloat64() throws {
+    // 0xCB (float64) with only 4 bytes (needs 8)
+    let data = Data([0xCB, 0x00, 0x00, 0x00, 0x00])
+    #expect(throws: JSONError.self) { try JSON(msgPack: data) }
+  }
+
+  @Test("msg pack truncated string8 (throws)") func msgPackTruncatedString8() throws {
+    // 0xD9 (string8) with no length byte
+    let data = Data([0xD9])
+    #expect(throws: JSONError.self) { try JSON(msgPack: data) }
+  }
+
+  @Test("msg pack truncated string16 (throws)") func msgPackTruncatedString16() throws {
+    // 0xDA (string16) with only 1 byte (needs 2)
+    let data = Data([0xDA, 0x01])
+    #expect(throws: JSONError.self) { try JSON(msgPack: data) }
+  }
+
+  @Test("msg pack truncated array16 (throws)") func msgPackTruncatedArray16() throws {
+    // 0xDC (array16) with only 1 byte (needs 2)
+    let data = Data([0xDC, 0x01])
+    #expect(throws: JSONError.self) { try JSON(msgPack: data) }
+  }
+
+  @Test("msg pack truncated map16 (throws)") func msgPackTruncatedMap16() throws {
+    // 0xDE (map16) with only 1 byte (needs 2)
+    let data = Data([0xDE, 0x01])
+    #expect(throws: JSONError.self) { try JSON(msgPack: data) }
+  }
+
+  @Test("msg pack truncated bin8 (throws)") func msgPackTruncatedBin8() throws {
+    // 0xC4 (bin8) with no length byte
+    let data = Data([0xC4])
+    #expect(throws: JSONError.self) { try JSON(msgPack: data) }
+  }
+
+  @Test("msg pack truncated bin16 (throws)") func msgPackTruncatedBin16() throws {
+    // 0xC5 (bin16) with only 1 byte (needs 2)
+    let data = Data([0xC5, 0x01])
+    #expect(throws: JSONError.self) { try JSON(msgPack: data) }
+  }
+
+  @Test("msg pack truncated bin32 (throws)") func msgPackTruncatedBin32() throws {
+    // 0xC6 (bin32) with only 2 bytes (needs 4)
+    let data = Data([0xC6, 0x00, 0x01])
+    #expect(throws: JSONError.self) { try JSON(msgPack: data) }
+  }
 }
 
 // MARK: - UBJSON Tests
@@ -1244,6 +1330,45 @@ struct JSONBJDataTests {
     let data = Data(bytes)
     #expect(throws: JSONError.self) { try JSON(bjdata: data) }
   }
+
+  @Test("bjdata array missing end marker (throws)") func bjdataArrayMissingEndMarker() throws {
+    // BJData array with no ']' end marker
+    let bytes: [UInt8] = [0x5B, 0x49, 0x01]  // '[', int8 1 — no ']'
+    let data = Data(bytes)
+    #expect(throws: JSONError.self) { try JSON(bjdata: data) }
+  }
+
+  @Test("bjdata object missing end marker (throws)") func bjdataObjectMissingEndMarker() throws {
+    // BJData object with no '}' end marker
+    let bytes: [UInt8] = [0x7B, 0x53, 0x49, 0x01, 0x61]  // '{', string "a" — no '}'
+    let data = Data(bytes)
+    #expect(throws: JSONError.self) { try JSON(bjdata: data) }
+  }
+
+  @Test("bjdata empty array with end markers") func bjdataEmptyArrayWithEndMarkers() throws {
+    // BJData empty array with end markers: '[' + ']'
+    let bytes: [UInt8] = [0x5B, 0x5D]  // '[', ']'
+    let data = Data(bytes)
+    let decoded = try JSON(bjdata: data)
+    #expect(decoded.isArray)
+    #expect(decoded.count == 0)
+  }
+
+  @Test("bjdata empty object with end markers") func bjdataEmptyObjectWithEndMarkers() throws {
+    // BJData empty object with end markers: '{' + '}'
+    let bytes: [UInt8] = [0x7B, 0x7D]  // '{', '}'
+    let data = Data(bytes)
+    let decoded = try JSON(bjdata: data)
+    #expect(decoded.isObject)
+    #expect(decoded.count == 0)
+  }
+
+  @Test("bjdata mismatched end marker (throws)") func bjdataMismatchedEndMarker() throws {
+    // BJData array with '}' end marker (object end inside array) should throw
+    let bytes: [UInt8] = [0x5B, 0x49, 0x01, 0x7D]  // '[', int8 1, '}' — mismatched
+    let data = Data(bytes)
+    #expect(throws: JSONError.self) { try JSON(bjdata: data) }
+  }
 }
 
 // MARK: - Overflow Tests
@@ -1261,7 +1386,10 @@ struct JSONOverflowTests {
     let decoded = try JSON(msgPack: data)
     // Should decode as float since value exceeds Int64.max
     #expect(decoded.isFloat)
-    guard case .number(.float(let d)) = decoded.storage else { return }
+    guard case .number(.float(let d)) = decoded.storage else {
+      Issue.record("Expected float, got \(decoded)")
+      return
+    }
     #expect(d == Double(large))
   }
 
@@ -1275,7 +1403,10 @@ struct JSONOverflowTests {
     let decoded = try JSON(cbor: data)
     // Should decode as float since value exceeds Int64.max
     #expect(decoded.isFloat)
-    guard case .number(.float(let d)) = decoded.storage else { return }
+    guard case .number(.float(let d)) = decoded.storage else {
+      Issue.record("Expected float, got \(decoded)")
+      return
+    }
     #expect(d == Double(large))
   }
 
@@ -1303,7 +1434,10 @@ struct JSONOverflowTests {
     let data = Data(bytes)
     let decoded = try JSON(cbor: data)
     #expect(decoded.isInteger)
-    guard case .number(.integer(let i)) = decoded.storage else { return }
+    guard case .number(.integer(let i)) = decoded.storage else {
+      Issue.record("Expected integer, got \(decoded)")
+      return
+    }
     #expect(i == Int64.min)
   }
 
@@ -1316,7 +1450,10 @@ struct JSONOverflowTests {
     let data = Data(bytes)
     let decoded = try JSON(cbor: data)
     #expect(decoded.isFloat)
-    guard case .number(.float(let d)) = decoded.storage else { return }
+    guard case .number(.float(let d)) = decoded.storage else {
+      Issue.record("Expected float, got \(decoded)")
+      return
+    }
     // The Double representation of 2^63 is exact (it's a power of 2)
     // but larger values would lose precision
     #expect(d == Double(original))
@@ -1373,6 +1510,373 @@ struct JSONOverflowTests {
   }
 }
 
+// MARK: - Round-trip Edge Value Tests
+
+@Suite("Binary round-trip edge value tests")
+struct JSONBinaryRoundTripEdgeTests {
+  @Test("cbor round trip zero") func cborRoundTripZero() throws {
+    let json = JSON.number(.integer(0))
+    let data = json.cbor()
+    let decoded = try JSON(cbor: data)
+    #expect(decoded == json)
+  }
+
+  @Test("cbor round trip int64 min") func cborRoundTripInt64Min() throws {
+    let json = JSON.number(.integer(Int64.min))
+    let data = json.cbor()
+    let decoded = try JSON(cbor: data)
+    #expect(decoded == json)
+  }
+
+  @Test("cbor round trip int64 max") func cborRoundTripInt64Max() throws {
+    let json = JSON.number(.integer(Int64.max))
+    let data = json.cbor()
+    let decoded = try JSON(cbor: data)
+    #expect(decoded == json)
+  }
+
+  @Test("cbor round trip negative zero float") func cborRoundTripNegativeZeroFloat() throws {
+    let json = JSON.number(.float(-0.0))
+    let data = json.cbor()
+    let decoded = try JSON(cbor: data)
+    #expect(decoded.isFloat)
+    guard case .number(.float(let d)) = decoded.storage else {
+      Issue.record("Expected float, got \(decoded)")
+      return
+    }
+    #expect(d == -0.0)
+    #expect(d.sign == .minus)
+  }
+
+  @Test("cbor round trip nan") func cborRoundTripNaN() throws {
+    let json = JSON.number(.float(Double.nan))
+    let data = json.cbor()
+    let decoded = try JSON(cbor: data)
+    #expect(decoded.isFloat)
+    guard case .number(.float(let d)) = decoded.storage else {
+      Issue.record("Expected float, got \(decoded)")
+      return
+    }
+    #expect(d.isNaN)
+  }
+
+  @Test("cbor round trip infinity") func cborRoundTripInfinity() throws {
+    let json = JSON.number(.float(Double.infinity))
+    let data = json.cbor()
+    let decoded = try JSON(cbor: data)
+    #expect(decoded.isFloat)
+    guard case .number(.float(let d)) = decoded.storage else {
+      Issue.record("Expected float, got \(decoded)")
+      return
+    }
+    #expect(d == Double.infinity)
+  }
+
+  @Test("cbor round trip negative infinity") func cborRoundTripNegativeInfinity() throws {
+    let json = JSON.number(.float(-Double.infinity))
+    let data = json.cbor()
+    let decoded = try JSON(cbor: data)
+    #expect(decoded.isFloat)
+    guard case .number(.float(let d)) = decoded.storage else {
+      Issue.record("Expected float, got \(decoded)")
+      return
+    }
+    #expect(d == -Double.infinity)
+  }
+
+  @Test("cbor round trip empty object") func cborRoundTripEmptyObject() throws {
+    let json = JSON.object([:])
+    let data = json.cbor()
+    let decoded = try JSON(cbor: data)
+    #expect(decoded == json)
+  }
+
+  @Test("cbor round trip empty array") func cborRoundTripEmptyArray() throws {
+    let json = JSON.array([])
+    let data = json.cbor()
+    let decoded = try JSON(cbor: data)
+    #expect(decoded == json)
+  }
+
+  @Test("cbor round trip nested structure") func cborRoundTripNested() throws {
+    let inner = JSON.object(["x": JSON.number(.integer(42))])
+    let json = JSON.array([inner, inner, JSON.null, JSON.boolean(true)])
+    let data = json.cbor()
+    let decoded = try JSON(cbor: data)
+    #expect(decoded == json)
+  }
+
+  @Test("msg pack round trip zero") func msgPackRoundTripZero() throws {
+    let json = JSON.number(.integer(0))
+    let data = json.msgPack()
+    let decoded = try JSON(msgPack: data)
+    #expect(decoded == json)
+  }
+
+  @Test("msg pack round trip int64 min") func msgPackRoundTripInt64Min() throws {
+    let json = JSON.number(.integer(Int64.min))
+    let data = json.msgPack()
+    let decoded = try JSON(msgPack: data)
+    #expect(decoded == json)
+  }
+
+  @Test("msg pack round trip int64 max") func msgPackRoundTripInt64Max() throws {
+    let json = JSON.number(.integer(Int64.max))
+    let data = json.msgPack()
+    let decoded = try JSON(msgPack: data)
+    #expect(decoded == json)
+  }
+
+  @Test("msg pack round trip negative zero float") func msgPackRoundTripNegativeZeroFloat() throws {
+    let json = JSON.number(.float(-0.0))
+    let data = json.msgPack()
+    let decoded = try JSON(msgPack: data)
+    #expect(decoded.isFloat)
+    guard case .number(.float(let d)) = decoded.storage else {
+      Issue.record("Expected float, got \(decoded)")
+      return
+    }
+    #expect(d == -0.0)
+  }
+
+  @Test("msg pack round trip empty object") func msgPackRoundTripEmptyObject() throws {
+    let json = JSON.object([:])
+    let data = json.msgPack()
+    let decoded = try JSON(msgPack: data)
+    #expect(decoded == json)
+  }
+
+  @Test("msg pack round trip empty array") func msgPackRoundTripEmptyArray() throws {
+    let json = JSON.array([])
+    let data = json.msgPack()
+    let decoded = try JSON(msgPack: data)
+    #expect(decoded == json)
+  }
+
+  @Test("msg pack round trip nested") func msgPackRoundTripNested() throws {
+    let inner = JSON.object(["x": JSON.number(.integer(42))])
+    let json = JSON.array([inner, inner, JSON.null, JSON.boolean(true)])
+    let data = json.msgPack()
+    let decoded = try JSON(msgPack: data)
+    #expect(decoded == json)
+  }
+
+  @Test("ubjson round trip zero") func ubjsonRoundTripZero() throws {
+    let json = JSON.number(.integer(0))
+    let data = json.ubjson()
+    let decoded = try JSON(ubjson: data)
+    #expect(decoded == json)
+  }
+
+  @Test("ubjson round trip int64 min") func ubjsonRoundTripInt64Min() throws {
+    let json = JSON.number(.integer(Int64.min))
+    let data = json.ubjson()
+    let decoded = try JSON(ubjson: data)
+    #expect(decoded == json)
+  }
+
+  @Test("ubjson round trip int64 max") func ubjsonRoundTripInt64Max() throws {
+    let json = JSON.number(.integer(Int64.max))
+    let data = json.ubjson()
+    let decoded = try JSON(ubjson: data)
+    #expect(decoded == json)
+  }
+
+  @Test("ubjson round trip negative zero float") func ubjsonRoundTripNegativeZeroFloat() throws {
+    let json = JSON.number(.float(-0.0))
+    let data = json.ubjson()
+    let decoded = try JSON(ubjson: data)
+    #expect(decoded.isFloat)
+    guard case .number(.float(let d)) = decoded.storage else {
+      Issue.record("Expected float, got \(decoded)")
+      return
+    }
+    #expect(d == -0.0)
+  }
+
+  @Test("ubjson round trip nan") func ubjsonRoundTripNaN() throws {
+    let json = JSON.number(.float(Double.nan))
+    let data = json.ubjson()
+    let decoded = try JSON(ubjson: data)
+    #expect(decoded.isFloat)
+    guard case .number(.float(let d)) = decoded.storage else {
+      Issue.record("Expected float, got \(decoded)")
+      return
+    }
+    #expect(d.isNaN)
+  }
+
+  @Test("ubjson round trip infinity") func ubjsonRoundTripInfinity() throws {
+    let json = JSON.number(.float(Double.infinity))
+    let data = json.ubjson()
+    let decoded = try JSON(ubjson: data)
+    #expect(decoded.isFloat)
+    guard case .number(.float(let d)) = decoded.storage else {
+      Issue.record("Expected float, got \(decoded)")
+      return
+    }
+    #expect(d == Double.infinity)
+  }
+
+  @Test("ubjson round trip empty object") func ubjsonRoundTripEmptyObject() throws {
+    let json = JSON.object([:])
+    let data = json.ubjson()
+    let decoded = try JSON(ubjson: data)
+    #expect(decoded == json)
+  }
+
+  @Test("ubjson round trip empty array") func ubjsonRoundTripEmptyArray() throws {
+    let json = JSON.array([])
+    let data = json.ubjson()
+    let decoded = try JSON(ubjson: data)
+    #expect(decoded == json)
+  }
+
+  @Test("ubjson round trip nested") func ubjsonRoundTripNested() throws {
+    let inner = JSON.object(["x": JSON.number(.integer(42))])
+    let json = JSON.array([inner, inner, JSON.null, JSON.boolean(true)])
+    let data = json.ubjson()
+    let decoded = try JSON(ubjson: data)
+    #expect(decoded == json)
+  }
+
+  @Test("bson round trip zero") func bsonRoundTripZero() throws {
+    let json = JSON.number(.integer(0))
+    let data = json.bson()
+    let decoded = try JSON(bson: data)
+    #expect(decoded["value"] == json)
+  }
+
+  @Test("bson round trip int64 min") func bsonRoundTripInt64Min() throws {
+    let json = JSON.number(.integer(Int64.min))
+    let data = json.bson()
+    let decoded = try JSON(bson: data)
+    #expect(decoded["value"] == json)
+  }
+
+  @Test("bson round trip int64 max") func bsonRoundTripInt64Max() throws {
+    let json = JSON.number(.integer(Int64.max))
+    let data = json.bson()
+    let decoded = try JSON(bson: data)
+    #expect(decoded["value"] == json)
+  }
+
+  @Test("bson round trip negative zero float") func bsonRoundTripNegativeZeroFloat() throws {
+    let json = JSON.number(.float(-0.0))
+    let data = json.bson()
+    let decoded = try JSON(bson: data)
+    #expect(decoded["value"]?.isFloat ?? false)
+  }
+
+  @Test("bson round trip nan") func bsonRoundTripNaN() throws {
+    let json = JSON.number(.float(Double.nan))
+    let data = json.bson()
+    let decoded = try JSON(bson: data)
+    #expect(decoded["value"]?.isFloat ?? false)
+  }
+
+  @Test("bson round trip infinity") func bsonRoundTripInfinity() throws {
+    let json = JSON.number(.float(Double.infinity))
+    let data = json.bson()
+    let decoded = try JSON(bson: data)
+    #expect(decoded["value"]?.isFloat ?? false)
+  }
+
+  @Test("bson round trip empty object") func bsonRoundTripEmptyObject() throws {
+    let json = JSON.object([:])
+    let data = json.bson()
+    let decoded = try JSON(bson: data)
+    #expect(decoded == json)
+  }
+
+  @Test("bson round trip nested") func bsonRoundTripNested() throws {
+    let inner = JSON.object(["x": JSON.number(.integer(42))])
+    let json = JSON.object(["inner": inner, "flag": JSON.boolean(true)])
+    let data = json.bson()
+    let decoded = try JSON(bson: data)
+    #expect(decoded == json)
+  }
+
+  @Test("bjdata round trip zero") func bjdataRoundTripZero() throws {
+    let json = JSON.number(.integer(0))
+    let data = json.bjdata()
+    let decoded = try JSON(bjdata: data)
+    #expect(decoded == json)
+  }
+
+  @Test("bjdata round trip int64 min") func bjdataRoundTripInt64Min() throws {
+    let json = JSON.number(.integer(Int64.min))
+    let data = json.bjdata()
+    let decoded = try JSON(bjdata: data)
+    #expect(decoded == json)
+  }
+
+  @Test("bjdata round trip int64 max") func bjdataRoundTripInt64Max() throws {
+    let json = JSON.number(.integer(Int64.max))
+    let data = json.bjdata()
+    let decoded = try JSON(bjdata: data)
+    #expect(decoded == json)
+  }
+
+  @Test("bjdata round trip negative zero float") func bjdataRoundTripNegativeZeroFloat() throws {
+    let json = JSON.number(.float(-0.0))
+    let data = json.bjdata()
+    let decoded = try JSON(bjdata: data)
+    #expect(decoded.isFloat)
+    guard case .number(.float(let d)) = decoded.storage else {
+      Issue.record("Expected float, got \(decoded)")
+      return
+    }
+    #expect(d == -0.0)
+  }
+
+  @Test("bjdata round trip nan") func bjdataRoundTripNaN() throws {
+    let json = JSON.number(.float(Double.nan))
+    let data = json.bjdata()
+    let decoded = try JSON(bjdata: data)
+    #expect(decoded.isFloat)
+    guard case .number(.float(let d)) = decoded.storage else {
+      Issue.record("Expected float, got \(decoded)")
+      return
+    }
+    #expect(d.isNaN)
+  }
+
+  @Test("bjdata round trip infinity") func bjdataRoundTripInfinity() throws {
+    let json = JSON.number(.float(Double.infinity))
+    let data = json.bjdata()
+    let decoded = try JSON(bjdata: data)
+    #expect(decoded.isFloat)
+    guard case .number(.float(let d)) = decoded.storage else {
+      Issue.record("Expected float, got \(decoded)")
+      return
+    }
+    #expect(d == Double.infinity)
+  }
+
+  @Test("bjdata round trip empty object") func bjdataRoundTripEmptyObject() throws {
+    let json = JSON.object([:])
+    let data = json.bjdata()
+    let decoded = try JSON(bjdata: data)
+    #expect(decoded == json)
+  }
+
+  @Test("bjdata round trip empty array") func bjdataRoundTripEmptyArray() throws {
+    let json = JSON.array([])
+    let data = json.bjdata()
+    let decoded = try JSON(bjdata: data)
+    #expect(decoded == json)
+  }
+
+  @Test("bjdata round trip nested") func bjdataRoundTripNested() throws {
+    let inner = JSON.object(["x": JSON.number(.integer(42))])
+    let json = JSON.array([inner, inner, JSON.null, JSON.boolean(true)])
+    let data = json.bjdata()
+    let decoded = try JSON(bjdata: data)
+    #expect(decoded == json)
+  }
+}
+
 // MARK: - Edge Case Tests
 
 @Suite("JSON edge case tests")
@@ -1410,7 +1914,10 @@ struct JSONEdgeCaseTests {
     let data = Data(bytes)
     let decoded = try JSON(cbor: data)
     #expect(decoded.isFloat)
-    guard case .number(.float(let d)) = decoded.storage else { return }
+    guard case .number(.float(let d)) = decoded.storage else {
+      Issue.record("Expected float, got \(decoded)")
+      return
+    }
     #expect(d.isNaN)
     // Serialize to JSON string — should produce null
     let dumped = decoded.dump(indent: nil)

@@ -604,26 +604,52 @@ public struct JSONSchema: Hashable, Sendable {
         )
         return
       }
-      // For local refs: keep parentResourceURI as the original parent
-      // so $id resolves correctly (use advancedViaRef).
-      // For remote refs: update parentResourceURI to the remote schema's
-      // URI since $id should resolve against the remote parent (use advanced).
-      let isRemote = compiled?.resources[resolved.resourceURI] == nil
-      let resolvedCtx: EvaluationContext
-      if isRemote {
-        resolvedCtx = currentCtx.advanced(resourceURI: resolved.resourceURI)
+      // Self-reference: $ref resolves back to the same schema (e.g., $ref: "#"
+      // at the root).  Skip recursive validation to avoid infinite recursion.
+      // But if the subschema has no other keywords (pure cycle), fail.
+      if resolved.schema == subschema {
+        let hasOtherKeys: Bool
+        if case .object(let dict) = subschema.storage {
+          hasOtherKeys = dict.keys.contains(where: { $0 != "$ref" })
+        } else {
+          hasOtherKeys = false
+        }
+        if !hasOtherKeys {
+          errors.append(
+            JSONSchemaError(
+              instancePath: instancePath, schemaPath: schemaPath + "/$ref",
+              keyword: "$ref",
+              message: "circular reference: '\(refStr)'"
+            )
+          )
+          return
+        }
+        // In Draft 7, $ref replaces the subschema, so we return immediately.
+        // In Draft 2020-12, sibling keywords are still processed below.
+        if draft == .draft7 { return }
+        // For Draft 2020-12, skip $ref validation but continue to keywords.
       } else {
-        resolvedCtx = currentCtx.advancedViaRef(resourceURI: resolved.resourceURI)
+        // For local refs: keep parentResourceURI as the original parent
+        // so $id resolves correctly (use advancedViaRef).
+        // For remote refs: update parentResourceURI to the remote schema's
+        // URI since $id should resolve against the remote parent (use advanced).
+        let isRemote = compiled?.resources[resolved.resourceURI] == nil
+        let resolvedCtx: EvaluationContext
+        if isRemote {
+          resolvedCtx = currentCtx.advanced(resourceURI: resolved.resourceURI)
+        } else {
+          resolvedCtx = currentCtx.advancedViaRef(resourceURI: resolved.resourceURI)
+        }
+        validateValue(
+          value, against: resolved.schema, instancePath: instancePath,
+          schemaPath: schemaPath + "/$ref", errors: &errors,
+          ctx: resolvedCtx
+        )
+        // In Draft 7, return here — sibling keywords are ignored alongside $ref.
+        // In Draft 2020-12, continue processing sibling keywords below.
+        if draft == .draft7 { return }
       }
-      validateValue(
-        value, against: resolved.schema, instancePath: instancePath,
-        schemaPath: schemaPath + "/$ref", errors: &errors,
-        ctx: resolvedCtx
-      )
-      // In Draft 7, return here — sibling keywords are ignored alongside $ref.
-      // In Draft 2020-12, continue processing sibling keywords below.
-      if draft == .draft7 { return }
-    }
+    }  // close else block for self-reference check
 
     // MARK: - Keyword dispatch using pre-computed keyword set
 

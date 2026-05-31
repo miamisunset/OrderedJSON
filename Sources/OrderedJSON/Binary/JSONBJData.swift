@@ -145,26 +145,36 @@ private func decodeBJData(_ data: Data, _ pos: inout Int) throws -> JSON {
 
   case bjdataMarkerArray:
     var elements: [JSON] = []
+    var foundEnd = false
     while pos < data.count {
       let next = data[pos]
       if next == bjdataMarkerEndArray {
         pos += 1
+        foundEnd = true
         break
       }
       try elements.append(decodeBJData(data, &pos))
+    }
+    guard foundEnd else {
+      throw JSONError.invalidBJData("Array missing end marker")
     }
     return JSON.array(elements)
 
   case bjdataMarkerObject:
     var dict = OrderedDictionary<String, JSON>()
+    var foundEnd = false
     while pos < data.count {
       let next = data[pos]
       if next == bjdataMarkerEndObject {
         pos += 1
+        foundEnd = true
         break
       }
       let key = try decodeBJDataString(data, &pos)
       dict[key] = try decodeBJData(data, &pos)
+    }
+    guard foundEnd else {
+      throw JSONError.invalidBJData("Object missing end marker")
     }
     return JSON.object(dict)
 

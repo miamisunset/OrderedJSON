@@ -376,6 +376,10 @@ extension JSON {
           throw error(at: ctx, kind: .invalidEscape)
         }
       } else {
+        // Reject raw control characters (U+0000-U+001F) per JSON spec
+        if s.value < 0x20 {
+          throw error(at: ctx, kind: .invalidEscape)
+        }
         result.append(String(s))
         ctx.advance()
       }
@@ -517,11 +521,21 @@ extension JSON {
     if let s = ctx.currentScalar, s.value == UnicodeScalarHex.minus {  // -
       ctx.advance()
     }
-    // Integer part
+    // Integer part — record the position of the first digit
+    let intStart = ctx.pos
     while let s = ctx.currentScalar, s.value >= UnicodeScalarHex.zero,
       s.value <= UnicodeScalarHex.nine
     {  // 0-9
       ctx.advance()
+    }
+    // Reject leading zeros: if the first digit was '0' and more digits follow
+    if ctx.pos > intStart {
+      let firstDigit = ctx.string.unicodeScalars[intStart]
+      if firstDigit.value == UnicodeScalarHex.zero
+        && ctx.string.unicodeScalars.index(after: intStart) < ctx.pos
+      {
+        throw error(at: ctx, kind: .invalidNumber)
+      }
     }
     var isFloat = false
     // Fractional part

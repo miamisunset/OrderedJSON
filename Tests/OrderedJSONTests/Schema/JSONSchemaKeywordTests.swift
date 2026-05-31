@@ -1142,18 +1142,15 @@ struct JSONSchemaContainsTests {
     #expect(schema.validating(.string("hello")).valid)
   }
 
-  @Test("contains — TODO: minContains/maxContains not yet supported")
-  func containsMinContainsTodo() throws {
-    // minContains/maxContains (Draft 2020-12) are not yet implemented.
-    // minContains: 2 should require at least 2 matches, but current impl
-    // returns on first match. This test documents current behavior.
+  @Test("contains — minContains/maxContains now enforced")
+  func containsMinContainsEnforced() throws {
+    // minContains is now enforced — 2 required but only 1 match
     let schema = try JSONSchema(
       schema: .object([
         "contains": .object(["type": .string("string")]),
         "minContains": .number(.integer(2)),
       ])
     )
-    // minContains is now enforced — 2 required but only 1 match
     #expect(!schema.validating(.array([.number(.integer(1)), .string("hello")])).valid)
   }
 }
@@ -1364,7 +1361,7 @@ struct JSONSchemaUnevaluatedPropertiesTests {
     #expect(result.errors.first?.keyword == "false")
   }
 
-  @Test("unevaluatedProperties — deviation: additionalProperties now tracked")
+  @Test("unevaluatedProperties — additionalProperties now tracked")
   func unevaluatedPropertiesWithAdditionalProperties() throws {
     // Keys evaluated by additionalProperties are now in the evaluated set,
     // so unevaluatedProperties does not re-check them.
@@ -1478,7 +1475,7 @@ struct JSONSchemaUnevaluatedItemsTests {
     #expect(result.valid)
   }
 
-  @Test("unevaluatedItems — deviation: contains matched indices not excluded")
+  @Test("unevaluatedItems — contains matched indices not excluded (known deviation)")
   func unevaluatedItemsWithContains() throws {
     // Per spec, items matched by contains are evaluated and should be excluded
     // from unevaluatedItems. Currently they are not.
@@ -1489,12 +1486,9 @@ struct JSONSchemaUnevaluatedItemsTests {
       ])
     )
     // Current behavior: unevaluatedItems fires on index 0 (which contains matched).
-    // Correct behavior (spec): index 0 is evaluated by contains, so unevaluatedItems
-    // should only check indices not matched by contains.
     let result = schema.validating(.array([.number(.integer(1)), .number(.integer(2))]))
     // Current (deviant): fails — unevaluatedItems fires on index 0
     #expect(!result.valid)
-    // Once contains tracking lands, this should pass (#expect(result.valid))
   }
 }
 

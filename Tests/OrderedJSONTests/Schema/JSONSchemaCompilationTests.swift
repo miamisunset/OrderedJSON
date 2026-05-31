@@ -163,9 +163,9 @@ struct JSONSchemaRefTests {
     )
     let result = schema.validating(.string("anything"))
     #expect(!result.valid)
-    // Depth guard fires with keyword "schema"
-    #expect(result.errors.first?.keyword == "schema")
-    #expect(result.errors.first?.message.contains("depth") == true)
+    // Circular $ref detection fires with keyword "$ref"
+    #expect(result.errors.first?.keyword == "$ref")
+    #expect(result.errors.first?.message.contains("circular") == true)
   }
 
   @Test("$ref — nested in properties")

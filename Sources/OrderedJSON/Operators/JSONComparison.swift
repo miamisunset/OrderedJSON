@@ -1,6 +1,13 @@
 import Foundation
 import OrderedCollections
 
+// FIXME: Add Comparable conformance — JSON currently defines <, <=, >, >= operators
+// but does not conform to Comparable.  The operators satisfy Comparable's requirements
+// (a < a is false, a < b implies !(b < a)), so adding : Comparable to the JSON struct
+// declaration would enable sorted() and other Comparable-constrained generics.
+// Cross-type non-null comparisons correctly return false (partial order), matching
+// nlohmann/json semantics.
+
 extension JSON {
   // MARK: - Comparison operators (matching nlohmann/json semantics)
 

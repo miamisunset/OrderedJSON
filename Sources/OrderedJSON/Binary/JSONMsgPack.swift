@@ -94,24 +94,27 @@ private func decodeMsgPack(_ data: Data, _ pos: inout Int) throws -> JSON {
 
   // Float/double
   if byte == 0xCA {
-    let bits = readUInt32(data, &pos)
+    let bits = try readUInt32(data, &pos)
     return JSON.number(.float(Double(Float(bitPattern: bits))))
   }
   if byte == 0xCB {
-    let bits = readUInt64(data, &pos)
+    let bits = try readUInt64(data, &pos)
     return JSON.number(.float(Double(bitPattern: bits)))
   }
 
   // Unsigned integers
   if byte == 0xCC {
+    guard pos < data.count else {
+      throw JSONError.invalidMsgPack("Unexpected end of MessagePack data")
+    }
     let v = data[pos]
     pos += 1
     return JSON.number(.integer(Int64(v)))
   }
-  if byte == 0xCD { return JSON.number(.integer(Int64(readUInt16(data, &pos)))) }
-  if byte == 0xCE { return JSON.number(.integer(Int64(readUInt32(data, &pos)))) }
+  if byte == 0xCD { return JSON.number(.integer(Int64(try readUInt16(data, &pos)))) }
+  if byte == 0xCE { return JSON.number(.integer(Int64(try readUInt32(data, &pos)))) }
   if byte == 0xCF {
-    let v = readUInt64(data, &pos)
+    let v = try readUInt64(data, &pos)
     if v <= UInt64(Int64.max) {
       return JSON.number(.integer(Int64(v)))
     } else {
@@ -121,52 +124,58 @@ private func decodeMsgPack(_ data: Data, _ pos: inout Int) throws -> JSON {
 
   // Signed integers
   if byte == 0xD0 {
+    guard pos < data.count else {
+      throw JSONError.invalidMsgPack("Unexpected end of MessagePack data")
+    }
     let v = Int8(bitPattern: data[pos])
     pos += 1
     return JSON.number(.integer(Int64(v)))
   }
   if byte == 0xD1 {
-    let v = Int16(bitPattern: readUInt16(data, &pos))
+    let v = try Int16(bitPattern: readUInt16(data, &pos))
     return JSON.number(.integer(Int64(v)))
   }
   if byte == 0xD2 {
-    let v = Int32(bitPattern: readUInt32(data, &pos))
+    let v = try Int32(bitPattern: readUInt32(data, &pos))
     return JSON.number(.integer(Int64(v)))
   }
-  if byte == 0xD3 { return JSON.number(.integer(readInt64(data, &pos))) }
+  if byte == 0xD3 { return JSON.number(.integer(try readInt64(data, &pos))) }
 
   // Array 16/32 (0xDC, 0xDD)
   if byte == 0xDC {
-    let count = Int(readUInt16(data, &pos))
+    let count = Int(try readUInt16(data, &pos))
     return try decodeMsgPackArray(data, &pos, count)
   }
   if byte == 0xDD {
-    let count = Int(readUInt32(data, &pos))
+    let count = Int(try readUInt32(data, &pos))
     return try decodeMsgPackArray(data, &pos, count)
   }
 
   // Map 16/32 (0xDE, 0xDF)
   if byte == 0xDE {
-    let count = Int(readUInt16(data, &pos))
+    let count = Int(try readUInt16(data, &pos))
     return try decodeMsgPackMap(data, &pos, count)
   }
   if byte == 0xDF {
-    let count = Int(readUInt32(data, &pos))
+    let count = Int(try readUInt32(data, &pos))
     return try decodeMsgPackMap(data, &pos, count)
   }
 
   // String 8/16/32 (0xD9, 0xDA, 0xDB)
   if byte == 0xD9 {
+    guard pos < data.count else {
+      throw JSONError.invalidMsgPack("Unexpected end of MessagePack data")
+    }
     let len = Int(data[pos])
     pos += 1
     return try decodeMsgPackString(data, &pos, len)
   }
   if byte == 0xDA {
-    let len = Int(readUInt16(data, &pos))
+    let len = Int(try readUInt16(data, &pos))
     return try decodeMsgPackString(data, &pos, len)
   }
   if byte == 0xDB {
-    let len = Int(readUInt32(data, &pos))
+    let len = Int(try readUInt32(data, &pos))
     return try decodeMsgPackString(data, &pos, len)
   }
 
@@ -188,12 +197,15 @@ private func decodeMsgPackString(_ data: Data, _ pos: inout Int, _ len: Int) thr
 private func decodeMsgPackBin(_ data: Data, _ pos: inout Int, _ sizeLen: Int) throws -> JSON {
   let len: Int
   if sizeLen == 1 {
+    guard pos < data.count else {
+      throw JSONError.invalidMsgPack("Unexpected end of MessagePack data")
+    }
     len = Int(data[pos])
     pos += 1
   } else if sizeLen == 2 {
-    len = Int(readUInt16(data, &pos))
+    len = Int(try readUInt16(data, &pos))
   } else {
-    len = Int(readUInt32(data, &pos))
+    len = Int(try readUInt32(data, &pos))
   }
   guard len >= 0, pos + len <= data.count else {
     throw JSONError.invalidMsgPack("Binary length exceeds data")
@@ -348,13 +360,19 @@ private func encodeMsgPackString(_ str: String, _ bytes: inout [UInt8]) {
 
 // MARK: - Helpers (shared)
 
-private func readUInt16(_ data: Data, _ pos: inout Int) -> UInt16 {
+private func readUInt16(_ data: Data, _ pos: inout Int) throws -> UInt16 {
+  guard pos + 2 <= data.count else {
+    throw JSONError.invalidMsgPack("Unexpected end of MessagePack data")
+  }
   let value = UInt16(data[pos]) << 8 | UInt16(data[pos + 1])
   pos += 2
   return value
 }
 
-private func readUInt32(_ data: Data, _ pos: inout Int) -> UInt32 {
+private func readUInt32(_ data: Data, _ pos: inout Int) throws -> UInt32 {
+  guard pos + 4 <= data.count else {
+    throw JSONError.invalidMsgPack("Unexpected end of MessagePack data")
+  }
   let value =
     UInt32(data[pos]) << 24 | UInt32(data[pos + 1]) << 16 | UInt32(data[pos + 2]) << 8
     | UInt32(data[pos + 3])
@@ -362,7 +380,10 @@ private func readUInt32(_ data: Data, _ pos: inout Int) -> UInt32 {
   return value
 }
 
-private func readUInt64(_ data: Data, _ pos: inout Int) -> UInt64 {
+private func readUInt64(_ data: Data, _ pos: inout Int) throws -> UInt64 {
+  guard pos + 8 <= data.count else {
+    throw JSONError.invalidMsgPack("Unexpected end of MessagePack data")
+  }
   let value =
     UInt64(data[pos]) << 56 | UInt64(data[pos + 1]) << 48 | UInt64(data[pos + 2]) << 40 | UInt64(
       data[pos + 3]
@@ -373,8 +394,8 @@ private func readUInt64(_ data: Data, _ pos: inout Int) -> UInt64 {
   return value
 }
 
-private func readInt64(_ data: Data, _ pos: inout Int) -> Int64 {
-  return Int64(bitPattern: readUInt64(data, &pos))
+private func readInt64(_ data: Data, _ pos: inout Int) throws -> Int64 {
+  return Int64(bitPattern: try readUInt64(data, &pos))
 }
 
 private func appendUInt16(_ value: UInt16, _ bytes: inout [UInt8]) {

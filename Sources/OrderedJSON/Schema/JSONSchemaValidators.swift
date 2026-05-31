@@ -653,25 +653,22 @@ extension JSONSchema {
   ) {
     guard let containsSchema = subschema["contains"], let arr = value.arrayValue else { return }
     // When minContains is 0, contains imposes no constraint (Draft 2020-12).
+    // The `contains` keyword itself only requires at least 1 match; minContains
+    // is handled by validateMinContains.
     let minContains = subschema["minContains"]?.intValue
     if let minC = minContains, minC == 0 { return }
-    let required = minContains ?? 1
-    var matchCount = 0
     for item in arr {
       var itemErrors: [JSONSchemaError] = []
       validateValue(
         item, against: containsSchema, instancePath: instancePath,
         schemaPath: schemaPath + "/contains", errors: &itemErrors, ctx: ctx
       )
-      if itemErrors.isEmpty {
-        matchCount += 1
-        if matchCount >= required { return }
-      }
+      if itemErrors.isEmpty { return }
     }
     errors.append(
       JSONSchemaError(
         instancePath: instancePath, schemaPath: schemaPath + "/contains", keyword: "contains",
-        message: "array does not contain \(required) item(s) matching the subschema"
+        message: "array does not contain at least one item matching the subschema"
       )
     )
   }
@@ -759,8 +756,10 @@ extension JSONSchema {
         let cached = compiled.precompiledPatterns[pattern]
       {
         regex = cached.regex
+      } else if let r = try? NSRegularExpression(pattern: pattern, options: []) {
+        regex = r
       } else {
-        regex = try! NSRegularExpression(pattern: pattern, options: [])
+        continue
       }
       for (key, val) in dict {
         let range = NSRange(key.startIndex..<key.endIndex, in: key)

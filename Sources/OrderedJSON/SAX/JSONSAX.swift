@@ -444,6 +444,10 @@ extension JSON {
           return ""
         }
       } else {
+        // Reject raw control characters (U+0000-U+001F) per JSON spec
+        if s.value < 0x20 {
+          return ""
+        }
         result.append(String(s))
         ctx.advance()
       }
@@ -574,18 +578,35 @@ extension JSON {
       }
     case UnicodeScalarHex.minus, UnicodeScalarHex.zero...UnicodeScalarHex.nine:  // -, 0-9
       if ctx.currentScalar?.value == UnicodeScalarHex.minus { ctx.advance() }
+      // Track first digit position for leading-zero check
+      let intStart = ctx.pos
+      var hadDigit = false
       while let s = ctx.currentScalar, s.value >= UnicodeScalarHex.zero,
         s.value <= UnicodeScalarHex.nine
       {
+        hadDigit = true
         ctx.advance()
+      }
+      guard hadDigit else { return false }
+      // Reject leading zeros: first digit was '0' and more digits follow
+      if ctx.pos > intStart {
+        let firstDigit = ctx.string.unicodeScalars[intStart]
+        if firstDigit.value == UnicodeScalarHex.zero
+          && ctx.string.unicodeScalars.index(after: intStart) < ctx.pos
+        {
+          return false
+        }
       }
       if let s = ctx.currentScalar, s.value == UnicodeScalarHex.dot {  // .
         ctx.advance()
+        var hadFrac = false
         while let s = ctx.currentScalar, s.value >= UnicodeScalarHex.zero,
           s.value <= UnicodeScalarHex.nine
         {
+          hadFrac = true
           ctx.advance()
         }
+        guard hadFrac else { return false }
       }
       if let s = ctx.currentScalar,
         s.value == UnicodeScalarHex.eLower || s.value == UnicodeScalarHex.eUpper
@@ -596,11 +617,14 @@ extension JSON {
         {  // +, -
           ctx.advance()
         }
+        var hadExp = false
         while let s = ctx.currentScalar, s.value >= UnicodeScalarHex.zero,
           s.value <= UnicodeScalarHex.nine
         {
+          hadExp = true
           ctx.advance()
         }
+        guard hadExp else { return false }
       }
       return true
     default:

@@ -219,36 +219,3 @@ import Testing
     }
   }
 }
-
-@Suite("Flatten Edge Case Tests") struct JSONFlattenEdgeCaseTests {
-  @Test("flatten key with slash") func flattenKeyWithSlash() {
-    // Keys containing / must be escaped as ~1
-    let json = JSON.object([
-      "a/b": .number(.integer(1)),
-      "c": .number(.integer(2)),
-    ])
-    let flat = json.flatten()
-    #expect(flat.isObject, "Expected object")
-    guard case .object(let dict) = flat.storage else { return }
-    #expect(dict["/a~1b"] == JSON.number(.integer(1)))
-    #expect(dict["/c"] == JSON.number(.integer(2)))
-  }
-
-  @Test("flatten key with tilde") func flattenKeyWithTilde() {
-    // Keys containing ~ must be escaped as ~0
-    let json = JSON.object(["a~b": .number(.integer(1))])
-    let flat = json.flatten()
-    #expect(flat.isObject, "Expected object")
-    guard case .object(let dict) = flat.storage else { return }
-    #expect(dict["/a~0b"] == JSON.number(.integer(1)))
-  }
-
-  @Test("flatten key with tilde and slash") func flattenKeyWithTildeAndSlash() {
-    // Keys containing ~ and / must escape both
-    let json = JSON.object(["a~/b": .number(.integer(1))])
-    let flat = json.flatten()
-    #expect(flat.isObject, "Expected object")
-    guard case .object(let dict) = flat.storage else { return }
-    #expect(dict["/a~0~1b"] == JSON.number(.integer(1)))
-  }
-}

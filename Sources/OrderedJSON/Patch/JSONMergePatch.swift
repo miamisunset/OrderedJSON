@@ -61,7 +61,7 @@ extension JSON {
       if patchValue.isNull {
         // Remove the key
         result.removeValue(forKey: key)
-      } else if patchValue.isObject, let existing = result[key] {
+      } else if patchValue.isObject, let existing = result[key], case .object = existing.storage {
         // Recursive merge for object patches
         result[key] = mergePatchInternal(target: existing, patch: patchValue)
       } else {
