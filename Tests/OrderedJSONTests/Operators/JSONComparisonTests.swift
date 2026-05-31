@@ -69,4 +69,26 @@ import Testing
     #expect(JSON.number(.integer(2)) <= JSON.number(.integer(2)))
     #expect((JSON.number(.integer(3)) <= JSON.number(.integer(2))) == false)
   }
+
+  @Test("comparable conformance — sorted() works")
+  func comparableSorted() {
+    let values: [JSON] = [
+      .number(.integer(3)),
+      .number(.integer(1)),
+      .number(.integer(2)),
+    ]
+    let sorted = values.sorted()
+    #expect(sorted == [.number(.integer(1)), .number(.integer(2)), .number(.integer(3))])
+  }
+
+  @Test("comparable conformance — max/min work")
+  func comparableMaxMin() {
+    let values: [JSON] = [
+      .number(.integer(1)),
+      .number(.integer(5)),
+      .number(.integer(3)),
+    ]
+    #expect(values.max() == .number(.integer(5)))
+    #expect(values.min() == .number(.integer(1)))
+  }
 }

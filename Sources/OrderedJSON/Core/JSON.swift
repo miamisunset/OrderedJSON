@@ -34,7 +34,7 @@ import OrderedCollections
 /// dot-notation: `json.user.name` instead of `json["user"]["name"]`.
 /// Missing keys return `.null`; setting requires an object target.
 @dynamicMemberLookup
-public struct JSON: Hashable, Sendable {
+public struct JSON: Hashable, Comparable, Sendable {
   /// The underlying storage enum.
   enum Storage: Hashable {
     /// An ordered dictionary mapping string keys to JSON values.
