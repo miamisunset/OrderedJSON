@@ -3,7 +3,7 @@ import Testing
 
 @testable import OrderedJSON
 
-/// Tests for JSON Schema generation from JSON instances (Phase 9).
+/// Tests for JSON Schema generation from JSON instances.
 @Suite("JSON Schema generation tests") struct JSONSchemaGenerationTests {
   // MARK: - Primitive types
 

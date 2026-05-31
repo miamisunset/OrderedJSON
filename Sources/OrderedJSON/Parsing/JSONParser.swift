@@ -608,12 +608,3 @@ extension JSON {
     ctx.cursor.skipWhitespace()
   }
 }
-
-// MARK: - Character extension for hex digit check
-
-extension Character {
-  /// Returns `true` if this character is a hexadecimal digit (0-9, A-F, a-f).
-  package var isHexDigit: Bool {
-    return ("0"..."9" ~= self) || ("A"..."F" ~= self) || ("a"..."f" ~= self)
-  }
-}

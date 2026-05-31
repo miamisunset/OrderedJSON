@@ -3,7 +3,7 @@ import Testing
 
 @testable import OrderedJSON
 
-// MARK: - Phase 4: JSON Merge Patch (RFC 7396) Edge Case Tests
+// MARK: - JSON Merge Patch (RFC 7396) Edge Case Tests
 
 @Suite("JSON merge patch edge case tests")
 struct JSONMergePatchEdgeCaseTests {
