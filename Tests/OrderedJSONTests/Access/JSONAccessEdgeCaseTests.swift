@@ -149,25 +149,25 @@ import Testing
   }
 
   @Test("doubleValue on NaN returns NaN")
-  func doubleValueOnNaN() {
+  func doubleValueOnNaN() throws {
     let nan = JSON.number(.float(Double.nan))
-    #expect(nan.doubleValue != nil)
-    #expect(nan.doubleValue!.isNaN)
+    let dv = try #require(nan.doubleValue)
+    #expect(dv.isNaN)
   }
 
   @Test("doubleValue on infinity returns infinity")
-  func doubleValueOnInfinity() {
+  func doubleValueOnInfinity() throws {
     let inf = JSON.number(.float(Double.infinity))
-    #expect(inf.doubleValue != nil)
-    #expect(inf.doubleValue!.isInfinite)
+    let dv = try #require(inf.doubleValue)
+    #expect(dv.isInfinite)
   }
 
   @Test("doubleValue on negative infinity returns negative infinity")
-  func doubleValueOnNegativeInfinity() {
+  func doubleValueOnNegativeInfinity() throws {
     let ninf = JSON.number(.float(-Double.infinity))
-    #expect(ninf.doubleValue != nil)
-    #expect(ninf.doubleValue!.isInfinite)
-    #expect(ninf.doubleValue! < 0)
+    let dv = try #require(ninf.doubleValue)
+    #expect(dv.isInfinite)
+    #expect(dv < 0)
   }
 
   @Test("doubleValue on integer widens to Double")

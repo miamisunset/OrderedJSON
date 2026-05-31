@@ -704,7 +704,7 @@ import Testing
     } throws: { error in
       guard let decodingError = error as? DecodingError else { return false }
       switch decodingError {
-      case .keyNotFound(let key, let ctx):
+      case .keyNotFound(let key, _):
         return key.stringValue == "age"
       default: return false
       }

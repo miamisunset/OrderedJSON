@@ -1386,7 +1386,10 @@ struct JSONOverflowTests {
     let decoded = try JSON(msgPack: data)
     // Should decode as float since value exceeds Int64.max
     #expect(decoded.isFloat)
-    guard case .number(.float(let d)) = decoded.storage else { return }
+    guard case .number(.float(let d)) = decoded.storage else {
+      Issue.record("Expected float, got \(decoded)")
+      return
+    }
     #expect(d == Double(large))
   }
 
@@ -1400,7 +1403,10 @@ struct JSONOverflowTests {
     let decoded = try JSON(cbor: data)
     // Should decode as float since value exceeds Int64.max
     #expect(decoded.isFloat)
-    guard case .number(.float(let d)) = decoded.storage else { return }
+    guard case .number(.float(let d)) = decoded.storage else {
+      Issue.record("Expected float, got \(decoded)")
+      return
+    }
     #expect(d == Double(large))
   }
 
@@ -1428,7 +1434,10 @@ struct JSONOverflowTests {
     let data = Data(bytes)
     let decoded = try JSON(cbor: data)
     #expect(decoded.isInteger)
-    guard case .number(.integer(let i)) = decoded.storage else { return }
+    guard case .number(.integer(let i)) = decoded.storage else {
+      Issue.record("Expected integer, got \(decoded)")
+      return
+    }
     #expect(i == Int64.min)
   }
 
@@ -1441,7 +1450,10 @@ struct JSONOverflowTests {
     let data = Data(bytes)
     let decoded = try JSON(cbor: data)
     #expect(decoded.isFloat)
-    guard case .number(.float(let d)) = decoded.storage else { return }
+    guard case .number(.float(let d)) = decoded.storage else {
+      Issue.record("Expected float, got \(decoded)")
+      return
+    }
     // The Double representation of 2^63 is exact (it's a power of 2)
     // but larger values would lose precision
     #expect(d == Double(original))
@@ -1528,7 +1540,10 @@ struct JSONBinaryRoundTripEdgeTests {
     let data = json.cbor()
     let decoded = try JSON(cbor: data)
     #expect(decoded.isFloat)
-    guard case .number(.float(let d)) = decoded.storage else { return }
+    guard case .number(.float(let d)) = decoded.storage else {
+      Issue.record("Expected float, got \(decoded)")
+      return
+    }
     #expect(d == -0.0)
     #expect(d.sign == .minus)
   }
@@ -1538,7 +1553,10 @@ struct JSONBinaryRoundTripEdgeTests {
     let data = json.cbor()
     let decoded = try JSON(cbor: data)
     #expect(decoded.isFloat)
-    guard case .number(.float(let d)) = decoded.storage else { return }
+    guard case .number(.float(let d)) = decoded.storage else {
+      Issue.record("Expected float, got \(decoded)")
+      return
+    }
     #expect(d.isNaN)
   }
 
@@ -1547,7 +1565,10 @@ struct JSONBinaryRoundTripEdgeTests {
     let data = json.cbor()
     let decoded = try JSON(cbor: data)
     #expect(decoded.isFloat)
-    guard case .number(.float(let d)) = decoded.storage else { return }
+    guard case .number(.float(let d)) = decoded.storage else {
+      Issue.record("Expected float, got \(decoded)")
+      return
+    }
     #expect(d == Double.infinity)
   }
 
@@ -1556,7 +1577,10 @@ struct JSONBinaryRoundTripEdgeTests {
     let data = json.cbor()
     let decoded = try JSON(cbor: data)
     #expect(decoded.isFloat)
-    guard case .number(.float(let d)) = decoded.storage else { return }
+    guard case .number(.float(let d)) = decoded.storage else {
+      Issue.record("Expected float, got \(decoded)")
+      return
+    }
     #expect(d == -Double.infinity)
   }
 
@@ -1608,7 +1632,10 @@ struct JSONBinaryRoundTripEdgeTests {
     let data = json.msgPack()
     let decoded = try JSON(msgPack: data)
     #expect(decoded.isFloat)
-    guard case .number(.float(let d)) = decoded.storage else { return }
+    guard case .number(.float(let d)) = decoded.storage else {
+      Issue.record("Expected float, got \(decoded)")
+      return
+    }
     #expect(d == -0.0)
   }
 
@@ -1660,7 +1687,10 @@ struct JSONBinaryRoundTripEdgeTests {
     let data = json.ubjson()
     let decoded = try JSON(ubjson: data)
     #expect(decoded.isFloat)
-    guard case .number(.float(let d)) = decoded.storage else { return }
+    guard case .number(.float(let d)) = decoded.storage else {
+      Issue.record("Expected float, got \(decoded)")
+      return
+    }
     #expect(d == -0.0)
   }
 
@@ -1669,7 +1699,10 @@ struct JSONBinaryRoundTripEdgeTests {
     let data = json.ubjson()
     let decoded = try JSON(ubjson: data)
     #expect(decoded.isFloat)
-    guard case .number(.float(let d)) = decoded.storage else { return }
+    guard case .number(.float(let d)) = decoded.storage else {
+      Issue.record("Expected float, got \(decoded)")
+      return
+    }
     #expect(d.isNaN)
   }
 
@@ -1678,7 +1711,10 @@ struct JSONBinaryRoundTripEdgeTests {
     let data = json.ubjson()
     let decoded = try JSON(ubjson: data)
     #expect(decoded.isFloat)
-    guard case .number(.float(let d)) = decoded.storage else { return }
+    guard case .number(.float(let d)) = decoded.storage else {
+      Issue.record("Expected float, got \(decoded)")
+      return
+    }
     #expect(d == Double.infinity)
   }
 
@@ -1787,7 +1823,10 @@ struct JSONBinaryRoundTripEdgeTests {
     let data = json.bjdata()
     let decoded = try JSON(bjdata: data)
     #expect(decoded.isFloat)
-    guard case .number(.float(let d)) = decoded.storage else { return }
+    guard case .number(.float(let d)) = decoded.storage else {
+      Issue.record("Expected float, got \(decoded)")
+      return
+    }
     #expect(d == -0.0)
   }
 
@@ -1796,7 +1835,10 @@ struct JSONBinaryRoundTripEdgeTests {
     let data = json.bjdata()
     let decoded = try JSON(bjdata: data)
     #expect(decoded.isFloat)
-    guard case .number(.float(let d)) = decoded.storage else { return }
+    guard case .number(.float(let d)) = decoded.storage else {
+      Issue.record("Expected float, got \(decoded)")
+      return
+    }
     #expect(d.isNaN)
   }
 
@@ -1805,7 +1847,10 @@ struct JSONBinaryRoundTripEdgeTests {
     let data = json.bjdata()
     let decoded = try JSON(bjdata: data)
     #expect(decoded.isFloat)
-    guard case .number(.float(let d)) = decoded.storage else { return }
+    guard case .number(.float(let d)) = decoded.storage else {
+      Issue.record("Expected float, got \(decoded)")
+      return
+    }
     #expect(d == Double.infinity)
   }
 
@@ -1869,7 +1914,10 @@ struct JSONEdgeCaseTests {
     let data = Data(bytes)
     let decoded = try JSON(cbor: data)
     #expect(decoded.isFloat)
-    guard case .number(.float(let d)) = decoded.storage else { return }
+    guard case .number(.float(let d)) = decoded.storage else {
+      Issue.record("Expected float, got \(decoded)")
+      return
+    }
     #expect(d.isNaN)
     // Serialize to JSON string — should produce null
     let dumped = decoded.dump(indent: nil)

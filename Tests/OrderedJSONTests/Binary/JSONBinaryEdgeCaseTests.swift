@@ -33,7 +33,10 @@ struct JSONCBORHalfFloatEdgeTests {
     let data = Data(bytes)
     let decoded = try JSON(cbor: data)
     #expect(decoded.isFloat)
-    guard case .number(.float(let d)) = decoded.storage else { return }
+    guard case .number(.float(let d)) = decoded.storage else {
+      Issue.record("Expected float, got \(decoded)")
+      return
+    }
     #expect(d == -Double.infinity)
     #expect(d.sign == .minus)
   }
@@ -44,7 +47,10 @@ struct JSONCBORHalfFloatEdgeTests {
     let data = Data(bytes)
     let decoded = try JSON(cbor: data)
     #expect(decoded.isFloat)
-    guard case .number(.float(let d)) = decoded.storage else { return }
+    guard case .number(.float(let d)) = decoded.storage else {
+      Issue.record("Expected float, got \(decoded)")
+      return
+    }
     #expect(d == Double.infinity)
     #expect(d.sign == .plus)
   }
@@ -55,7 +61,10 @@ struct JSONCBORHalfFloatEdgeTests {
     let data = Data(bytes)
     let decoded = try JSON(cbor: data)
     #expect(decoded.isFloat)
-    guard case .number(.float(let d)) = decoded.storage else { return }
+    guard case .number(.float(let d)) = decoded.storage else {
+      Issue.record("Expected float, got \(decoded)")
+      return
+    }
     #expect(d == -0.0)
     #expect(d.sign == .minus)
   }
@@ -67,7 +76,10 @@ struct JSONCBORHalfFloatEdgeTests {
     let data = Data(bytes)
     let decoded = try JSON(cbor: data)
     #expect(decoded.isFloat)
-    guard case .number(.float(let d)) = decoded.storage else { return }
+    guard case .number(.float(let d)) = decoded.storage else {
+      Issue.record("Expected float, got \(decoded)")
+      return
+    }
     #expect(d == 1023.0 / 16_777_216.0)
   }
 
@@ -77,7 +89,10 @@ struct JSONCBORHalfFloatEdgeTests {
     let data = Data(bytes)
     let decoded = try JSON(cbor: data)
     #expect(decoded.isFloat)
-    guard case .number(.float(let d)) = decoded.storage else { return }
+    guard case .number(.float(let d)) = decoded.storage else {
+      Issue.record("Expected float, got \(decoded)")
+      return
+    }
     #expect(d == 1.0 / 16384.0)
   }
 
@@ -88,7 +103,10 @@ struct JSONCBORHalfFloatEdgeTests {
     let data = Data(bytes)
     let decoded = try JSON(cbor: data)
     #expect(decoded.isFloat)
-    guard case .number(.float(let d)) = decoded.storage else { return }
+    guard case .number(.float(let d)) = decoded.storage else {
+      Issue.record("Expected float, got \(decoded)")
+      return
+    }
     #expect(d == 65504.0)
   }
 }
@@ -220,22 +238,11 @@ struct JSONBSONEdgeCaseTests {
   }
 
   @Test("bson doc len int32 max near overflow") func bsonDocLenNearOverflow() throws {
-    // Verify that a very large docLen doesn't cause integer overflow
-    // docLen = 0x7FFFFFFF (Int32.max) but the data is too short
+    // docLen = Int32.max is read successfully (4 bytes available), but the decode
+    // loop hits a bounds check since data.count = 4 < endPos → throws
     let bytes: [UInt8] = [
-      0xFF, 0xFF, 0xFF, 0x7F,  // doc length = Int32.max (big endian? No BSON is LE)
-      // Actually BSON is little-endian. 0x7FFFFFFF in LE = 0xFF,0xFF,0xFF,0x7F
-      // But Int32(bitPattern: 0x7FFFFFFF) = Int32.max = 2147483647
-      // pos + docLen - 5 would be huge but safe on 64-bit
+      0xFF, 0xFF, 0xFF, 0x7F,  // BSON LE: Int32.max = 2147483647
     ]
-    // This should throw "Unexpected end of BSON document" since pos+4 > data.count
-    // Wait, pos+4 = 4, data.count = 4, so pos+4 <= data.count is true (4 <= 4)
-    // readBSONUInt32 succeeds with docLen = Int32.max
-    // docLen >= 5 is true
-    // endPos = pos + docLen - 5 — this is 4 + 2147483647 - 5 = 2147483646
-    // The while loop runs until pos >= endPos, but pos < data.count (4 < 2147483646)
-    // Actually wait, data.count = 4, so the while loop `pos < endPos` (4 < 2147483646) is true
-    // Then decodeBSONElement checks `guard pos < data.count` which is 4 < 4 = false → throws
     let data = Data(bytes)
     #expect(throws: JSONError.self) { try JSON(bson: data) }
   }
@@ -313,7 +320,10 @@ struct JSONMsgPackEdgeCaseTests {
     let data = Data(bytes)
     let decoded = try JSON(msgPack: data)
     #expect(decoded.isFloat)
-    guard case .number(.float(let d)) = decoded.storage else { return }
+    guard case .number(.float(let d)) = decoded.storage else {
+      Issue.record("Expected float, got \(decoded)")
+      return
+    }
     #expect(d == Double(UInt64.max))
   }
 }
@@ -400,7 +410,10 @@ struct JSONCBORNegativeIntEdgeTests {
     let data = Data(bytes)
     let decoded = try JSON(cbor: data)
     #expect(decoded.isInteger)
-    guard case .number(.integer(let i)) = decoded.storage else { return }
+    guard case .number(.integer(let i)) = decoded.storage else {
+      Issue.record("Expected integer, got \(decoded)")
+      return
+    }
     #expect(i == Int64.min)
   }
 
@@ -481,7 +494,10 @@ struct JSONBinaryRoundTripMissingEdgeTests {
     let data = json.msgPack()
     let decoded = try JSON(msgPack: data)
     #expect(decoded.isFloat)
-    guard case .number(.float(let d)) = decoded.storage else { return }
+    guard case .number(.float(let d)) = decoded.storage else {
+      Issue.record("Expected float, got \(decoded)")
+      return
+    }
     #expect(d.isNaN)
   }
 
@@ -490,7 +506,10 @@ struct JSONBinaryRoundTripMissingEdgeTests {
     let data = json.msgPack()
     let decoded = try JSON(msgPack: data)
     #expect(decoded.isFloat)
-    guard case .number(.float(let d)) = decoded.storage else { return }
+    guard case .number(.float(let d)) = decoded.storage else {
+      Issue.record("Expected float, got \(decoded)")
+      return
+    }
     #expect(d == Double.infinity)
   }
 
@@ -499,7 +518,10 @@ struct JSONBinaryRoundTripMissingEdgeTests {
     let data = json.msgPack()
     let decoded = try JSON(msgPack: data)
     #expect(decoded.isFloat)
-    guard case .number(.float(let d)) = decoded.storage else { return }
+    guard case .number(.float(let d)) = decoded.storage else {
+      Issue.record("Expected float, got \(decoded)")
+      return
+    }
     #expect(d == -Double.infinity)
   }
 
@@ -508,7 +530,10 @@ struct JSONBinaryRoundTripMissingEdgeTests {
     let data = json.ubjson()
     let decoded = try JSON(ubjson: data)
     #expect(decoded.isFloat)
-    guard case .number(.float(let d)) = decoded.storage else { return }
+    guard case .number(.float(let d)) = decoded.storage else {
+      Issue.record("Expected float, got \(decoded)")
+      return
+    }
     #expect(d == -Double.infinity)
   }
 
@@ -517,7 +542,10 @@ struct JSONBinaryRoundTripMissingEdgeTests {
     let data = json.bson()
     let decoded = try JSON(bson: data)
     #expect(decoded.isObject)
-    guard case .object(let dict) = decoded.storage else { return }
+    guard case .object(let dict) = decoded.storage else {
+      Issue.record("Expected object, got \(decoded)")
+      return
+    }
     let val = try #require(dict["value"])
     #expect(val.isFloat)
   }
@@ -527,7 +555,10 @@ struct JSONBinaryRoundTripMissingEdgeTests {
     let data = json.bjdata()
     let decoded = try JSON(bjdata: data)
     #expect(decoded.isFloat)
-    guard case .number(.float(let d)) = decoded.storage else { return }
+    guard case .number(.float(let d)) = decoded.storage else {
+      Issue.record("Expected float, got \(decoded)")
+      return
+    }
     #expect(d == -Double.infinity)
   }
 
@@ -536,7 +567,10 @@ struct JSONBinaryRoundTripMissingEdgeTests {
     let data = json.msgPack()
     let decoded = try JSON(msgPack: data)
     #expect(decoded.isFloat)
-    guard case .number(.float(let d)) = decoded.storage else { return }
+    guard case .number(.float(let d)) = decoded.storage else {
+      Issue.record("Expected float, got \(decoded)")
+      return
+    }
     #expect(d == -0.0)
     // MsgPack float64 preserves sign bit
     #expect(d.sign == .minus)
@@ -549,7 +583,10 @@ struct JSONBinaryRoundTripMissingEdgeTests {
     let data = json.ubjson()
     let decoded = try JSON(ubjson: data)
     #expect(decoded.isFloat)
-    guard case .number(.float(let d)) = decoded.storage else { return }
+    guard case .number(.float(let d)) = decoded.storage else {
+      Issue.record("Expected float, got \(decoded)")
+      return
+    }
     #expect(d == -0.0)
     #expect(d.sign == .minus)
   }
@@ -561,7 +598,10 @@ struct JSONBinaryRoundTripMissingEdgeTests {
     let data = json.bjdata()
     let decoded = try JSON(bjdata: data)
     #expect(decoded.isFloat)
-    guard case .number(.float(let d)) = decoded.storage else { return }
+    guard case .number(.float(let d)) = decoded.storage else {
+      Issue.record("Expected float, got \(decoded)")
+      return
+    }
     #expect(d == -0.0)
     #expect(d.sign == .minus)
   }
@@ -572,7 +612,10 @@ struct JSONBinaryRoundTripMissingEdgeTests {
     let data = json.cbor()
     let decoded = try JSON(cbor: data)
     #expect(decoded.isFloat)
-    guard case .number(.float(let d)) = decoded.storage else { return }
+    guard case .number(.float(let d)) = decoded.storage else {
+      Issue.record("Expected float, got \(decoded)")
+      return
+    }
     #expect(d == Double(UInt64(Int64.max) + 1))
   }
 
@@ -583,7 +626,10 @@ struct JSONBinaryRoundTripMissingEdgeTests {
     let data = json.msgPack()
     let decoded = try JSON(msgPack: data)
     #expect(decoded.isFloat)
-    guard case .number(.float(let d)) = decoded.storage else { return }
+    guard case .number(.float(let d)) = decoded.storage else {
+      Issue.record("Expected float, got \(decoded)")
+      return
+    }
     #expect(d == Double(UInt64(Int64.max) + 1))
   }
 
@@ -592,7 +638,10 @@ struct JSONBinaryRoundTripMissingEdgeTests {
     let data = json.ubjson()
     let decoded = try JSON(ubjson: data)
     #expect(decoded.isFloat)
-    guard case .number(.float(let d)) = decoded.storage else { return }
+    guard case .number(.float(let d)) = decoded.storage else {
+      Issue.record("Expected float, got \(decoded)")
+      return
+    }
     #expect(d == Double(UInt64(Int64.max) + 1))
   }
 
@@ -601,7 +650,10 @@ struct JSONBinaryRoundTripMissingEdgeTests {
     let data = json.bjdata()
     let decoded = try JSON(bjdata: data)
     #expect(decoded.isFloat)
-    guard case .number(.float(let d)) = decoded.storage else { return }
+    guard case .number(.float(let d)) = decoded.storage else {
+      Issue.record("Expected float, got \(decoded)")
+      return
+    }
     #expect(d == Double(UInt64(Int64.max) + 1))
   }
 
@@ -614,7 +666,10 @@ struct JSONBinaryRoundTripMissingEdgeTests {
     // CBOR float64 has sign bit — should be preserved
     let decoded = try JSON(cbor: data)
     #expect(decoded.isFloat)
-    guard case .number(.float(let d)) = decoded.storage else { return }
+    guard case .number(.float(let d)) = decoded.storage else {
+      Issue.record("Expected float, got \(decoded)")
+      return
+    }
     #expect(d.sign == .minus)
   }
 }
