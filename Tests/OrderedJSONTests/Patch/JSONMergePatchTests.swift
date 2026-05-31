@@ -156,7 +156,7 @@ struct JSONMergePatchTests {
     #expect(result == expected)
   }
 
-  // MARK: - Phase 4: Merge Patch Edge Cases
+  // MARK: - Merge Patch Edge Cases
 
   @Test("null patch on null target returns null") func nullPatchOnNullTarget() {
     let target = JSON.null

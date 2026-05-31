@@ -4,7 +4,7 @@ import Testing
 
 @testable import OrderedJSON
 
-// MARK: - Phase 13: Schema Memory / Cyclic $ref
+// MARK: - Schema Memory / Cyclic $ref
 
 /// Tests for cyclic `$ref` detection and deeply nested schemas:
 ///   4. Cyclic `$ref` in schemas — no infinite loops

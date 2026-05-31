@@ -3,7 +3,7 @@ import Testing
 
 @testable import OrderedJSON
 
-// MARK: - Phase 8: Modifier Edge Cases
+// MARK: - Modifier Edge Cases
 
 @Suite("Modifier Edge Cases") struct JSONModifierEdgeCaseTests {
 

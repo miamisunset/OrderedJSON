@@ -3,7 +3,7 @@ import Testing
 
 @testable import OrderedJSON
 
-// MARK: - Phase 9 Edge Cases: Accessors and Subscripts
+// MARK: - Edge Cases: Accessors and Subscripts
 
 @Suite("Access Edge Case Tests") struct JSONAccessEdgeCaseTests {
 
