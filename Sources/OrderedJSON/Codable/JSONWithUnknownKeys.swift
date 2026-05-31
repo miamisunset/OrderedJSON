@@ -246,74 +246,102 @@ private struct _TrackingKeyedDecodingContainer<Key: CodingKey>: KeyedDecodingCon
 
   func decode(_: Bool.Type, forKey key: Key) throws -> Bool {
     onAccess(key.stringValue)
-    return try valueForKey(key) { json in try decodeJSON({ try json.requireBool() }, codingPath: codingPath + [key]) }
+    return try valueForKey(key) { json in
+      try decodeJSON({ try json.requireBool() }, codingPath: codingPath + [key])
+    }
   }
 
   func decode(_: String.Type, forKey key: Key) throws -> String {
     onAccess(key.stringValue)
-    return try valueForKey(key) { json in try decodeJSON({ try json.requireString() }, codingPath: codingPath + [key]) }
+    return try valueForKey(key) { json in
+      try decodeJSON({ try json.requireString() }, codingPath: codingPath + [key])
+    }
   }
 
   func decode(_: Int64.Type, forKey key: Key) throws -> Int64 {
     onAccess(key.stringValue)
-    return try valueForKey(key) { json in try decodeJSON({ try json.requireInt64() }, codingPath: codingPath + [key]) }
+    return try valueForKey(key) { json in
+      try decodeJSON({ try json.requireInt64() }, codingPath: codingPath + [key])
+    }
   }
 
   func decode(_: Int.Type, forKey key: Key) throws -> Int {
     onAccess(key.stringValue)
-    return try valueForKey(key) { json in try decodeJSON({ try json.requireInt() }, codingPath: codingPath + [key]) }
+    return try valueForKey(key) { json in
+      try decodeJSON({ try json.requireInt() }, codingPath: codingPath + [key])
+    }
   }
 
   func decode(_: Double.Type, forKey key: Key) throws -> Double {
     onAccess(key.stringValue)
-    return try valueForKey(key) { json in try decodeJSON({ try json.requireDouble() }, codingPath: codingPath + [key]) }
+    return try valueForKey(key) { json in
+      try decodeJSON({ try json.requireDouble() }, codingPath: codingPath + [key])
+    }
   }
 
   func decode(_: Float.Type, forKey key: Key) throws -> Float {
     onAccess(key.stringValue)
-    return try valueForKey(key) { json in try decodeJSON({ try json.requireFloat() }, codingPath: codingPath + [key]) }
+    return try valueForKey(key) { json in
+      try decodeJSON({ try json.requireFloat() }, codingPath: codingPath + [key])
+    }
   }
 
   // MARK: - Integer and unsigned widths
 
   func decode(_: Int8.Type, forKey key: Key) throws -> Int8 {
     onAccess(key.stringValue)
-    return try valueForKey(key) { json in try decodeJSON({ try json.requireInt8() }, codingPath: codingPath + [key]) }
+    return try valueForKey(key) { json in
+      try decodeJSON({ try json.requireInt8() }, codingPath: codingPath + [key])
+    }
   }
 
   func decode(_: Int16.Type, forKey key: Key) throws -> Int16 {
     onAccess(key.stringValue)
-    return try valueForKey(key) { json in try decodeJSON({ try json.requireInt16() }, codingPath: codingPath + [key]) }
+    return try valueForKey(key) { json in
+      try decodeJSON({ try json.requireInt16() }, codingPath: codingPath + [key])
+    }
   }
 
   func decode(_: Int32.Type, forKey key: Key) throws -> Int32 {
     onAccess(key.stringValue)
-    return try valueForKey(key) { json in try decodeJSON({ try json.requireInt32() }, codingPath: codingPath + [key]) }
+    return try valueForKey(key) { json in
+      try decodeJSON({ try json.requireInt32() }, codingPath: codingPath + [key])
+    }
   }
 
   func decode(_: UInt.Type, forKey key: Key) throws -> UInt {
     onAccess(key.stringValue)
-    return try valueForKey(key) { json in try decodeJSON({ try json.requireUInt() }, codingPath: codingPath + [key]) }
+    return try valueForKey(key) { json in
+      try decodeJSON({ try json.requireUInt() }, codingPath: codingPath + [key])
+    }
   }
 
   func decode(_: UInt8.Type, forKey key: Key) throws -> UInt8 {
     onAccess(key.stringValue)
-    return try valueForKey(key) { json in try decodeJSON({ try json.requireUInt8() }, codingPath: codingPath + [key]) }
+    return try valueForKey(key) { json in
+      try decodeJSON({ try json.requireUInt8() }, codingPath: codingPath + [key])
+    }
   }
 
   func decode(_: UInt16.Type, forKey key: Key) throws -> UInt16 {
     onAccess(key.stringValue)
-    return try valueForKey(key) { json in try decodeJSON({ try json.requireUInt16() }, codingPath: codingPath + [key]) }
+    return try valueForKey(key) { json in
+      try decodeJSON({ try json.requireUInt16() }, codingPath: codingPath + [key])
+    }
   }
 
   func decode(_: UInt32.Type, forKey key: Key) throws -> UInt32 {
     onAccess(key.stringValue)
-    return try valueForKey(key) { json in try decodeJSON({ try json.requireUInt32() }, codingPath: codingPath + [key]) }
+    return try valueForKey(key) { json in
+      try decodeJSON({ try json.requireUInt32() }, codingPath: codingPath + [key])
+    }
   }
 
   func decode(_: UInt64.Type, forKey key: Key) throws -> UInt64 {
     onAccess(key.stringValue)
-    return try valueForKey(key) { json in try decodeJSON({ try json.requireUInt64() }, codingPath: codingPath + [key]) }
+    return try valueForKey(key) { json in
+      try decodeJSON({ try json.requireUInt64() }, codingPath: codingPath + [key])
+    }
   }
 
   func decode<T: Decodable>(_: T.Type, forKey key: Key) throws -> T {

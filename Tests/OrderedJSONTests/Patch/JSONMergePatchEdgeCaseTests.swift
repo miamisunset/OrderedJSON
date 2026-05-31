@@ -1,5 +1,5 @@
-import Testing
 import OrderedCollections
+import Testing
 
 @testable import OrderedJSON
 
@@ -70,7 +70,9 @@ struct JSONMergePatchEdgeCaseTests {
 
   @Test("target array at key, patch object replaces")
   func targetArrayKeyPatchObject() {
-    let target = JSON.object(["a": JSON.array([JSON.number(.integer(1)), JSON.number(.integer(2))])])
+    let target = JSON.object([
+      "a": JSON.array([JSON.number(.integer(1)), JSON.number(.integer(2))])
+    ])
     let patch = JSON.object([
       "a": JSON.object(["b": JSON.string("replaced")])
     ])
@@ -88,7 +90,7 @@ struct JSONMergePatchEdgeCaseTests {
     let target = JSON.object([
       "a": JSON.object([
         "b": JSON.string("c"),
-        "d": JSON.string("e")
+        "d": JSON.string("e"),
       ])
     ])
     let patch = JSON.object([
@@ -207,7 +209,6 @@ struct JSONMergePatchEdgeCaseTests {
 
   // MARK: - Recursive merge edge cases
 
-
   @Test("deeply nested merge with multiple null removals")
   func deeplyNestedMergeWithNullRemovals() {
     let target = JSON.object([
@@ -223,7 +224,7 @@ struct JSONMergePatchEdgeCaseTests {
       "level1": JSON.object([
         "level2": JSON.object([
           "b": JSON.null,
-          "d": JSON.string("added")
+          "d": JSON.string("added"),
         ])
       ])
     ])
@@ -233,7 +234,7 @@ struct JSONMergePatchEdgeCaseTests {
         "level2": JSON.object([
           "a": JSON.string("keep"),
           "c": JSON.string("also-keep"),
-          "d": JSON.string("added")
+          "d": JSON.string("added"),
         ])
       ])
     ])
@@ -248,7 +249,7 @@ struct JSONMergePatchEdgeCaseTests {
       ])
     ])
     let patch = JSON.object([
-      "a": JSON.object([:]) // empty object patch → should be a no-op on the nested object
+      "a": JSON.object([:])  // empty object patch → should be a no-op on the nested object
     ])
     let result = target.mergePatch(patch)
     #expect(result == target)
@@ -260,7 +261,7 @@ struct JSONMergePatchEdgeCaseTests {
       "a": JSON.string("scalar")
     ])
     let patch = JSON.object([
-      "a": JSON.object([:]) // empty object replaces the string
+      "a": JSON.object([:])  // empty object replaces the string
     ])
     let result = target.mergePatch(patch)
     let expected = JSON.object([
@@ -284,7 +285,7 @@ struct JSONMergePatchEdgeCaseTests {
       "existing": JSON.string("value"),
       "new": JSON.object([
         "nested": JSON.string("added")
-      ])
+      ]),
     ])
     #expect(result == expected)
   }
@@ -334,22 +335,28 @@ struct JSONMergePatchEdgeCaseTests {
       "a": JSON.string("original")
     ])
     // First patch: add key "b"
-    target = target.mergePatch(JSON.object([
-      "b": JSON.number(.integer(2))
-    ]))
-    #expect(target == JSON.object([
-      "a": JSON.string("original"),
-      "b": JSON.number(.integer(2)),
-    ]))
+    target = target.mergePatch(
+      JSON.object([
+        "b": JSON.number(.integer(2))
+      ]))
+    #expect(
+      target
+        == JSON.object([
+          "a": JSON.string("original"),
+          "b": JSON.number(.integer(2)),
+        ]))
 
     // Second patch: remove "a", update "b"
-    target = target.mergePatch(JSON.object([
-      "a": JSON.null,
-      "b": JSON.string("updated")
-    ]))
-    #expect(target == JSON.object([
-      "b": JSON.string("updated")
-    ]))
+    target = target.mergePatch(
+      JSON.object([
+        "a": JSON.null,
+        "b": JSON.string("updated"),
+      ]))
+    #expect(
+      target
+        == JSON.object([
+          "b": JSON.string("updated")
+        ]))
   }
 
   @Test("in-place mutation with recursive merge")
@@ -359,11 +366,12 @@ struct JSONMergePatchEdgeCaseTests {
         "x": JSON.number(.integer(1))
       ])
     ])
-    target = target.mergePatch(JSON.object([
-      "nested": JSON.object([
-        "y": JSON.number(.integer(2))
-      ])
-    ]))
+    target = target.mergePatch(
+      JSON.object([
+        "nested": JSON.object([
+          "y": JSON.number(.integer(2))
+        ])
+      ]))
     let expected = JSON.object([
       "nested": JSON.object([
         "x": JSON.number(.integer(1)),

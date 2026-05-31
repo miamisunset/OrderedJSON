@@ -12,7 +12,7 @@ import Testing
   @Test("update merge: non-object target overwritten by object source")
   func updateMergeNonObjectTargetOverwrittenByObjectSource() {
     var target = JSON.object(["a": JSON.string("string")])
-    let source = JSON.object(["a": JSON.object(["x": JSON.number(.integer(1) )])])
+    let source = JSON.object(["a": JSON.object(["x": JSON.number(.integer(1))])])
     target.update(with: source, mergingNested: true)
     // "a" in target was a string, source has an object — should overwrite (not merge)
     #expect(target["a"]?.isObject == true)
@@ -30,7 +30,7 @@ import Testing
   @Test("update merge: target key missing — value added")
   func updateMergeKeyMissing() {
     var target = JSON.object(["a": JSON.number(.integer(1))])
-    let source = JSON.object(["b": JSON.object(["x": JSON.number(.integer(2) )])])
+    let source = JSON.object(["b": JSON.object(["x": JSON.number(.integer(2))])])
     target.update(with: source, mergingNested: true)
     #expect(target["a"] == JSON.number(.integer(1)))
     #expect(target["b"]?.isObject == true)

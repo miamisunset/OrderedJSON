@@ -1,5 +1,5 @@
-import Testing
 import Foundation
+import Testing
 
 @testable import OrderedJSON
 
@@ -19,7 +19,8 @@ import Foundation
     }
   }
 
-  @Test("millisecondsSince1970 with non-number throws") func millisecondsSince1970NonNumber() throws {
+  @Test("millisecondsSince1970 with non-number throws") func millisecondsSince1970NonNumber() throws
+  {
     struct Container: Decodable {
       let timestamp: Date
     }
@@ -147,7 +148,9 @@ import Foundation
     }
   }
 
-  @Test("dateDecodingStrategy custom throws propagated") func dateCustomStrategyThrowsPropagated() throws {
+  @Test("dateDecodingStrategy custom throws propagated") func dateCustomStrategyThrowsPropagated()
+    throws
+  {
     struct Container: Decodable {
       let timestamp: Date
     }
@@ -202,7 +205,9 @@ import Foundation
     #expect(keys[2] == "a")
   }
 
-  @Test("key order through encode then decode preserves") func keyOrderEncodeDecodePreserves() throws {
+  @Test("key order through encode then decode preserves") func keyOrderEncodeDecodePreserves()
+    throws
+  {
     struct Ordered: Codable {
       let z: String
       let a: String
@@ -625,7 +630,8 @@ import Foundation
 
   @Test("JSON.encode array of mixed types") func jsonEncodeMixedArray() throws {
     let encoder = OrderedJSONEncoder()
-    let json = try encoder.encode(JSON.array([.string("hello"), .number(.integer(42)), .boolean(true), .null]))
+    let json = try encoder.encode(
+      JSON.array([.string("hello"), .number(.integer(42)), .boolean(true), .null]))
     #expect(json.isArray)
     #expect(json.count == 4)
     #expect(json[0] == .string("hello"))
@@ -674,7 +680,8 @@ import Foundation
     }
   }
 
-  @Test("nan float in json struct encoder produces null") func nanFloatInJSONStructEncoder() throws {
+  @Test("nan float in json struct encoder produces null") func nanFloatInJSONStructEncoder() throws
+  {
     let json = JSON.number(.float(Double.nan))
     let encoder = OrderedJSONEncoder()
     let encoded = try encoder.encode(json)

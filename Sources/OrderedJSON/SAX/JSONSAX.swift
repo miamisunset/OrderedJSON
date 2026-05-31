@@ -591,7 +591,9 @@ extension JSON {
       // Reject leading zeros: first digit was '0' and more digits follow
       if ctx.pos > intStart {
         let firstDigit = ctx.string.unicodeScalars[intStart]
-        if firstDigit.value == UnicodeScalarHex.zero && ctx.string.unicodeScalars.index(after: intStart) < ctx.pos {
+        if firstDigit.value == UnicodeScalarHex.zero
+          && ctx.string.unicodeScalars.index(after: intStart) < ctx.pos
+        {
           return false
         }
       }

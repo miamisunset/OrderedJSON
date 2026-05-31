@@ -630,26 +630,26 @@ public struct JSONSchema: Hashable, Sendable {
         // For Draft 2020-12, skip $ref validation but continue to keywords.
       } else {
         // For local refs: keep parentResourceURI as the original parent
-      // so $id resolves correctly (use advancedViaRef).
-      // For remote refs: update parentResourceURI to the remote schema's
-      // URI since $id should resolve against the remote parent (use advanced).
-      let isRemote = compiled?.resources[resolved.resourceURI] == nil
-      let resolvedCtx: EvaluationContext
-      if isRemote {
-        resolvedCtx = currentCtx.advanced(resourceURI: resolved.resourceURI)
-      } else {
-        resolvedCtx = currentCtx.advancedViaRef(resourceURI: resolved.resourceURI)
+        // so $id resolves correctly (use advancedViaRef).
+        // For remote refs: update parentResourceURI to the remote schema's
+        // URI since $id should resolve against the remote parent (use advanced).
+        let isRemote = compiled?.resources[resolved.resourceURI] == nil
+        let resolvedCtx: EvaluationContext
+        if isRemote {
+          resolvedCtx = currentCtx.advanced(resourceURI: resolved.resourceURI)
+        } else {
+          resolvedCtx = currentCtx.advancedViaRef(resourceURI: resolved.resourceURI)
+        }
+        validateValue(
+          value, against: resolved.schema, instancePath: instancePath,
+          schemaPath: schemaPath + "/$ref", errors: &errors,
+          ctx: resolvedCtx
+        )
+        // In Draft 7, return here — sibling keywords are ignored alongside $ref.
+        // In Draft 2020-12, continue processing sibling keywords below.
+        if draft == .draft7 { return }
       }
-      validateValue(
-        value, against: resolved.schema, instancePath: instancePath,
-        schemaPath: schemaPath + "/$ref", errors: &errors,
-        ctx: resolvedCtx
-      )
-      // In Draft 7, return here — sibling keywords are ignored alongside $ref.
-      // In Draft 2020-12, continue processing sibling keywords below.
-      if draft == .draft7 { return }
-    }
-    } // close else block for self-reference check
+    }  // close else block for self-reference check
 
     // MARK: - Keyword dispatch using pre-computed keyword set
 

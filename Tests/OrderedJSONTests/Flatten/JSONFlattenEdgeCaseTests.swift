@@ -146,9 +146,9 @@ import Testing
 
   @Test("nested empty containers at multiple levels") func nestedEmptyContainers() throws {
     let original = JSON.object([
-      "a": .object([:]),       // empty object
-      "b": .array([]),         // empty array
-      "c": .object([           // non-empty with nested empties
+      "a": .object([:]),  // empty object
+      "b": .array([]),  // empty array
+      "c": .object([  // non-empty with nested empties
         "x": .object([:]),
         "y": .array([]),
       ]),
@@ -197,7 +197,8 @@ import Testing
 
   // MARK: - Non-primitive validation
 
-  @Test("unflatten with nested object value throws") func unflattenNestedObjectValueThrows() throws {
+  @Test("unflatten with nested object value throws") func unflattenNestedObjectValueThrows() throws
+  {
     let flat = JSON.object([
       "/a": .object(["b": .string("nested")])
     ])
@@ -302,7 +303,7 @@ import Testing
       ("/a~0b", ["a~b"]),
       ("/foo~01bar", ["foo~1bar"]),
       ("/foo~00bar", ["foo~0bar"]),
-      ("/", [""]),           // single empty segment
+      ("/", [""]),  // single empty segment
       ("/a//c", ["a", "", "c"]),  // empty middle segment
     ]
     for (path, expectedSegments) in paths {

@@ -1,5 +1,5 @@
-import Testing
 import OrderedCollections
+import Testing
 
 @testable import OrderedJSON
 
@@ -318,7 +318,9 @@ struct JSONPatchEdgeCaseTests {
 
   // MARK: - `move` with overlapping paths
 
-  @Test("move overlapping: source contains target path") func moveOverlappingSourceContainsTarget() throws {
+  @Test("move overlapping: source contains target path") func moveOverlappingSourceContainsTarget()
+    throws
+  {
     let json = JSON.object(["a": .string("value")])
     let patch = JSON.array([
       JSON.object([
@@ -402,7 +404,7 @@ struct JSONPatchEdgeCaseTests {
     ])
     let result = try json.applying(patch)
     let expected = JSON.object([
-      "arr": JSON.array([.string("a"), .string("value")]),
+      "arr": JSON.array([.string("a"), .string("value")])
     ])
     #expect(result == expected)
   }
@@ -425,7 +427,7 @@ struct JSONPatchEdgeCaseTests {
 
   @Test("copy from nested path") func copyFromNested() throws {
     let json = JSON.object([
-      "a": JSON.object(["b": .string("nested")]),
+      "a": JSON.object(["b": .string("nested")])
     ])
     let patch = JSON.array([
       JSON.object([
@@ -461,7 +463,7 @@ struct JSONPatchEdgeCaseTests {
 
   @Test("copy from array element") func copyFromArrayElement() throws {
     let json = JSON.object([
-      "arr": JSON.array([.string("a"), .string("b"), .string("c")]),
+      "arr": JSON.array([.string("a"), .string("b"), .string("c")])
     ])
     let patch = JSON.array([
       JSON.object([
@@ -472,7 +474,7 @@ struct JSONPatchEdgeCaseTests {
     ])
     let result = try json.applying(patch)
     let expected = JSON.object([
-      "arr": JSON.array([.string("a"), .string("b"), .string("c"), .string("b")]),
+      "arr": JSON.array([.string("a"), .string("b"), .string("c"), .string("b")])
     ])
     #expect(result == expected)
   }
@@ -522,7 +524,8 @@ struct JSONPatchEdgeCaseTests {
     #expect(result == expected)
   }
 
-  @Test("multiple removes on same array (reverse order)") func multipleRemovesReverseOrder() throws {
+  @Test("multiple removes on same array (reverse order)") func multipleRemovesReverseOrder() throws
+  {
     let json = JSON.array([
       .string("a"), .string("b"), .string("c"), .string("d"),
     ])
@@ -604,7 +607,7 @@ struct JSONPatchEdgeCaseTests {
   @Test("nested array replace element") func nestedArrayReplace() throws {
     let json = JSON.object([
       "data": JSON.array([
-        JSON.array([.number(.integer(1)), .number(.integer(2))]),
+        JSON.array([.number(.integer(1)), .number(.integer(2))])
       ])
     ])
     let patch = JSON.array([
@@ -617,7 +620,7 @@ struct JSONPatchEdgeCaseTests {
     let result = try json.applying(patch)
     let expected = JSON.object([
       "data": JSON.array([
-        JSON.array([.number(.integer(1)), .number(.integer(99))]),
+        JSON.array([.number(.integer(1)), .number(.integer(99))])
       ])
     ])
     #expect(result == expected)
@@ -787,7 +790,7 @@ struct JSONPatchEdgeCaseTests {
     ])
     let result = try json.applying(patch)
     let expected = JSON.object([
-      "data": JSON.object(["items": JSON.array([.string("first")])]),
+      "data": JSON.object(["items": JSON.array([.string("first")])])
     ])
     #expect(result == expected)
   }
@@ -962,7 +965,8 @@ struct JSONPatchEdgeCaseTests {
     }
   }
 
-  @Test("add with path containing only digits on object uses key not index") func addNumericPathOnObject() throws {
+  @Test("add with path containing only digits on object uses key not index")
+  func addNumericPathOnObject() throws {
     let json = JSON.object(["0": .string("value")])
     let patch = JSON.array([
       JSON.object([
@@ -980,7 +984,9 @@ struct JSONPatchEdgeCaseTests {
 
   // MARK: - `add` with numeric key on object
 
-  @Test("add to object with numeric key should treat as key not index") func addNumericKeyToObject() throws {
+  @Test("add to object with numeric key should treat as key not index") func addNumericKeyToObject()
+    throws
+  {
     // Per RFC 6901: "the token string (after unescaping) is the identifier of the member to access"
     // Numeric tokens only refer to array indices when the value is an array
     let json = JSON.object(["0": .string("existing"), "foo": .string("bar")])
@@ -1003,8 +1009,8 @@ struct JSONPatchEdgeCaseTests {
     let json = JSON.object([
       "a": JSON.object([
         "b": JSON.object([
-          "c": .string("deep"),
-        ]),
+          "c": .string("deep")
+        ])
       ])
     ])
     let patch = JSON.array([
@@ -1018,7 +1024,8 @@ struct JSONPatchEdgeCaseTests {
     #expect(result == json)
   }
 
-  @Test("add at deeply nested path with missing intermediate key") func addDeepMissingIntermediate() {
+  @Test("add at deeply nested path with missing intermediate key") func addDeepMissingIntermediate()
+  {
     let json = JSON.object(["a": .string("leaf")])
     let patch = JSON.array([
       JSON.object([

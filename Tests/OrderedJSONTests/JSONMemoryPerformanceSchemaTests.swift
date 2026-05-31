@@ -145,8 +145,8 @@ struct JSONMemoryPerformanceSchemaTests {
     let schema = try JSONSchema(
       schema: JSON.object([
         "allOf": JSON.array([
-          JSON.object(["$ref": JSON.string("#")]),
-        ]),
+          JSON.object(["$ref": JSON.string("#")])
+        ])
       ])
     )
     let result = schema.validating(JSON.string("hello"))
@@ -162,8 +162,8 @@ struct JSONMemoryPerformanceSchemaTests {
     let schema = try JSONSchema(
       schema: JSON.object([
         "properties": JSON.object([
-          "self": JSON.object(["$ref": JSON.string("#")]),
-        ]),
+          "self": JSON.object(["$ref": JSON.string("#")])
+        ])
       ])
     )
     // Build 25 levels of nested {"self": ...} to hit depth guard

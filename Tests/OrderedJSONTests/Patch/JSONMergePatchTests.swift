@@ -172,14 +172,16 @@ struct JSONMergePatchTests {
     #expect(result.isNull)
   }
 
-  @Test("non-object scalar patch replaces entire object target") func nonObjectScalarPatchReplaces() {
+  @Test("non-object scalar patch replaces entire object target") func nonObjectScalarPatchReplaces()
+  {
     let target = JSON.object(["key": JSON.string("value")])
     let patch = JSON.number(.integer(42))
     let result = target.mergePatch(patch)
     #expect(result == JSON.number(.integer(42)))
   }
 
-  @Test("non-object boolean patch replaces entire object target") func nonObjectBoolPatchReplaces() {
+  @Test("non-object boolean patch replaces entire object target") func nonObjectBoolPatchReplaces()
+  {
     let target = JSON.object(["key": JSON.string("value")])
     let patch = JSON.boolean(true)
     let result = target.mergePatch(patch)
@@ -251,7 +253,8 @@ struct JSONMergePatchTests {
     #expect(result == target)
   }
 
-  @Test("target non-object at key, patch object overwrites") func targetNonObjectKeyPatchObjectOverwrites() {
+  @Test("target non-object at key, patch object overwrites")
+  func targetNonObjectKeyPatchObjectOverwrites() {
     let target = JSON.object([
       "a": JSON.string("scalar")
     ])
@@ -269,7 +272,8 @@ struct JSONMergePatchTests {
     #expect(result == expected)
   }
 
-  @Test("target object at key, patch scalar overwrites") func targetObjectKeyPatchScalarOverwrites() {
+  @Test("target object at key, patch scalar overwrites") func targetObjectKeyPatchScalarOverwrites()
+  {
     let target = JSON.object([
       "a": JSON.object([
         "b": JSON.string("c")
@@ -311,7 +315,7 @@ struct JSONMergePatchTests {
     ])
     let result = target.mergePatch(patch)
     let expected = JSON.object([
-      "b": JSON.number(.integer(2)),
+      "b": JSON.number(.integer(2))
     ])
     #expect(result == expected)
   }
@@ -367,7 +371,8 @@ struct JSONMergePatchTests {
     #expect(result == expected)
   }
 
-  @Test("merge patch recursive replace nested object with scalar") func recursiveReplaceNestedWithScalar() {
+  @Test("merge patch recursive replace nested object with scalar")
+  func recursiveReplaceNestedWithScalar() {
     let target = JSON.object([
       "a": JSON.object([
         "b": JSON.object([
@@ -425,14 +430,15 @@ struct JSONMergePatchTests {
       "a": JSON.number(.integer(1)),
       "b": JSON.object([
         "c": JSON.string("d")
-      ])
+      ]),
     ])
     let patch = JSON.object([:])
     let result = target.mergePatch(patch)
     #expect(result == target)
   }
 
-  @Test("merge patch target is array, patch object replaces") func targetArrayPatchObjectReplaces() {
+  @Test("merge patch target is array, patch object replaces") func targetArrayPatchObjectReplaces()
+  {
     let target = JSON.array([JSON.string("a"), JSON.string("b")])
     let patch = JSON.object(["key": JSON.string("value")])
     let result = target.mergePatch(patch)

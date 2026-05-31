@@ -104,7 +104,9 @@ private func decodeMsgPack(_ data: Data, _ pos: inout Int) throws -> JSON {
 
   // Unsigned integers
   if byte == 0xCC {
-    guard pos < data.count else { throw JSONError.invalidMsgPack("Unexpected end of MessagePack data") }
+    guard pos < data.count else {
+      throw JSONError.invalidMsgPack("Unexpected end of MessagePack data")
+    }
     let v = data[pos]
     pos += 1
     return JSON.number(.integer(Int64(v)))
@@ -122,7 +124,9 @@ private func decodeMsgPack(_ data: Data, _ pos: inout Int) throws -> JSON {
 
   // Signed integers
   if byte == 0xD0 {
-    guard pos < data.count else { throw JSONError.invalidMsgPack("Unexpected end of MessagePack data") }
+    guard pos < data.count else {
+      throw JSONError.invalidMsgPack("Unexpected end of MessagePack data")
+    }
     let v = Int8(bitPattern: data[pos])
     pos += 1
     return JSON.number(.integer(Int64(v)))
@@ -159,7 +163,9 @@ private func decodeMsgPack(_ data: Data, _ pos: inout Int) throws -> JSON {
 
   // String 8/16/32 (0xD9, 0xDA, 0xDB)
   if byte == 0xD9 {
-    guard pos < data.count else { throw JSONError.invalidMsgPack("Unexpected end of MessagePack data") }
+    guard pos < data.count else {
+      throw JSONError.invalidMsgPack("Unexpected end of MessagePack data")
+    }
     let len = Int(data[pos])
     pos += 1
     return try decodeMsgPackString(data, &pos, len)
@@ -191,7 +197,9 @@ private func decodeMsgPackString(_ data: Data, _ pos: inout Int, _ len: Int) thr
 private func decodeMsgPackBin(_ data: Data, _ pos: inout Int, _ sizeLen: Int) throws -> JSON {
   let len: Int
   if sizeLen == 1 {
-    guard pos < data.count else { throw JSONError.invalidMsgPack("Unexpected end of MessagePack data") }
+    guard pos < data.count else {
+      throw JSONError.invalidMsgPack("Unexpected end of MessagePack data")
+    }
     len = Int(data[pos])
     pos += 1
   } else if sizeLen == 2 {

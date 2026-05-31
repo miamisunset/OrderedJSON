@@ -1,6 +1,6 @@
 import Foundation
-import Testing
 import OrderedCollections
+import Testing
 
 @testable import OrderedJSON
 
@@ -121,7 +121,8 @@ struct JSONIntegrationTests {
 
   @Test("CBOR encode → JSON decode → dump → parse: round-trip")
   func cborEncodeDecodeDumpParse() throws {
-    let original = try JSON.parse("""
+    let original = try JSON.parse(
+      """
       {"name": "Bob", "age": 25, "scores": [90.5, 85.0, 92.0]}
       """)
     let cborData = original.cbor()
@@ -133,7 +134,8 @@ struct JSONIntegrationTests {
 
   @Test("MsgPack encode → JSON decode → dump → parse: round-trip")
   func msgPackEncodeDecodeDumpParse() throws {
-    let original = try JSON.parse("""
+    let original = try JSON.parse(
+      """
       {"name": "Alice", "active": true, "count": 100}
       """)
     let msgData = original.msgPack()
@@ -145,7 +147,8 @@ struct JSONIntegrationTests {
 
   @Test("UBJSON encode → JSON decode → dump → parse: round-trip")
   func ubjsonEncodeDecodeDumpParse() throws {
-    let original = try JSON.parse("""
+    let original = try JSON.parse(
+      """
       {"key": "value", "num": 42, "items": [1, 2, 3]}
       """)
     let ubjData = original.ubjson()
@@ -157,7 +160,8 @@ struct JSONIntegrationTests {
 
   @Test("BSON encode → JSON decode → dump → parse: round-trip")
   func bsonEncodeDecodeDumpParse() throws {
-    let original = try JSON.parse("""
+    let original = try JSON.parse(
+      """
       {"name": "Charlie", "age": 30}
       """)
     let bsonData = original.bson()
@@ -169,7 +173,8 @@ struct JSONIntegrationTests {
 
   @Test("BJData encode → JSON decode → dump → parse: round-trip")
   func bjdataEncodeDecodeDumpParse() throws {
-    let original = try JSON.parse("""
+    let original = try JSON.parse(
+      """
       {"x": 1, "y": 2.5, "z": true}
       """)
     let bjdData = original.bjdata()
@@ -183,7 +188,8 @@ struct JSONIntegrationTests {
   func cborEncodeMsgPackDecodeDumpParse() throws {
     // CBOR and MsgPack share some structure — verify we can encode one way
     // and decode another, then dump and re-parse
-    let original = try JSON.parse("""
+    let original = try JSON.parse(
+      """
       {"simple": "test"}
       """)
     let _ = original.cbor()
@@ -236,7 +242,8 @@ struct JSONIntegrationTests {
 
   @Test("schema validate → flatten: valid document")
   func schemaValidateThenFlatten() throws {
-    let schemaJSON = try JSON.parse("""
+    let schemaJSON = try JSON.parse(
+      """
       {
         "type": "object",
         "properties": {
@@ -267,7 +274,8 @@ struct JSONIntegrationTests {
 
   @Test("schema validate → flatten: invalid document")
   func schemaInvalidThenFlatten() throws {
-    let schemaJSON = try JSON.parse("""
+    let schemaJSON = try JSON.parse(
+      """
       {
         "type": "object",
         "properties": {
@@ -294,7 +302,8 @@ struct JSONIntegrationTests {
 
   @Test("schema validate → flatten: complex nested document")
   func schemaComplexThenFlatten() throws {
-    let schemaJSON = try JSON.parse("""
+    let schemaJSON = try JSON.parse(
+      """
       {
         "type": "object",
         "properties": {
@@ -311,7 +320,8 @@ struct JSONIntegrationTests {
       }
       """)
     let schema = try JSONSchema(schema: schemaJSON)
-    let doc = try JSON.parse("""
+    let doc = try JSON.parse(
+      """
       {"data": {"id": 1, "tags": ["admin", "user"], "extra": "ignored"}}
       """)
 
@@ -330,7 +340,8 @@ struct JSONIntegrationTests {
 
   @Test("schema validate → flatten → re-validate: no state corruption")
   func schemaValidateFlattenReValidate() throws {
-    let schemaJSON = try JSON.parse("""
+    let schemaJSON = try JSON.parse(
+      """
       {
         "type": "object",
         "properties": {
@@ -359,7 +370,8 @@ struct JSONIntegrationTests {
   @Test("patch → dump → parse: add operation round-trip")
   func patchDumpParseAdd() throws {
     let source = try JSON.parse(#"{"a": 1, "b": 2}"#)
-    let patch = try JSON.parse(#"""
+    let patch = try JSON.parse(
+      #"""
       [{"op": "add", "path": "/c", "value": 3}]
       """#)
 
@@ -375,7 +387,8 @@ struct JSONIntegrationTests {
   @Test("patch → dump → parse: remove operation round-trip")
   func patchDumpParseRemove() throws {
     let source = try JSON.parse(#"{"a": 1, "b": 2, "c": 3}"#)
-    let patch = try JSON.parse(#"""
+    let patch = try JSON.parse(
+      #"""
       [{"op": "remove", "path": "/b"}]
       """#)
 
@@ -390,7 +403,8 @@ struct JSONIntegrationTests {
   @Test("patch → dump → parse: replace operation round-trip")
   func patchDumpParseReplace() throws {
     let source = try JSON.parse(#"{"a": 1, "b": 2}"#)
-    let patch = try JSON.parse(#"""
+    let patch = try JSON.parse(
+      #"""
       [{"op": "replace", "path": "/a", "value": 99}]
       """#)
 
@@ -405,7 +419,8 @@ struct JSONIntegrationTests {
   @Test("patch → dump → parse: move operation round-trip")
   func patchDumpParseMove() throws {
     let source = try JSON.parse(#"{"a": 1, "b": 2}"#)
-    let patch = try JSON.parse(#"""
+    let patch = try JSON.parse(
+      #"""
       [{"op": "move", "from": "/a", "path": "/c"}]
       """#)
 
@@ -421,7 +436,8 @@ struct JSONIntegrationTests {
   @Test("patch → dump → parse: copy operation round-trip")
   func patchDumpParseCopy() throws {
     let source = try JSON.parse(#"{"a": 1, "b": 2}"#)
-    let patch = try JSON.parse(#"""
+    let patch = try JSON.parse(
+      #"""
       [{"op": "copy", "from": "/a", "path": "/copy_of_a"}]
       """#)
 
@@ -437,7 +453,8 @@ struct JSONIntegrationTests {
   @Test("patch → dump → parse: multi-operation patch round-trip")
   func patchDumpParseMultiOp() throws {
     let source = try JSON.parse(#"{"a": 1, "b": 2, "c": 3}"#)
-    let patch = try JSON.parse(#"""
+    let patch = try JSON.parse(
+      #"""
       [
         {"op": "remove", "path": "/b"},
         {"op": "add", "path": "/d", "value": 4},
@@ -458,7 +475,8 @@ struct JSONIntegrationTests {
   @Test("patch → dump → parse: array operations round-trip")
   func patchDumpParseArrayOps() throws {
     let source = try JSON.parse(#"{"arr": [1, 2, 3]}"#)
-    let patch = try JSON.parse(#"""
+    let patch = try JSON.parse(
+      #"""
       [
         {"op": "add", "path": "/arr/-", "value": 4},
         {"op": "remove", "path": "/arr/0"}
@@ -476,10 +494,12 @@ struct JSONIntegrationTests {
 
   @Test("patch → dump → parse: nested path operations round-trip")
   func patchDumpParseNested() throws {
-    let source = try JSON.parse(#"""
+    let source = try JSON.parse(
+      #"""
       {"nested": {"x": 1, "y": 2}}
       """#)
-    let patch = try JSON.parse(#"""
+    let patch = try JSON.parse(
+      #"""
       [
         {"op": "add", "path": "/nested/z", "value": 3},
         {"op": "replace", "path": "/nested/x", "value": 99}
@@ -523,7 +543,8 @@ struct JSONIntegrationTests {
     let json = try JSON.encode(person)
 
     // Apply a patch that modifies age and adds a new field
-    let patch = try JSON.parse(#"""
+    let patch = try JSON.parse(
+      #"""
       [
         {"op": "replace", "path": "/age", "value": 31},
         {"op": "add", "path": "/role", "value": "admin"}
@@ -552,7 +573,8 @@ struct JSONIntegrationTests {
     #expect(reparsed == json)
 
     // Apply patch
-    let patch = try JSON.parse(#"""
+    let patch = try JSON.parse(
+      #"""
       [{"op": "replace", "path": "/active", "value": true}]
       """#)
     let patched = try reparsed.applying(patch)
@@ -571,7 +593,8 @@ struct JSONIntegrationTests {
     let json = try JSON.encode(person)
 
     // Apply merge patch that changes age and removes active (set to null)
-    let mergePatch = try JSON.parse(#"""
+    let mergePatch = try JSON.parse(
+      #"""
       {"age": 31, "active": null}
       """#)
     let merged = json.mergePatch(mergePatch)
@@ -599,7 +622,8 @@ struct JSONIntegrationTests {
       let name: String
     }
 
-    let data = Data(#"""
+    let data = Data(
+      #"""
       {"name": "Alice", "color": "blue", "city": "NYC"}
       """#.utf8)
 
@@ -609,7 +633,8 @@ struct JSONIntegrationTests {
     let json = try JSON.encode(wrapped.value)
 
     // Apply a patch that changes name
-    let patch = try JSON.parse(#"""
+    let patch = try JSON.parse(
+      #"""
       [{"op": "replace", "path": "/name", "value": "Bob"}]
       """#)
     let patched = try json.applying(patch)
@@ -645,10 +670,13 @@ struct JSONIntegrationTests {
   func builderDumpParseFlattenUnflatten() throws {
     let obj = JSON.ObjectBuilder()
       .set("name", "Alice")
-      .set("data", JSON.ObjectBuilder()
-        .set("x", 1)
-        .set("y", 2)
-        .build())
+      .set(
+        "data",
+        JSON.ObjectBuilder()
+          .set("x", 1)
+          .set("y", 2)
+          .build()
+      )
       .build()
 
     let dumped = obj.dump()
@@ -721,7 +749,8 @@ struct JSONIntegrationTests {
     #expect(unflattened["users"]?[0]?["age"] == .number(.integer(30)))
 
     // Apply a patch to add a user
-    let patch = try JSON.parse(#"""
+    let patch = try JSON.parse(
+      #"""
       [
         {"op": "add", "path": "/users/-", "value": {"name": "Charlie", "age": 35, "roles": ["moderator"]}},
         {"op": "replace", "path": "/version", "value": 2}
@@ -740,7 +769,8 @@ struct JSONIntegrationTests {
     #expect(reparsed["users"]?[2]?["name"] == .string("Charlie"))
 
     // Validate against a schema
-    let schemaJSON = try JSON.parse(#"""
+    let schemaJSON = try JSON.parse(
+      #"""
       {
         "type": "object",
         "properties": {
@@ -833,7 +863,8 @@ struct JSONIntegrationTests {
 
   @Test("parse → update(mergingNested:) → dump → parse")
   func parseMergeUpdateDumpParse() throws {
-    var json = try JSON.parse(#"""
+    var json = try JSON.parse(
+      #"""
       {"config": {"theme": "dark", "lang": "en"}}
       """#)
 

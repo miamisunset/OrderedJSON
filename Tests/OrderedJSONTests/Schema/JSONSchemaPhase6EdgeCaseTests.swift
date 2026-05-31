@@ -446,7 +446,8 @@ struct JSONSchemaPhase6RequiredEdgeCases {
 
   @Test("required — non-string element produces error but continues")
   func requiredNonStringElement() throws {
-    let schema = try JSONSchema(schema: .object(["required": .array([.string("a"), .number(.integer(42))])]))
+    let schema = try JSONSchema(
+      schema: .object(["required": .array([.string("a"), .number(.integer(42))])]))
     let result = schema.validating(.object(["a": .string("x")]))
     #expect(!result.valid)
     #expect(result.errors.first?.keyword == "required")
