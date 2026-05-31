@@ -9,6 +9,7 @@ Systematically find correctness bugs, edge-case crashes, and logic errors across
 ### Completed in this session
 
 - **Phase 10 edge case tests** recreated and committed: `JSONComparisonEdgeCaseTests.swift` (305 lines)
+- **Phase 11 completed**: Added `JSONIntegrationTests.swift` (49 tests, 901 lines). All integration tests pass — no bugs found in cross-module interactions. Covers: parse→dump→parse round-trip, binary encode→dump→parse, schema validate→flatten, patch→re-parse, Codable→JSON→patch.
 - **SIGBUS crash fix**: Split `JSONSchemaKeywordTests.swift` (2838→1923 lines) by extracting Phase 6 edge case suites into `JSONSchemaPhase6EdgeCaseTests.swift` (403 lines). Resolves swiftpm-testing-helper signal 10 crash on large test binaries.
 - **Compilation test expectations fix**: Updated circular `$ref` detection test to match current source behavior (`keyword: "$ref"`, `message: "circular reference"`).
 - **Phase 6 edge case file** recovered from lost state (was in "Lost Edge Case Test Files" list).
@@ -19,6 +20,7 @@ Systematically find correctness bugs, edge-case crashes, and logic errors across
   3. `diff` generated trailing removes in ascending index order, causing out-of-bounds errors on apply — now generates in descending order
 - **Phase 4 completed**: Added `JSONMergePatchEdgeCaseTests.swift` (50 tests). Found and fixed 1 bug: `mergePatchInternal` performed recursive merge when target value existed at a key but was not an object (e.g., null, string, number). Per RFC 7396, recursive merge only applies when both target and patch values are objects. Added `case .object` check to the recursive merge condition.
 - **Phase 7 completed**: Added `JSONCodableEdgeCaseTests.swift` (63 tests, 1014 lines). Found and fixed bugs: (1) `JSONError` leaked through decoder's Foundation type helpers and primitive decode methods instead of being wrapped in `DecodingError`; (2) `OrderedJSONEncoder` stored NaN/Infinity Double/Float as `.number(.float(...))` instead of throwing `EncodingError.invalidValue`; (3) `_JSONSingleValueDecodingContainer` (15 methods) and `_TrackingKeyedDecodingContainer` (14 methods) also leaked `JSONError` directly through `require*()` calls — all now wrapped in `decodeJSON()`; (4) `decodeJSON`/`wrapJSONError` changed from `private` to `package` so `JSONWithUnknownKeys.swift` can share them.
+- **Phase 13 completed**: Added memory/performance edge case tests (28 tests, 2 files). No bugs found. Tests cover: parser depth limit verification (maxDepth=0/1/10), large string parsing/dumping (100K–1M chars), large arrays/objects (10K–100K elements), deeply nested schemas (19–30 level chains), cyclic `$ref` detection (A→B→C→A 3-cycle, allOf/properties cycles), and deeply nested composition keywords hitting the recursion depth guard.
 
 ### Still lost (not yet recreated)
 
