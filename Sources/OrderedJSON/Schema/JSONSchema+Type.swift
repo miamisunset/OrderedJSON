@@ -20,7 +20,7 @@ extension JSONSchema {
     } else {
       errors.append(
         JSONSchemaError(
-          instancePath: instancePath, schemaPath: schemaPath + "/type", keyword: "type",
+          instancePath: instancePath, schemaPath: schemaPath + "/type", keyword: .type,
           message: "type must be a string or array of strings"
         )
       )
@@ -33,7 +33,7 @@ extension JSONSchema {
     if !isMatch {
       errors.append(
         JSONSchemaError(
-          instancePath: instancePath, schemaPath: schemaPath + "/type", keyword: "type",
+          instancePath: instancePath, schemaPath: schemaPath + "/type", keyword: .type,
           message: "expected \(allowedTypes.joined(separator: ", ")) but found \(actualType)"
         )
       )

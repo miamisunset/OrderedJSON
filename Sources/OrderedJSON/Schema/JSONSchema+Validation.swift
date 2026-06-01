@@ -96,7 +96,7 @@ extension JSONSchema {
       // Prefer an error whose keyword matches the group key as parent.
       // This ensures composition keyword errors (e.g., keyword "allOf"
       // for group "allOf") are used as the parent when present.
-      let parentIndex = groupErrors.firstIndex(where: { $0.keyword == key }) ?? 0
+      let parentIndex = groupErrors.firstIndex(where: { $0.keyword.rawValue == key }) ?? 0
       let parent = groupErrors[parentIndex]
       let children = groupErrors.enumerated().filter { $0.offset != parentIndex }.map {
         VerboseError(error: $0.element)
@@ -157,7 +157,7 @@ extension JSONSchema {
       errors.append(
         JSONSchemaError(
           instancePath: instancePath, schemaPath: schemaPath,
-          keyword: "schema",
+          keyword: .schemaError,
           message: "maximum recursion depth exceeded"
         )
       )
@@ -183,7 +183,7 @@ extension JSONSchema {
       if !boolVal {
         errors.append(
           JSONSchemaError(
-            instancePath: instancePath, schemaPath: schemaPath, keyword: "false",
+            instancePath: instancePath, schemaPath: schemaPath, keyword: .falseSchema,
             message: "boolean schema false rejects the value"
           )
         )
@@ -273,7 +273,7 @@ extension JSONSchema {
         errors.append(
           JSONSchemaError(
             instancePath: instancePath, schemaPath: schemaPath + "/$dynamicRef",
-            keyword: "$dynamicRef",
+            keyword: .dollarDynamicRef,
             message: "unresolvable dynamic reference: '\(dynRefStr)'"
           )
         )
@@ -308,7 +308,7 @@ extension JSONSchema {
         errors.append(
           JSONSchemaError(
             instancePath: instancePath, schemaPath: schemaPath + "/$ref",
-            keyword: "$ref",
+            keyword: .dollarRef,
             message: "unresolvable reference: '\(refStr)'"
           )
         )
@@ -329,7 +329,7 @@ extension JSONSchema {
           errors.append(
             JSONSchemaError(
               instancePath: instancePath, schemaPath: schemaPath + "/$ref",
-              keyword: "$ref",
+              keyword: .dollarRef,
               message: "circular reference: '\(refStr)'"
             )
           )

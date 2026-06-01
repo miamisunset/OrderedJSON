@@ -17,7 +17,7 @@ extension JSONSchema {
       if v < m {
         errors.append(
           JSONSchemaError(
-            instancePath: instancePath, schemaPath: schemaPath + "/minimum", keyword: "minimum",
+            instancePath: instancePath, schemaPath: schemaPath + "/minimum", keyword: .minimum,
             message: "value \(v) is less than minimum \(m)"
           )
         )
@@ -27,7 +27,7 @@ extension JSONSchema {
     guard let v = value.doubleValue, let m = minVal.doubleValue, v < m else { return }
     errors.append(
       JSONSchemaError(
-        instancePath: instancePath, schemaPath: schemaPath + "/minimum", keyword: "minimum",
+        instancePath: instancePath, schemaPath: schemaPath + "/minimum", keyword: .minimum,
         message: "value \(v) is less than minimum \(m)"
       )
     )
@@ -47,7 +47,7 @@ extension JSONSchema {
       if v > m {
         errors.append(
           JSONSchemaError(
-            instancePath: instancePath, schemaPath: schemaPath + "/maximum", keyword: "maximum",
+            instancePath: instancePath, schemaPath: schemaPath + "/maximum", keyword: .maximum,
             message: "value \(v) is greater than maximum \(m)"
           )
         )
@@ -57,7 +57,7 @@ extension JSONSchema {
     guard let v = value.doubleValue, let m = maxVal.doubleValue, v > m else { return }
     errors.append(
       JSONSchemaError(
-        instancePath: instancePath, schemaPath: schemaPath + "/maximum", keyword: "maximum",
+        instancePath: instancePath, schemaPath: schemaPath + "/maximum", keyword: .maximum,
         message: "value \(v) is greater than maximum \(m)"
       )
     )
@@ -78,7 +78,7 @@ extension JSONSchema {
         errors.append(
           JSONSchemaError(
             instancePath: instancePath, schemaPath: schemaPath + "/exclusiveMinimum",
-            keyword: "exclusiveMinimum",
+            keyword: .exclusiveMinimum,
             message: "value \(valInt) is not strictly greater than \(exclInt)"
           )
         )
@@ -89,7 +89,7 @@ extension JSONSchema {
       errors.append(
         JSONSchemaError(
           instancePath: instancePath, schemaPath: schemaPath + "/exclusiveMinimum",
-          keyword: "exclusiveMinimum",
+          keyword: .exclusiveMinimum,
           message: "value \(valDouble) is not strictly greater than \(exclDouble)"
         )
       )
@@ -111,7 +111,7 @@ extension JSONSchema {
         errors.append(
           JSONSchemaError(
             instancePath: instancePath, schemaPath: schemaPath + "/exclusiveMaximum",
-            keyword: "exclusiveMaximum",
+            keyword: .exclusiveMaximum,
             message: "value \(valInt) is not strictly less than \(exclInt)"
           )
         )
@@ -122,7 +122,7 @@ extension JSONSchema {
       errors.append(
         JSONSchemaError(
           instancePath: instancePath, schemaPath: schemaPath + "/exclusiveMaximum",
-          keyword: "exclusiveMaximum",
+          keyword: .exclusiveMaximum,
           message: "value \(valDouble) is not strictly less than \(exclDouble)"
         )
       )
@@ -146,7 +146,7 @@ extension JSONSchema {
           errors.append(
             JSONSchemaError(
               instancePath: instancePath, schemaPath: schemaPath + "/multipleOf",
-              keyword: "multipleOf", message: "\(valInt) is not a multiple of \(mInt)"
+              keyword: .multipleOf, message: "\(valInt) is not a multiple of \(mInt)"
             )
           )
         }
@@ -161,7 +161,7 @@ extension JSONSchema {
         errors.append(
           JSONSchemaError(
             instancePath: instancePath, schemaPath: schemaPath + "/multipleOf",
-            keyword: "multipleOf", message: "\(valDouble) is not a multiple of \(mDouble)"
+            keyword: .multipleOf, message: "\(valDouble) is not a multiple of \(mDouble)"
           )
         )
       } else {
@@ -172,7 +172,7 @@ extension JSONSchema {
           errors.append(
             JSONSchemaError(
               instancePath: instancePath, schemaPath: schemaPath + "/multipleOf",
-              keyword: "multipleOf", message: "\(valDouble) is not a multiple of \(mDouble)"
+              keyword: .multipleOf, message: "\(valDouble) is not a multiple of \(mDouble)"
             )
           )
         }

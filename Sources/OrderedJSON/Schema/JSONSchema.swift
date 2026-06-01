@@ -115,7 +115,7 @@ public struct JSONSchema: Hashable, Sendable {
       throw JSONSchemaError(
         instancePath: "",
         schemaPath: "",
-        keyword: "schema",
+        keyword: .schemaError,
         message: "Schema must be a JSON object or boolean"
       )
     }

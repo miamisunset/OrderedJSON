@@ -25,7 +25,7 @@ extension JSONSchema {
           errors.append(
             JSONSchemaError(
               instancePath: instancePath, schemaPath: schemaPath + "/exclusiveMinimum",
-              keyword: "exclusiveMinimum",
+              keyword: .exclusiveMinimum,
               message: "value \(valInt) is less than or equal to minimum \(minInt)"
             )
           )
@@ -36,7 +36,7 @@ extension JSONSchema {
         errors.append(
           JSONSchemaError(
             instancePath: instancePath, schemaPath: schemaPath + "/exclusiveMinimum",
-            keyword: "exclusiveMinimum",
+            keyword: .exclusiveMinimum,
             message: "value \(valDouble) is less than or equal to minimum \(minDouble)"
           )
         )
@@ -62,7 +62,7 @@ extension JSONSchema {
           errors.append(
             JSONSchemaError(
               instancePath: instancePath, schemaPath: schemaPath + "/exclusiveMaximum",
-              keyword: "exclusiveMaximum",
+              keyword: .exclusiveMaximum,
               message: "value \(valInt) is greater than or equal to maximum \(maxInt)"
             )
           )
@@ -73,7 +73,7 @@ extension JSONSchema {
         errors.append(
           JSONSchemaError(
             instancePath: instancePath, schemaPath: schemaPath + "/exclusiveMaximum",
-            keyword: "exclusiveMaximum",
+            keyword: .exclusiveMaximum,
             message: "value \(valDouble) is greater than or equal to maximum \(maxDouble)"
           )
         )
@@ -103,7 +103,7 @@ extension JSONSchema {
     if !format.validate(strVal) {
       errors.append(
         JSONSchemaError(
-          instancePath: instancePath, schemaPath: schemaPath + "/format", keyword: "format",
+          instancePath: instancePath, schemaPath: schemaPath + "/format", keyword: .format,
           message: "string '\(strVal)' does not match format '\(formatStr)'"
         )
       )
@@ -136,7 +136,7 @@ extension JSONSchema {
           errors.append(
             JSONSchemaError(
               instancePath: instancePath, schemaPath: schemaPath + "/dependencies/" + key,
-              keyword: "dependencies",
+              keyword: .dependencies,
               message: "dependency for key '\(key)' failed: \(first.message)"
             )
           )
@@ -148,7 +148,7 @@ extension JSONSchema {
             errors.append(
               JSONSchemaError(
                 instancePath: instancePath, schemaPath: schemaPath + "/dependencies/" + key,
-                keyword: "dependencies",
+                keyword: .dependencies,
                 message: "key '\(key)' requires key '\(reqKeyStr)'"
               )
             )
@@ -159,7 +159,7 @@ extension JSONSchema {
         errors.append(
           JSONSchemaError(
             instancePath: instancePath, schemaPath: schemaPath + "/dependencies/" + key,
-            keyword: "dependencies",
+            keyword: .dependencies,
             message: "dependency '\(key)' is false, but key exists"
           )
         )

@@ -17,7 +17,7 @@ extension JSONSchema {
     if arr.count < minVal {
       errors.append(
         JSONSchemaError(
-          instancePath: instancePath, schemaPath: schemaPath + "/minItems", keyword: "minItems",
+          instancePath: instancePath, schemaPath: schemaPath + "/minItems", keyword: .minItems,
           message: "array length \(arr.count) is less than minimum \(minVal)"
         )
       )
@@ -36,7 +36,7 @@ extension JSONSchema {
     if arr.count > maxVal {
       errors.append(
         JSONSchemaError(
-          instancePath: instancePath, schemaPath: schemaPath + "/maxItems", keyword: "maxItems",
+          instancePath: instancePath, schemaPath: schemaPath + "/maxItems", keyword: .maxItems,
           message: "array length \(arr.count) is greater than maximum \(maxVal)"
         )
       )
@@ -58,7 +58,7 @@ extension JSONSchema {
           errors.append(
             JSONSchemaError(
               instancePath: instancePath, schemaPath: schemaPath + "/uniqueItems",
-              keyword: "uniqueItems",
+              keyword: .uniqueItems,
               message: "items at indexes \(i) and \(j) are equal"
             )
           )
@@ -90,7 +90,7 @@ extension JSONSchema {
     }
     errors.append(
       JSONSchemaError(
-        instancePath: instancePath, schemaPath: schemaPath + "/contains", keyword: "contains",
+        instancePath: instancePath, schemaPath: schemaPath + "/contains", keyword: .contains,
         message: "array does not contain at least one item matching the subschema"
       )
     )

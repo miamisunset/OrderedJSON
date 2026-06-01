@@ -410,7 +410,7 @@ extension JSONSchema {
       errors.append(
         JSONSchemaError(
           instancePath: instancePath, schemaPath: schemaPath + "/minContains",
-          keyword: "minContains",
+          keyword: .minContains,
           message:
             "array contains \(matchCount) items matching the subschema, minimum \(minContains)"
         )
@@ -442,7 +442,7 @@ extension JSONSchema {
       errors.append(
         JSONSchemaError(
           instancePath: instancePath, schemaPath: schemaPath + "/maxContains",
-          keyword: "maxContains",
+          keyword: .maxContains,
           message:
             "array contains \(matchCount) items matching the subschema, maximum \(maxContains)"
         )
