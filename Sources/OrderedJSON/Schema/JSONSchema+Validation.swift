@@ -119,29 +119,29 @@ extension JSONSchema {
 
   /// Set of keyword names that are validation-related (not meta-keywords
   /// like `$id`, `$ref`, `$defs`, `$anchor`, `$schema`, `$vocabulary`).
-  private static let validationKeywords: Set<String> = [
-    "type", "properties", "required", "minimum", "maximum",
-    "multipleOf", "pattern", "enum", "const", "minLength", "maxLength",
-    "allOf", "anyOf", "oneOf", "not", "if", "minItems", "maxItems",
-    "uniqueItems", "contains", "minProperties", "maxProperties",
-    "propertyNames", "patternProperties", "additionalProperties",
-    "items", "exclusiveMinimum", "exclusiveMaximum",
-    "format", "dependencies", "additionalItems",
-    "dependentSchemas", "dependentRequired", "prefixItems",
-    "unevaluatedItems", "unevaluatedProperties",
-    "contentMediaType", "contentEncoding", "contentSchema",
-    "minContains", "maxContains",
+  private static let validationKeywords: Set<JSONSchemaKeyword> = [
+    .type, .properties, .required, .minimum, .maximum,
+    .multipleOf, .pattern, .enum, .const, .minLength, .maxLength,
+    .allOf, .anyOf, .oneOf, .not, .if, .minItems, .maxItems,
+    .uniqueItems, .contains, .minProperties, .maxProperties,
+    .propertyNames, .patternProperties, .additionalProperties,
+    .items, .exclusiveMinimum, .exclusiveMaximum,
+    .format, .dependencies, .additionalItems,
+    .dependentSchemas, .dependentRequired, .prefixItems,
+    .unevaluatedItems, .unevaluatedProperties,
+    .contentMediaType, .contentEncoding, .contentSchema,
+    .minContains, .maxContains,
   ]
 
   /// Returns a keyword value from the compiled cache if available,
   /// otherwise falls back to looking up from the subschema JSON.
   @inline(__always) func keyword(
-    _ key: String, from subschema: JSON, at pointer: String
+    _ key: JSONSchemaKeyword, from subschema: JSON, at pointer: String
   ) -> JSON? {
-    if let cache = compiled?.keywordCache[pointer], let v = cache[key] {
+    if let cache = compiled?.keywordCache[pointer], let v = cache[key.rawValue] {
       return v
     }
-    return subschema[key]
+    return subschema[key: key]
   }
 
   func validateValue(
@@ -170,10 +170,10 @@ extension JSONSchema {
     // In Draft 7, $ref replaces the entire subschema, so $id is ignored
     // when $ref is present — use the parent's URI for ref resolution.
     let resourceURI: String
-    if subschema["$ref"]?.stringValue != nil, draft == .draft7 {
+    if subschema[key: .dollarRef]?.stringValue != nil, draft == .draft7 {
       // Draft 7: $ref replaces the subschema, ignore $id
       resourceURI = ctx.parentResourceURI
-    } else if let idVal = subschema["$id"]?.stringValue {
+    } else if let idVal = subschema[key: .dollarId]?.stringValue {
       resourceURI = CompiledSchema.resolveRelativeID(idVal, parentBaseURI: ctx.parentResourceURI)
     } else {
       resourceURI = ctx.currentResourceURI
@@ -195,8 +195,8 @@ extension JSONSchema {
     // Propagate enabledKeywords from parent context (if not overridden by $schema)
     // Check if this subschema overrides $schema with a metaschema that has $vocabulary.
     // If so, keywords from disabled vocabularies should be ignored.
-    let vocabKeywords: Set<String>? = {
-      guard let schemaStr = subschema["$schema"]?.stringValue else { return nil }
+    let vocabKeywords: Set<JSONSchemaKeyword>? = {
+      guard let schemaStr = subschema[key: .dollarSchema]?.stringValue else { return nil }
       let resolvedURI = CompiledSchema.resolveRelativeID(schemaStr, parentBaseURI: resourceURI)
       guard let compiledMeta = remoteCompiled[resolvedURI] else { return nil }
       guard
@@ -213,7 +213,7 @@ extension JSONSchema {
     // current resource URI from the subschema's $id (if present).
     // Push the subschema's own $dynamicAnchor (if any).
     var ctxWithAnchor = ctx
-    if let dynAnchorStr = subschema["$dynamicAnchor"]?.stringValue,
+    if let dynAnchorStr = subschema[key: .dollarDynamicAnchor]?.stringValue,
       compiled != nil
     {
       ctxWithAnchor = ctx.advanced(
@@ -230,7 +230,7 @@ extension JSONSchema {
     {
       for (anchorName, anchorSchema) in resource.dynamicAnchors {
         // Skip if already pushed by the subschema check above.
-        if subschema["$dynamicAnchor"]?.stringValue != anchorName {
+        if subschema[key: .dollarDynamicAnchor]?.stringValue != anchorName {
           ctxWithAnchor = ctxWithAnchor.advanced(
             withAnchor: anchorName, schema: anchorSchema, resourceURI: resourceURI
           )
@@ -243,13 +243,13 @@ extension JSONSchema {
 
     /// Helper: skips keyword validation if `currentCtx.enabledKeywords` is
     /// non-nil and does not include the given keyword.
-    @inline(__always) func keywordEnabled(_ kw: String) -> Bool {
+    @inline(__always) func keywordEnabled(_ kw: JSONSchemaKeyword) -> Bool {
       guard let set = currentCtx.enabledKeywords else { return true }
       return set.contains(kw)
     }
 
     // Resolve $dynamicRef before $ref — $dynamicRef takes priority per spec.
-    if let dynRefStr = subschema["$dynamicRef"]?.stringValue {
+    if let dynRefStr = subschema[key: .dollarDynamicRef]?.stringValue {
       if let resolved = compiled?.resolveDynamicRef(
         dynRefStr, dynamicScope: currentCtx.dynamicScope, currentResourceURI: resourceURI,
         remoteRegistry: remoteCompiled
@@ -288,7 +288,7 @@ extension JSONSchema {
     // In Draft 7, $ref replaces the entire subschema (sibling keywords ignored).
     // In Draft 2020-12, $ref is resolved AND sibling keywords are also processed
     // (unevaluatedItems, unevaluatedProperties, etc. still apply).
-    if let refStr = subschema["$ref"]?.stringValue {
+    if let refStr = subschema[key: .dollarRef]?.stringValue {
       // Use cached resolution if available.
       let cacheKey = resourceURI + "::" + refStr
       let resolved: ResolvedRef?
@@ -320,7 +320,7 @@ extension JSONSchema {
       if resolved.schema == subschema {
         let hasOtherKeys: Bool
         if case .object(let dict) = subschema.storage {
-          hasOtherKeys = dict.keys.contains(where: { $0 != "$ref" })
+          hasOtherKeys = dict.keys.contains(where: { $0 != JSONSchemaKeyword.dollarRef.rawValue })
         } else {
           hasOtherKeys = false
         }
@@ -376,138 +376,141 @@ extension JSONSchema {
       let validationKeywords = Self.validationKeywords
 
       for (key, _) in dict {
-        guard validationKeywords.contains(key) else { continue }
-        guard keywordEnabled(key) else { continue }
+        // Convert the string key to our enum for typed comparisons.
+        // Unknown keywords (not in JSONSchemaKeyword) fall through to default.
+        guard let kw = JSONSchemaKeyword(rawValue: key) else { continue }
+        guard validationKeywords.contains(kw) else { continue }
+        guard keywordEnabled(kw) else { continue }
 
-        switch key {
+        switch kw {
         // --- Shared keywords (both drafts) ---
-        case "type":
+        case .type:
           validateType(
             value, subschema: subschema, instancePath: instancePath,
             schemaPath: schemaPath, errors: &errors, ctx: currentCtx
           )
-        case "properties":
+        case .properties:
           validateProperties(
             value, subschema: subschema, instancePath: instancePath,
             schemaPath: schemaPath, errors: &errors, ctx: currentCtx
           )
-        case "required":
+        case .required:
           validateRequired(
             value, subschema: subschema, instancePath: instancePath,
             schemaPath: schemaPath, errors: &errors, ctx: currentCtx
           )
-        case "minimum":
+        case .minimum:
           validateMinimum(
             value, subschema: subschema, instancePath: instancePath,
             schemaPath: schemaPath, errors: &errors, ctx: currentCtx
           )
-        case "maximum":
+        case .maximum:
           validateMaximum(
             value, subschema: subschema, instancePath: instancePath,
             schemaPath: schemaPath, errors: &errors, ctx: currentCtx
           )
-        case "multipleOf":
+        case .multipleOf:
           validateMultipleOf(
             value, subschema: subschema, instancePath: instancePath,
             schemaPath: schemaPath, errors: &errors, ctx: currentCtx
           )
-        case "pattern":
+        case .pattern:
           validatePattern(
             value, subschema: subschema, instancePath: instancePath,
             schemaPath: schemaPath, errors: &errors, ctx: currentCtx
           )
-        case "enum":
+        case .enum:
           validateEnum(
             value, subschema: subschema, instancePath: instancePath,
             schemaPath: schemaPath, errors: &errors, ctx: currentCtx
           )
-        case "const":
+        case .const:
           validateConst(
             value, subschema: subschema, instancePath: instancePath,
             schemaPath: schemaPath, errors: &errors, ctx: currentCtx
           )
-        case "minLength":
+        case .minLength:
           validateMinLength(
             value, subschema: subschema, instancePath: instancePath,
             schemaPath: schemaPath, errors: &errors, ctx: currentCtx
           )
-        case "maxLength":
+        case .maxLength:
           validateMaxLength(
             value, subschema: subschema, instancePath: instancePath,
             schemaPath: schemaPath, errors: &errors, ctx: currentCtx
           )
-        case "allOf":
+        case .allOf:
           validateAllOf(
             value, subschema: subschema, instancePath: instancePath,
             schemaPath: schemaPath, errors: &errors, ctx: currentCtx
           )
-        case "anyOf":
+        case .anyOf:
           validateAnyOf(
             value, subschema: subschema, instancePath: instancePath,
             schemaPath: schemaPath, errors: &errors, ctx: currentCtx
           )
-        case "oneOf":
+        case .oneOf:
           validateOneOf(
             value, subschema: subschema, instancePath: instancePath,
             schemaPath: schemaPath, errors: &errors, ctx: currentCtx
           )
-        case "not":
+        case .not:
           validateNot(
             value, subschema: subschema, instancePath: instancePath,
             schemaPath: schemaPath, errors: &errors, ctx: currentCtx
           )
-        case "if":
+        case .if:
           validateIfThenElse(
             value, subschema: subschema, instancePath: instancePath,
             schemaPath: schemaPath, errors: &errors, ctx: currentCtx
           )
-        case "minItems":
+        case .minItems:
           validateMinItems(
             value, subschema: subschema, instancePath: instancePath,
             schemaPath: schemaPath, errors: &errors, ctx: currentCtx
           )
-        case "maxItems":
+        case .maxItems:
           validateMaxItems(
             value, subschema: subschema, instancePath: instancePath,
             schemaPath: schemaPath, errors: &errors, ctx: currentCtx
           )
-        case "uniqueItems":
+        case .uniqueItems:
           validateUniqueItems(
             value, subschema: subschema, instancePath: instancePath,
             schemaPath: schemaPath, errors: &errors, ctx: currentCtx
           )
-        case "contains":
+        case .contains:
           validateContains(
             value, subschema: subschema, instancePath: instancePath,
             schemaPath: schemaPath, errors: &errors, ctx: currentCtx
           )
-        case "minProperties":
+        case .minProperties:
           validateMinProperties(
             value, subschema: subschema, instancePath: instancePath,
             schemaPath: schemaPath, errors: &errors, ctx: currentCtx
           )
-        case "maxProperties":
+        case .maxProperties:
           validateMaxProperties(
             value, subschema: subschema, instancePath: instancePath,
             schemaPath: schemaPath, errors: &errors, ctx: currentCtx
           )
-        case "propertyNames":
+        case .propertyNames:
           validatePropertyNames(
             value, subschema: subschema, instancePath: instancePath,
             schemaPath: schemaPath, errors: &errors, ctx: currentCtx
           )
-        case "patternProperties":
+        case .patternProperties:
           validatePatternProperties(
             value, subschema: subschema, instancePath: instancePath,
             schemaPath: schemaPath, errors: &errors, ctx: currentCtx
           )
-        case "additionalProperties":
+        case .additionalProperties:
           validateAdditionalProperties(
             value, subschema: subschema, instancePath: instancePath,
             schemaPath: schemaPath, errors: &errors, ctx: currentCtx
           )
         // --- Keywords with draft-specific dispatch ---
-        case "items":
+        case .items:
           // In Draft 7, `items` can be either an object (schema) or an array
           // (tuple).  Both validators are needed; each returns early if the
           // value type doesn't match.
@@ -521,7 +524,7 @@ extension JSONSchema {
               schemaPath: schemaPath, errors: &errors, ctx: currentCtx
             )
           }
-        case "exclusiveMinimum":
+        case .exclusiveMinimum:
           // In Draft 7, `exclusiveMinimum` is a boolean modifier, but the
           // test suite also tests numeric `exclusiveMinimum` in Draft 7 mode.
           // Call both validators; the numeric one returns early if the value
@@ -541,7 +544,7 @@ extension JSONSchema {
               schemaPath: schemaPath, errors: &errors, ctx: currentCtx
             )
           }
-        case "exclusiveMaximum":
+        case .exclusiveMaximum:
           if draft == .draft7 {
             validateExclusiveMaximum(
               value, subschema: subschema, instancePath: instancePath,
@@ -558,21 +561,21 @@ extension JSONSchema {
             )
           }
         // --- Draft 7 keywords ---
-        case "format":
+        case .format:
           if draft == .draft7 {
             validateFormat(
               value, subschema: subschema, instancePath: instancePath,
               schemaPath: schemaPath, errors: &errors, ctx: currentCtx
             )
           }
-        case "dependencies":
+        case .dependencies:
           if draft == .draft7 {
             validateDependencies(
               value, subschema: subschema, instancePath: instancePath,
               schemaPath: schemaPath, errors: &errors, ctx: currentCtx
             )
           }
-        case "additionalItems":
+        case .additionalItems:
           if draft == .draft7 {
             validateAdditionalItems(
               value, subschema: subschema, instancePath: instancePath,
@@ -580,70 +583,70 @@ extension JSONSchema {
             )
           }
         // --- Draft 2020-12 keywords ---
-        case "dependentSchemas":
+        case .dependentSchemas:
           if draft == .draft202012 {
             validateDependentSchemas(
               value, subschema: subschema, instancePath: instancePath,
               schemaPath: schemaPath, errors: &errors, ctx: currentCtx
             )
           }
-        case "dependentRequired":
+        case .dependentRequired:
           if draft == .draft202012 {
             validateDependentRequired(
               value, subschema: subschema, instancePath: instancePath,
               schemaPath: schemaPath, errors: &errors, ctx: currentCtx
             )
           }
-        case "prefixItems":
+        case .prefixItems:
           if draft == .draft202012 {
             validatePrefixItems(
               value, subschema: subschema, instancePath: instancePath,
               schemaPath: schemaPath, errors: &errors, ctx: currentCtx
             )
           }
-        case "unevaluatedItems":
+        case .unevaluatedItems:
           if draft == .draft202012 {
             validateUnevaluatedItems(
               value, subschema: subschema, instancePath: instancePath,
               schemaPath: schemaPath, errors: &errors, ctx: currentCtx
             )
           }
-        case "unevaluatedProperties":
+        case .unevaluatedProperties:
           if draft == .draft202012 {
             validateUnevaluatedProperties(
               value, subschema: subschema, instancePath: instancePath,
               schemaPath: schemaPath, errors: &errors, ctx: currentCtx
             )
           }
-        case "contentMediaType":
+        case .contentMediaType:
           if draft == .draft202012 {
             validateContentMediaType(
               value, subschema: subschema, instancePath: instancePath,
               schemaPath: schemaPath, errors: &errors, ctx: currentCtx
             )
           }
-        case "contentEncoding":
+        case .contentEncoding:
           if draft == .draft202012 {
             validateContentEncoding(
               value, subschema: subschema, instancePath: instancePath,
               schemaPath: schemaPath, errors: &errors, ctx: currentCtx
             )
           }
-        case "contentSchema":
+        case .contentSchema:
           if draft == .draft202012 {
             validateContentSchema(
               value, subschema: subschema, instancePath: instancePath,
               schemaPath: schemaPath, errors: &errors, ctx: currentCtx
             )
           }
-        case "minContains":
+        case .minContains:
           if draft == .draft202012 {
             validateMinContains(
               value, subschema: subschema, instancePath: instancePath,
               schemaPath: schemaPath, errors: &errors, ctx: currentCtx
             )
           }
-        case "maxContains":
+        case .maxContains:
           if draft == .draft202012 {
             validateMaxContains(
               value, subschema: subschema, instancePath: instancePath,
