@@ -176,7 +176,8 @@ import Testing
     #expect(JSON.number(.integer(42)).dump(indent: .compact) == "42")
     #expect(JSON.string("hello").dump(indent: .compact) == "\"hello\"")
     #expect(
-      JSON.array([JSON.string("a"), JSON.number(.integer(1))]).dump(indent: .compact) == "[\"a\",1]")
+      JSON.array([JSON.string("a"), JSON.number(.integer(1))]).dump(indent: .compact) == "[\"a\",1]"
+    )
     let obj = JSON.object(["a": JSON.string("x")])
     #expect(obj.dump(indent: .compact) == "{\"a\":\"x\"}")
   }

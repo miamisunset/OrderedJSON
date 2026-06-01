@@ -51,11 +51,14 @@ extension JSON {
     case .spaces(let width):
       precondition(width >= 0, "Indent.spaces width (\(width)) must be non-negative")
       var string = ""
-      serializeJSONPretty(self, indent: width, indentCharacter: " ", depth: 0, ensureAscii: ensureAscii, into: &string)
+      serializeJSONPretty(
+        self, indent: width, indentCharacter: " ", depth: 0, ensureAscii: ensureAscii, into: &string
+      )
       return string
     case .tab:
       var string = ""
-      serializeJSONPretty(self, indent: 1, indentCharacter: "\t", depth: 0, ensureAscii: ensureAscii, into: &string)
+      serializeJSONPretty(
+        self, indent: 1, indentCharacter: "\t", depth: 0, ensureAscii: ensureAscii, into: &string)
       return string
     }
   }
@@ -216,9 +219,13 @@ extension JSON {
       _serializeSortedCompact(value, depth: depth, ensureAscii: ensureAscii, into: &string)
     case .spaces(let width):
       precondition(width >= 0, "Indent.spaces width (\(width)) must be non-negative")
-      _serializeSortedPretty(value, indent: width, indentCharacter: " ", depth: depth, ensureAscii: ensureAscii, into: &string)
+      _serializeSortedPretty(
+        value, indent: width, indentCharacter: " ", depth: depth, ensureAscii: ensureAscii,
+        into: &string)
     case .tab:
-      _serializeSortedPretty(value, indent: 1, indentCharacter: "\t", depth: depth, ensureAscii: ensureAscii, into: &string)
+      _serializeSortedPretty(
+        value, indent: 1, indentCharacter: "\t", depth: depth, ensureAscii: ensureAscii,
+        into: &string)
     }
   }
 
@@ -282,7 +289,9 @@ extension JSON {
         for (i, el) in arr.enumerated() {
           if i > 0 { string += ",\n" }
           string += innerPad
-          _serializeSortedPretty(el, indent: indent, indentCharacter: indentCharacter, depth: depth + 1, ensureAscii: ensureAscii, into: &string)
+          _serializeSortedPretty(
+            el, indent: indent, indentCharacter: indentCharacter, depth: depth + 1,
+            ensureAscii: ensureAscii, into: &string)
         }
         string += "\n"
         string += pad
@@ -302,7 +311,9 @@ extension JSON {
           string += innerPad
           serializeJSONString(key, ensureAscii: ensureAscii, into: &string)
           string += ": "
-          _serializeSortedPretty(value, indent: indent, indentCharacter: indentCharacter, depth: depth + 1, ensureAscii: ensureAscii, into: &string)
+          _serializeSortedPretty(
+            value, indent: indent, indentCharacter: indentCharacter, depth: depth + 1,
+            ensureAscii: ensureAscii, into: &string)
         }
         string += "\n"
         string += pad
