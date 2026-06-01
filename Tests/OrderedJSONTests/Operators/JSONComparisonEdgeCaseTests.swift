@@ -186,9 +186,105 @@ import Testing
     }
   }
 
-  // MARK: - Type ordering
+  // MARK: - Array element-wise comparison
 
-  @Test("type ordering — null < boolean < number < object < array < string")
+  @Test("array element-wise — same prefix, different length")
+  func arrayElementWiseDifferentLength() {
+    let short = JSON.array([JSON.number(.integer(1)), JSON.number(.integer(2))])
+    let long = JSON.array([JSON.number(.integer(1)), JSON.number(.integer(2)), JSON.number(.integer(3))])
+
+    #expect(short < long)
+    #expect(!(long < short))
+    #expect(long > short)
+    #expect(!(short > long))
+  }
+
+  @Test("array element-wise — same prefix, first differing element decides")
+  func arrayElementWiseFirstDifference() {
+    let a = JSON.array([JSON.number(.integer(1)), JSON.number(.integer(2))])
+    let b = JSON.array([JSON.number(.integer(1)), JSON.number(.integer(3))])
+
+    #expect(a < b)
+    #expect(!(b < a))
+  }
+
+  @Test("array element-wise — mixed type elements use type hierarchy")
+  func arrayElementWiseMixedTypes() {
+    let a = JSON.array([JSON.number(.integer(1)), JSON.boolean(true)])
+    let b = JSON.array([JSON.number(.integer(1)), JSON.string("x")])
+
+    // boolean(1) < string(5) per type hierarchy, so a < b
+    #expect(a < b)
+    #expect(!(b < a))
+  }
+
+  @Test("array element-wise — equal arrays are not less")
+  func arrayElementWiseEqual() {
+    let a = JSON.array([JSON.number(.integer(1)), JSON.string("x")])
+    let b = JSON.array([JSON.number(.integer(1)), JSON.string("x")])
+
+    #expect(!(a < b))
+    #expect(!(b < a))
+  }
+
+  @Test("array element-wise — empty arrays are equal")
+  func arrayElementWiseEmpty() {
+    let empty1 = JSON.array([])
+    let empty2 = JSON.array([])
+
+    #expect(!(empty1 < empty2))
+    #expect(!(empty2 < empty1))
+  }
+
+  // MARK: - Object key-value comparison
+
+  @Test("object key-value — same keys, different values")
+  func objectKeyValueDifferentValues() {
+    let a = JSON.object(["a": JSON.number(.integer(1))])
+    let b = JSON.object(["a": JSON.number(.integer(2))])
+
+    #expect(a < b)
+    #expect(!(b < a))
+  }
+
+  @Test("object key-value — different keys sort and compare")
+  func objectKeyValueDifferentKeys() {
+    let a = JSON.object(["a": JSON.number(.integer(1))])
+    let b = JSON.object(["b": JSON.number(.integer(1))])
+
+    // "a" < "b" so a < b
+    #expect(a < b)
+    #expect(!(b < a))
+  }
+
+  @Test("object key-value — superset keys use count comparison")
+  func objectKeyValueSupersetKeys() {
+    let small = JSON.object(["a": JSON.number(.integer(1))])
+    let big = JSON.object(["a": JSON.number(.integer(1)), "b": JSON.number(.integer(2))])
+
+    #expect(small < big)
+    #expect(!(big < small))
+  }
+
+  @Test("object key-value — equal objects are not less")
+  func objectKeyValueEqual() {
+    let a = JSON.object(["a": JSON.number(.integer(1))])
+    let b = JSON.object(["a": JSON.number(.integer(1))])
+
+    #expect(!(a < b))
+    #expect(!(b < a))
+  }
+
+  @Test("object key-value — empty objects are equal")
+  func objectKeyValueEmpty() {
+    let empty1 = JSON.object([:])
+    let empty2 = JSON.object([:])
+
+    #expect(!(empty1 < empty2))
+    #expect(!(empty2 < empty1))
+  }
+
+  // MARK: - Type ordering
   func typeOrdering() {
     #expect(JSON.null < JSON.boolean(true))
     #expect(JSON.boolean(false) < JSON.number(.integer(0)))
