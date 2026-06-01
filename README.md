@@ -138,7 +138,8 @@ Parsing is single-pass recursive descent with no intermediate AST — JSON value
 `dump()` performs a single recursive traversal with string formatting. Performance is linear in the value count.
 
 - **Compact output**: Minimal overhead — mostly string escaping and concatenation.
-- **Pretty-printed** (`indent: 2`): Slightly more overhead due to whitespace insertion per nesting level.
+- **Pretty-printed** (`indent: .spaces(2)`): Slightly more overhead due to whitespace insertion per nesting level.
+- **Tab indented** (`indent: .tab`): Similar overhead to spaces.
 
 ### Binary Formats
 
@@ -442,9 +443,13 @@ These errors conform to `Error`, `Sendable`, and `Hashable`, and include descrip
 
 ## Encoding / Serialization
 
-`dump()` converts a `JSON` value back into a JSON string. It accepts an `indent` parameter: omit or pass `nil` for compact output (no whitespace) or a positive integer for pretty-printing. Two additional parameters customize output:
+`dump()` converts a `JSON` value back into a JSON string. It accepts an `indent` parameter of type `JSON.Indent`:
 
-- `indentCharacter` — character used for indentation (default: `" "`)
+- `.compact` — single-line output with no whitespace (default)
+- `.spaces(n)` — pretty-printed with n spaces per indent level
+- `.tab` — pretty-printed with tab characters per indent level
+
+An additional parameter:
 - `ensureAscii` — if `true`, non-ASCII characters are escaped as `\uXXXX` (default: `false`)
 
 ```swift
@@ -460,7 +465,14 @@ let compact = value.dump()
 // {"name":"Bob","age":25}
 
 // Pretty-printed JSON — 2-space indentation
-let pretty = value.dump(indent: 2)
+let pretty = value.dump(indent: .spaces(2))
+// {
+//   "name": "Bob",
+//   "age": 25
+// }
+
+// Tab-indented JSON
+let tabby = value.dump(indent: .tab)
 // {
 //   "name": "Bob",
 //   "age": 25
@@ -470,7 +482,7 @@ let pretty = value.dump(indent: 2)
 let escaped = value.dump(ensureAscii: true)
 ```
 
-`dump()` produces compact JSON (no whitespace). `dump(indent: 2)` produces pretty-printed JSON. The key order is always preserved regardless of indent value. Use `dump(indent: 2, indentCharacter: "\t")` for tab-indented output.
+`dump()` produces compact JSON (no whitespace). `dump(indent: .spaces(2))` produces pretty-printed JSON. `dump(indent: .tab)` produces tab-indented JSON. The key order is always preserved regardless of indent value.
 
 ---
 
@@ -1305,6 +1317,20 @@ Key features:
 - **Super encoders**: `superEncoder()` and `superEncoder(forKey:)` write results back under the key `"super"` (matching Foundation convention).
 - **Full integer/unsigned width support**: `Int8`, `Int16`, `Int32`, `Int64`, `UInt`, `UInt8`, `UInt16`, `UInt32`, `UInt64` — all encode without loss. `UInt64` values exceeding `Int64.max` throw `EncodingError.invalidValue`.
 - **Set `userInfo` before calling**: Mutations after `encode()` do not propagate to nested containers.
+
+### OutputOptions
+
+`OrderedJSONEncoder` supports configurable output formatting via `outputOptions`:
+
+```swift
+var encoder = OrderedJSONEncoder()
+encoder.outputOptions.indent = .spaces(2)  // pretty-printed output
+encoder.outputOptions.sortedKeys = true    // alphabetically sorted keys
+let string = try encoder.encodeAsString(value)
+let data = try encoder.encodeAsData(value)  // returns Data instead of String
+```
+
+`encodeAsString()` and `encodeAsData()` respect the current `outputOptions`. The default output is compact (`.compact`) with insertion order preserved (`sortedKeys: false`).
 
 ### OrderedJSONDecoder
 
