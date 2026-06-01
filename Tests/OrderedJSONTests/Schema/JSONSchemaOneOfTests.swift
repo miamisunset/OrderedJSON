@@ -32,7 +32,7 @@ struct JSONSchemaOneOfTests {
     )
     let result = schema.validating(.string("test"))
     #expect(!result.valid)
-    #expect(result.errors.first?.keyword == "oneOf")
+    #expect(result.errors.first?.keyword == .oneOf)
   }
 
   @Test("oneOf — invalid when two match (not exactly one)")
@@ -47,7 +47,7 @@ struct JSONSchemaOneOfTests {
     )
     let result = schema.validating(.string("hello"))
     #expect(!result.valid)
-    #expect(result.errors.first?.keyword == "oneOf")
+    #expect(result.errors.first?.keyword == .oneOf)
     #expect(result.errors.first?.message.contains("2") == true)
   }
 
@@ -56,7 +56,7 @@ struct JSONSchemaOneOfTests {
     let schema = try JSONSchema(schema: .object(["oneOf": .array([])]))
     let result = schema.validating(.string("test"))
     #expect(!result.valid)
-    #expect(result.errors.first?.keyword == "oneOf")
+    #expect(result.errors.first?.keyword == .oneOf)
   }
 }
 
@@ -76,7 +76,7 @@ struct JSONSchemaOneOfEdgeCasesTests {
     )
     let result = schema.validating(.string("test"))
     #expect(!result.valid)
-    #expect(result.errors.first?.keyword == "oneOf")
+    #expect(result.errors.first?.keyword == .oneOf)
     #expect(result.errors.first?.message.contains("0") == true)
   }
 
@@ -93,7 +93,7 @@ struct JSONSchemaOneOfEdgeCasesTests {
     )
     let result = schema.validating(.string("hello"))
     #expect(!result.valid)
-    #expect(result.errors.first?.keyword == "oneOf")
+    #expect(result.errors.first?.keyword == .oneOf)
     #expect(result.errors.first?.message.contains("2") == true)
   }
 }

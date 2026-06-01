@@ -32,7 +32,7 @@ struct JSONSchemaAllOfTests {
     )
     let result = schema.validating(.string("hello"))
     #expect(!result.valid)
-    #expect(result.errors.first?.keyword == "allOf")
+    #expect(result.errors.first?.keyword == .allOf)
   }
 
   @Test("allOf — empty array passes")

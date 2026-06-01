@@ -31,8 +31,8 @@ struct JSONSchemaPatternPropertiesTests {
     let result = schema.validating(.object(["name": .string("Alice")]))
     #expect(!result.valid)
     #expect(
-      result.errors.map(\.keyword).contains("patternProperties")
-        || result.errors.map(\.keyword).contains("type")
+      result.errors.map(\.keyword).contains(.patternProperties)
+        || result.errors.map(\.keyword).contains(.type)
     )
     #expect(result.errors.count >= 1)
   }

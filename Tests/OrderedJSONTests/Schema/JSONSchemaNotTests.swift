@@ -22,7 +22,7 @@ struct JSONSchemaNotTests {
     )
     let result = schema.validating(.string("test"))
     #expect(!result.valid)
-    #expect(result.errors.first?.keyword == "not")
+    #expect(result.errors.first?.keyword == .not)
   }
 
   @Test("not — missing keyword skips")

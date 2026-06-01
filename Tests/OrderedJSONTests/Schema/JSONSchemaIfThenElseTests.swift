@@ -28,7 +28,7 @@ struct JSONSchemaIfThenElseTests {
     )
     let result = schema.validating(.string("hello"))
     #expect(!result.valid)
-    #expect(result.errors.first?.keyword == "then")
+    #expect(result.errors.first?.keyword == .then)
   }
 
   @Test("if/else — valid when if fails and else matches")
@@ -52,7 +52,7 @@ struct JSONSchemaIfThenElseTests {
     )
     let result = schema.validating(.number(.integer(42)))
     #expect(!result.valid)
-    #expect(result.errors.first?.keyword == "else")
+    #expect(result.errors.first?.keyword == .else)
   }
 
   @Test("if alone — no then/else, if result doesn't affect validity")

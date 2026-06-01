@@ -26,7 +26,7 @@ struct JSONSchemaOutputModeTests {
   @Test("JSONSchemaError — failedValue and parentSchema are nil by default")
   func errorFailedValueNil() {
     let error = JSONSchemaError(
-      instancePath: "", schemaPath: "/type", keyword: "type",
+      instancePath: "", schemaPath: "/type", keyword: .type,
       message: "expected string"
     )
     #expect(error.failedValue == nil)
@@ -36,7 +36,7 @@ struct JSONSchemaOutputModeTests {
   @Test("JSONSchemaError — failedValue and parentSchema can be set")
   func errorFailedValueSet() {
     let error = JSONSchemaError(
-      instancePath: "", schemaPath: "/type", keyword: "type",
+      instancePath: "", schemaPath: "/type", keyword: .type,
       message: "expected string",
       failedValue: .string("hello"),
       parentSchema: .object(["type": .string("number")])
@@ -48,11 +48,11 @@ struct JSONSchemaOutputModeTests {
   @Test("JSONSchemaError — Hashable with failedValue and parentSchema")
   func errorHashableWithOptional() {
     let e1 = JSONSchemaError(
-      instancePath: "", schemaPath: "/type", keyword: "type",
+      instancePath: "", schemaPath: "/type", keyword: .type,
       message: "test", failedValue: .string("x"), parentSchema: nil
     )
     let e2 = JSONSchemaError(
-      instancePath: "", schemaPath: "/type", keyword: "type",
+      instancePath: "", schemaPath: "/type", keyword: .type,
       message: "test", failedValue: .string("x"), parentSchema: nil
     )
     #expect(e1 == e2)
@@ -103,7 +103,7 @@ struct JSONSchemaOutputModeTests {
   @Test("VerboseError — description without children")
   func verboseErrorDescription() {
     let error = JSONSchemaError(
-      instancePath: "", schemaPath: "/type", keyword: "type",
+      instancePath: "", schemaPath: "/type", keyword: .type,
       message: "expected number"
     )
     let verbose = VerboseError(error: error)
@@ -115,11 +115,11 @@ struct JSONSchemaOutputModeTests {
   @Test("VerboseError — description with children")
   func verboseErrorDescriptionWithChildren() {
     let parent = JSONSchemaError(
-      instancePath: "", schemaPath: "/allOf", keyword: "allOf",
+      instancePath: "", schemaPath: "/allOf", keyword: .allOf,
       message: "not all subschemas matched"
     )
     let child = JSONSchemaError(
-      instancePath: "", schemaPath: "/allOf/0/type", keyword: "type",
+      instancePath: "", schemaPath: "/allOf/0/type", keyword: .type,
       message: "expected string"
     )
     let verbose = VerboseError(error: parent, children: [VerboseError(error: child)])
@@ -145,7 +145,7 @@ struct JSONSchemaOutputModeTests {
     // allOf produces errors grouped under /allOf
     #expect(result.verboseErrors.count == 1)
     // The parent error should have keyword "allOf" (matched by group key)
-    #expect(result.verboseErrors[0].error.keyword == "allOf")
+    #expect(result.verboseErrors[0].error.keyword == .allOf)
     // There should be child errors for the second failing subschema
     // With short-circuit optimization, only the first failing subschema
     // produces an error — the second is never validated.
@@ -157,11 +157,11 @@ struct JSONSchemaOutputModeTests {
     // Errors with schema paths /foo/bar and /foo/baz share group "foo"
     // but neither has keyword "foo". Should use first alphabetically.
     let e1 = JSONSchemaError(
-      instancePath: "", schemaPath: "/foo/bar", keyword: "bar",
+      instancePath: "", schemaPath: "/foo/bar", keyword: .type,
       message: "bar failed"
     )
     let e2 = JSONSchemaError(
-      instancePath: "", schemaPath: "/foo/baz", keyword: "baz",
+      instancePath: "", schemaPath: "/foo/baz", keyword: .not,
       message: "baz failed"
     )
     let schema = try JSONSchema(schema: .object([:]))

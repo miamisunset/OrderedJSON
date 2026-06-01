@@ -51,7 +51,7 @@ struct JSONSchemaRefTests {
     let result = schema.validating(.string("anything"))
     #expect(!result.valid)
     // Circular $ref detection fires with keyword "$ref"
-    #expect(result.errors.first?.keyword == "$ref")
+    #expect(result.errors.first?.keyword == .dollarRef)
     #expect(result.errors.first?.message.contains("circular") == true)
   }
 
@@ -98,6 +98,6 @@ struct JSONSchemaRefTests {
     )
     let result = schema.validating(.string("hello"))
     #expect(!result.valid)
-    #expect(result.errors.first?.keyword == "$ref")
+    #expect(result.errors.first?.keyword == .dollarRef)
   }
 }

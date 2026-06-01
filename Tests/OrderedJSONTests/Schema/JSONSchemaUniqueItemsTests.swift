@@ -18,7 +18,7 @@ struct JSONSchemaUniqueItemsTests {
     let schema = try JSONSchema(schema: .object(["uniqueItems": .boolean(true)]))
     let result = schema.validating(.array([.string("a"), .string("a")]))
     #expect(!result.valid)
-    #expect(result.errors.first?.keyword == "uniqueItems")
+    #expect(result.errors.first?.keyword == .uniqueItems)
   }
 
   @Test("uniqueItems — false disables check")
@@ -38,7 +38,7 @@ struct JSONSchemaUniqueItemsTests {
     let schema = try JSONSchema(schema: .object(["uniqueItems": .boolean(true)]))
     let result = schema.validating(.array([.number(.integer(1)), .number(.float(1.0))]))
     #expect(!result.valid)
-    #expect(result.errors.first?.keyword == "uniqueItems")
+    #expect(result.errors.first?.keyword == .uniqueItems)
   }
 }
 
@@ -56,7 +56,7 @@ struct JSONSchemaUniqueItemsEdgeCasesTests {
       ])
     )
     #expect(!result.valid)
-    #expect(result.errors.first?.keyword == "uniqueItems")
+    #expect(result.errors.first?.keyword == .uniqueItems)
   }
 
   @Test("uniqueItems — arrays with same elements are duplicates")
@@ -69,7 +69,7 @@ struct JSONSchemaUniqueItemsEdgeCasesTests {
       ])
     )
     #expect(!result.valid)
-    #expect(result.errors.first?.keyword == "uniqueItems")
+    #expect(result.errors.first?.keyword == .uniqueItems)
   }
 
   @Test("uniqueItems — nested structures with same content")
@@ -82,7 +82,7 @@ struct JSONSchemaUniqueItemsEdgeCasesTests {
       ])
     )
     #expect(!result.valid)
-    #expect(result.errors.first?.keyword == "uniqueItems")
+    #expect(result.errors.first?.keyword == .uniqueItems)
   }
 
   @Test("uniqueItems — empty array trivially passes")

@@ -18,7 +18,7 @@ struct JSONSchemaContainsTests {
     let schema = try JSONSchema(schema: .object(["contains": .object(["type": .string("string")])]))
     let result = schema.validating(.array([.number(.integer(1)), .number(.integer(2))]))
     #expect(!result.valid)
-    #expect(result.errors.first?.keyword == "contains")
+    #expect(result.errors.first?.keyword == .contains)
   }
 
   @Test("contains — empty array fails")

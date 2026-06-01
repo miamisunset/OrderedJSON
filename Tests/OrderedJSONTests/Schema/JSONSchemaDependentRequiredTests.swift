@@ -47,7 +47,7 @@ struct JSONSchemaDependentRequiredTests {
     let doc: JSON = .object(["credit_card": .string("x"), "number": .string("1234")])
     let result = schema.validating(doc)
     #expect(!result.valid)
-    #expect(result.errors.first?.keyword == "dependentRequired")
+    #expect(result.errors.first?.keyword == .dependentRequired)
   }
 
   @Test("dependentRequired — multiple dependency keys")
@@ -63,7 +63,7 @@ struct JSONSchemaDependentRequiredTests {
     let doc: JSON = .object(["a": .string("x")])
     let result = schema.validating(doc)
     #expect(!result.valid)
-    #expect(result.errors.first?.keyword == "dependentRequired")
+    #expect(result.errors.first?.keyword == .dependentRequired)
     #expect(result.errors.first?.message.contains("b") == true)
   }
 
@@ -79,6 +79,6 @@ struct JSONSchemaDependentRequiredTests {
     let doc: JSON = .object(["credit_card": .string("x")])
     let result = schema.validating(doc)
     #expect(result.errors.count == 2)
-    #expect(result.errors.allSatisfy { $0.keyword == "dependentRequired" })
+    #expect(result.errors.allSatisfy { $0.keyword == .dependentRequired })
   }
 }

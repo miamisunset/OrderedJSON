@@ -28,7 +28,7 @@ struct JSONSchemaMinMaxContainsEdgeCasesTests {
     )
     let result = schema.validating(.array([.string("a"), .number(.integer(1))]))
     #expect(!result.valid)
-    #expect(result.errors.first?.keyword == "minContains")
+    #expect(result.errors.first?.keyword == .minContains)
   }
 
   @Test("maxContains — valid when within limit")
@@ -52,7 +52,7 @@ struct JSONSchemaMinMaxContainsEdgeCasesTests {
     )
     let result = schema.validating(.array([.string("a"), .string("b")]))
     #expect(!result.valid)
-    #expect(result.errors.first?.keyword == "maxContains")
+    #expect(result.errors.first?.keyword == .maxContains)
   }
 
   @Test("minContains 0 — no constraint (per spec)")

@@ -24,7 +24,7 @@ struct JSONSchemaRequiredTests {
     let doc: JSON = .object(["age": .number(.integer(30))])
     let result = schema.validating(doc)
     #expect(!result.valid)
-    #expect(result.errors.first?.keyword == "required")
+    #expect(result.errors.first?.keyword == .required)
   }
 
   @Test("required — null is valid (spec: presence only)")
@@ -68,6 +68,6 @@ struct JSONSchemaRequiredEdgeCasesTests {
       schema: .object(["required": .array([.string("a"), .number(.integer(42))])]))
     let result = schema.validating(.object(["a": .string("x")]))
     #expect(!result.valid)
-    #expect(result.errors.first?.keyword == "required")
+    #expect(result.errors.first?.keyword == .required)
   }
 }
