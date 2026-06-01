@@ -138,7 +138,7 @@ extension JSONSchema {
   @inline(__always) func keyword(
     _ key: JSONSchemaKeyword, from subschema: JSON, at pointer: String
   ) -> JSON? {
-    if let cache = compiled?.keywordCache[pointer], let v = cache[key.rawValue] {
+    if let cache = compiled?.keywordCache[pointer], let v = cache[key] {
       return v
     }
     return subschema[key: key]
