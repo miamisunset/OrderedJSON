@@ -35,51 +35,51 @@ extension JSONSchema {
 
   /// Maps standard vocabulary URLs to their keyword names.
   /// Used by `$vocabulary` support to determine which keywords are enabled.
-  private static let vocabularyKeywords: [String: Set<String>] = [
+  private static let vocabularyKeywords: [String: Set<JSONSchemaKeyword>] = [
     // Core vocabulary
     "https://json-schema.org/draft/2020-12/vocab/core": [
-      "$id", "$schema", "$ref", "$anchor", "$dynamicRef", "$dynamicAnchor",
-      "$vocabulary", "$comment", "$defs",
+      .dollarId, .dollarSchema, .dollarRef, .dollarAnchor, .dollarDynamicRef,
+      .dollarDynamicAnchor, .dollarVocabulary, .dollarComment, .dollarDefs,
     ],
     // Applicator vocabulary
     "https://json-schema.org/draft/2020-12/vocab/applicator": [
-      "prefixItems", "items", "contains", "additionalProperties",
-      "properties", "patternProperties", "dependentSchemas", "propertyNames",
-      "if", "then", "else", "allOf", "anyOf", "oneOf", "not",
+      .prefixItems, .items, .contains, .additionalProperties,
+      .properties, .patternProperties, .dependentSchemas, .propertyNames,
+      .if, .then, .else, .allOf, .anyOf, .oneOf, .not,
     ],
     // Validation vocabulary
     "https://json-schema.org/draft/2020-12/vocab/validation": [
-      "type", "const", "enum", "multipleOf", "maximum", "exclusiveMaximum",
-      "minimum", "exclusiveMinimum", "maxLength", "minLength", "pattern",
-      "maxItems", "minItems", "uniqueItems", "contains", "maxContains",
-      "minContains", "maxProperties", "minProperties", "required",
-      "dependentRequired",
+      .type, .const, .enum, .multipleOf, .maximum, .exclusiveMaximum,
+      .minimum, .exclusiveMinimum, .maxLength, .minLength, .pattern,
+      .maxItems, .minItems, .uniqueItems, .contains, .maxContains,
+      .minContains, .maxProperties, .minProperties, .required,
+      .dependentRequired,
     ],
     // Unevaluated vocabulary
     "https://json-schema.org/draft/2020-12/vocab/unevaluated": [
-      "unevaluatedItems", "unevaluatedProperties",
+      .unevaluatedItems, .unevaluatedProperties,
     ],
     // Format-annotation vocabulary
     "https://json-schema.org/draft/2020-12/vocab/format-annotation": [
-      "format"
+      .format
     ],
     // Content vocabulary
     "https://json-schema.org/draft/2020-12/vocab/content": [
-      "contentMediaType", "contentEncoding", "contentSchema",
+      .contentMediaType, .contentEncoding, .contentSchema,
     ],
     // Meta-data vocabulary
     "https://json-schema.org/draft/2020-12/vocab/meta-data": [
-      "title", "description", "default", "examples", "readOnly", "writeOnly",
-      "deprecated",
+      .title, .description, .default, .examples, .readOnly, .writeOnly,
+      .deprecated,
     ],
   ]
 
   /// Resolves a `$vocabulary` declaration from a metaschema and returns
   /// the set of enabled keywords. Keywords from vocabularies marked `false`
   /// are excluded.
-  package static func enabledKeywords(from metaschema: JSON) -> Set<String>? {
-    guard let vocabulary = metaschema["$vocabulary"]?.objectValue else { return nil }
-    var enabled = Set<String>()
+  package static func enabledKeywords(from metaschema: JSON) -> Set<JSONSchemaKeyword>? {
+    guard let vocabulary = metaschema[key: .dollarVocabulary]?.objectValue else { return nil }
+    var enabled = Set<JSONSchemaKeyword>()
     for (vocabURL, enabledFlag) in vocabulary {
       guard let flag = enabledFlag.boolValue, flag else { continue }
       if let keywords = vocabularyKeywords[vocabURL] {
@@ -90,7 +90,7 @@ extension JSONSchema {
   }
 
   static func detectDraft(from schema: JSON) -> Draft {
-    guard let schemaStr = schema["$schema"]?.stringValue else {
+    guard let schemaStr = schema[key: .dollarSchema]?.stringValue else {
       return .draft202012
     }
 

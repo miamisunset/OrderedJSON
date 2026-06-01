@@ -11,7 +11,7 @@ extension JSONSchema {
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
     errors: inout [JSONSchemaError], ctx _: EvaluationContext
   ) {
-    guard let typeSpec = subschema["type"] else { return }
+    guard let typeSpec = subschema[key: .type] else { return }
     let allowedTypes: [String]
     if typeSpec.isString {
       allowedTypes = [typeSpec.stringValue!]

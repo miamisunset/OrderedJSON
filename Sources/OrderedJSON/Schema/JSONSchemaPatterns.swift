@@ -10,7 +10,7 @@ extension JSONSchema {
     guard schema.isObject else { return }
 
     // Check direct pattern keyword
-    if let patternStr = schema["pattern"]?.stringValue {
+    if let patternStr = schema[key: .pattern]?.stringValue {
       do {
         _ = try NSRegularExpression(pattern: patternStr, options: [])
       } catch {
@@ -24,7 +24,7 @@ extension JSONSchema {
     }
 
     // Recursively check properties sub-schemas
-    if let properties = schema["properties"], properties.isObject {
+    if let properties = schema[key: .properties], properties.isObject {
       guard case .object(let dict) = properties.storage else { return }
       for (_, propSchema) in dict {
         try JSONSchema.validatePatterns(propSchema)
@@ -32,38 +32,38 @@ extension JSONSchema {
     }
 
     // Recursively check items / prefixItems
-    if let items = schema["items"], items.isObject {
+    if let items = schema[key: .items], items.isObject {
       try JSONSchema.validatePatterns(items)
     }
-    if let prefixItems = schema["prefixItems"], prefixItems.isArray {
+    if let prefixItems = schema[key: .prefixItems], prefixItems.isArray {
       for item in prefixItems where item.isObject {
         try JSONSchema.validatePatterns(item)
       }
     }
 
     // Recursively check composition keywords
-    for keyword in ["allOf", "anyOf", "oneOf"] {
-      if let subschemas = schema[keyword], subschemas.isArray {
+    for keyword in JSONSchemaKeyword.compositionKeywords {
+      if let subschemas = schema[key: keyword], subschemas.isArray {
         for sub in subschemas where sub.isObject {
           try JSONSchema.validatePatterns(sub)
         }
       }
     }
-    if let notSchema = schema["not"], notSchema.isObject {
+    if let notSchema = schema[key: .not], notSchema.isObject {
       try JSONSchema.validatePatterns(notSchema)
     }
-    if let ifSchema = schema["if"], ifSchema.isObject {
+    if let ifSchema = schema[key: .if], ifSchema.isObject {
       try JSONSchema.validatePatterns(ifSchema)
     }
-    if let thenSchema = schema["then"], thenSchema.isObject {
+    if let thenSchema = schema[key: .then], thenSchema.isObject {
       try JSONSchema.validatePatterns(thenSchema)
     }
-    if let elseSchema = schema["else"], elseSchema.isObject {
+    if let elseSchema = schema[key: .else], elseSchema.isObject {
       try JSONSchema.validatePatterns(elseSchema)
     }
 
     // Check patternProperties keys are valid regexes, and recurse into schemas
-    if let pp = schema["patternProperties"], pp.isObject {
+    if let pp = schema[key: .patternProperties], pp.isObject {
       guard case .object(let patternDict) = pp.storage else { return }
       for (pattern, _) in patternDict {
         do {
@@ -83,33 +83,33 @@ extension JSONSchema {
     }
 
     // Recursively check contains
-    if let containsSchema = schema["contains"], containsSchema.isObject {
+    if let containsSchema = schema[key: .contains], containsSchema.isObject {
       try JSONSchema.validatePatterns(containsSchema)
     }
 
     // Recursively check additionalProperties / unevaluatedProperties
-    if let ap = schema["additionalProperties"], ap.isObject {
+    if let ap = schema[key: .additionalProperties], ap.isObject {
       try JSONSchema.validatePatterns(ap)
     }
-    if let up = schema["unevaluatedProperties"], up.isObject {
+    if let up = schema[key: .unevaluatedProperties], up.isObject {
       try JSONSchema.validatePatterns(up)
     }
 
     // Recursively check additionalItems / unevaluatedItems
-    if let ai = schema["additionalItems"], ai.isObject {
+    if let ai = schema[key: .additionalItems], ai.isObject {
       try JSONSchema.validatePatterns(ai)
     }
-    if let ui = schema["unevaluatedItems"], ui.isObject {
+    if let ui = schema[key: .unevaluatedItems], ui.isObject {
       try JSONSchema.validatePatterns(ui)
     }
 
     // Recursively check propertyNames
-    if let pn = schema["propertyNames"], pn.isObject {
+    if let pn = schema[key: .propertyNames], pn.isObject {
       try JSONSchema.validatePatterns(pn)
     }
 
     // Recursively check dependentSchemas values
-    if let depSchemas = schema["dependentSchemas"], depSchemas.isObject {
+    if let depSchemas = schema[key: .dependentSchemas], depSchemas.isObject {
       guard case .object(let depDict) = depSchemas.storage else { return }
       for (_, depSchema) in depDict {
         try JSONSchema.validatePatterns(depSchema)
@@ -117,7 +117,7 @@ extension JSONSchema {
     }
 
     // Check $defs
-    if let defs = schema["$defs"], defs.isObject {
+    if let defs = schema[key: .dollarDefs], defs.isObject {
       guard case .object(let dict) = defs.storage else { return }
       for (_, defSchema) in dict {
         try JSONSchema.validatePatterns(defSchema)

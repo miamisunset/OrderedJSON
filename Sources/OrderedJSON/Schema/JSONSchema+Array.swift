@@ -11,7 +11,9 @@ extension JSONSchema {
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
     errors: inout [JSONSchemaError], ctx _: EvaluationContext
   ) {
-    guard let minVal = subschema["minItems"]?.intValue, let arr = value.arrayValue else { return }
+    guard let minVal = subschema[key: .minItems]?.intValue, let arr = value.arrayValue else {
+      return
+    }
     if arr.count < minVal {
       errors.append(
         JSONSchemaError(
@@ -28,7 +30,9 @@ extension JSONSchema {
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
     errors: inout [JSONSchemaError], ctx _: EvaluationContext
   ) {
-    guard let maxVal = subschema["maxItems"]?.intValue, let arr = value.arrayValue else { return }
+    guard let maxVal = subschema[key: .maxItems]?.intValue, let arr = value.arrayValue else {
+      return
+    }
     if arr.count > maxVal {
       errors.append(
         JSONSchemaError(
@@ -45,7 +49,9 @@ extension JSONSchema {
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
     errors: inout [JSONSchemaError], ctx _: EvaluationContext
   ) {
-    guard subschema["uniqueItems"]?.boolValue == true, let arr = value.arrayValue else { return }
+    guard subschema[key: .uniqueItems]?.boolValue == true, let arr = value.arrayValue else {
+      return
+    }
     for i in 0..<arr.count {
       for j in (i + 1)..<arr.count {
         if JSONSchema.schemaEqual(arr[i], arr[j]) {
@@ -68,11 +74,11 @@ extension JSONSchema {
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
     errors: inout [JSONSchemaError], ctx: EvaluationContext
   ) {
-    guard let containsSchema = subschema["contains"], let arr = value.arrayValue else { return }
+    guard let containsSchema = subschema[key: .contains], let arr = value.arrayValue else { return }
     // When minContains is 0, contains imposes no constraint (Draft 2020-12).
     // The `contains` keyword itself only requires at least 1 match; minContains
     // is handled by validateMinContains.
-    let minContains = subschema["minContains"]?.intValue
+    let minContains = subschema[key: .minContains]?.intValue
     if let minC = minContains, minC == 0 { return }
     for item in arr {
       var itemErrors: [JSONSchemaError] = []

@@ -183,7 +183,7 @@ extension CompiledSchema {
         let tail = String(rest[slashIndex...])
         if let target = resource.defs[head] {
           // Check if the target definition has $id and update resourceURI
-          if let childID = target["$id"]?.stringValue {
+          if let childID = target[key: .dollarId]?.stringValue {
             resourceURI = CompiledSchema.resolveRelativeID(childID, parentBaseURI: resourceURI)
           }
           guard let ptr = try? JSONPointer(tail) else { return nil }
@@ -193,7 +193,7 @@ extension CompiledSchema {
         let key = unescapeJSONPointerSegment(rest)
         if let target = resource.defs[key] {
           // Check if the target definition has $id and update resourceURI
-          if let childID = target["$id"]?.stringValue {
+          if let childID = target[key: .dollarId]?.stringValue {
             resourceURI = CompiledSchema.resolveRelativeID(childID, parentBaseURI: resourceURI)
           }
           return target
@@ -303,7 +303,7 @@ extension CompiledSchema {
     }
 
     let isDynamicAnchor: Bool
-    if let dynAnchor = initialRef.schema["$dynamicAnchor"]?.stringValue {
+    if let dynAnchor = initialRef.schema[key: .dollarDynamicAnchor]?.stringValue {
       isDynamicAnchor = (dynAnchor == fragment)
     } else {
       isDynamicAnchor = false

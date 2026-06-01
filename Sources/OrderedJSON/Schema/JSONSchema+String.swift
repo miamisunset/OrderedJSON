@@ -11,7 +11,8 @@ extension JSONSchema {
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
     errors: inout [JSONSchemaError], ctx _: EvaluationContext
   ) {
-    guard let patternStr = subschema["pattern"]?.stringValue, let strVal = value.stringValue else {
+    guard let patternStr = subschema[key: .pattern]?.stringValue, let strVal = value.stringValue
+    else {
       return
     }
     // Use pre-compiled regex if available, otherwise compile on the fly.
@@ -44,7 +45,7 @@ extension JSONSchema {
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
     errors: inout [JSONSchemaError], ctx _: EvaluationContext
   ) {
-    guard let enumValues = subschema["enum"], enumValues.isArray else { return }
+    guard let enumValues = subschema[key: .enum], enumValues.isArray else { return }
     var found = false
     for allowed in enumValues {
       if JSONSchema.schemaEqual(value, allowed) {
@@ -70,7 +71,7 @@ extension JSONSchema {
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
     errors: inout [JSONSchemaError], ctx _: EvaluationContext
   ) {
-    guard let constVal = subschema["const"] else { return }
+    guard let constVal = subschema[key: .const] else { return }
     if !JSONSchema.schemaEqual(value, constVal) {
       errors.append(
         JSONSchemaError(
@@ -90,7 +91,7 @@ extension JSONSchema {
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
     errors: inout [JSONSchemaError], ctx _: EvaluationContext
   ) {
-    guard let minLen = subschema["minLength"]?.intValue, let strVal = value.stringValue else {
+    guard let minLen = subschema[key: .minLength]?.intValue, let strVal = value.stringValue else {
       return
     }
     let count = strVal.unicodeScalars.count
@@ -112,7 +113,7 @@ extension JSONSchema {
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
     errors: inout [JSONSchemaError], ctx _: EvaluationContext
   ) {
-    guard let maxLen = subschema["maxLength"]?.intValue, let strVal = value.stringValue else {
+    guard let maxLen = subschema[key: .maxLength]?.intValue, let strVal = value.stringValue else {
       return
     }
     let count = strVal.unicodeScalars.count

@@ -11,7 +11,7 @@ extension JSONSchema {
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
     errors: inout [JSONSchemaError], ctx: EvaluationContext
   ) {
-    guard let properties = subschema["properties"], properties.isObject, value.isObject else {
+    guard let properties = subschema[key: .properties], properties.isObject, value.isObject else {
       return
     }
     guard case .object(let dict) = properties.storage else { return }
@@ -35,7 +35,7 @@ extension JSONSchema {
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
     errors: inout [JSONSchemaError], ctx _: EvaluationContext
   ) {
-    guard let required = subschema["required"], required.isArray, value.isObject else { return }
+    guard let required = subschema[key: .required], required.isArray, value.isObject else { return }
     for reqElem in required {
       guard let key = reqElem.stringValue else {
         errors.append(

@@ -16,7 +16,8 @@ extension JSONSchema {
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
     errors: inout [JSONSchemaError], ctx: EvaluationContext
   ) {
-    guard let depSchemas = subschema["dependentSchemas"], depSchemas.isObject, value.isObject else {
+    guard let depSchemas = subschema[key: .dependentSchemas], depSchemas.isObject, value.isObject
+    else {
       return
     }
     guard case .object(let depDict) = depSchemas.storage else { return }
@@ -48,7 +49,7 @@ extension JSONSchema {
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
     errors: inout [JSONSchemaError], ctx _: EvaluationContext
   ) {
-    guard let depRequired = subschema["dependentRequired"], depRequired.isObject, value.isObject
+    guard let depRequired = subschema[key: .dependentRequired], depRequired.isObject, value.isObject
     else { return }
     guard case .object(let depDict) = depRequired.storage else { return }
     for (key, requiredArray) in depDict {
@@ -77,7 +78,7 @@ extension JSONSchema {
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
     errors: inout [JSONSchemaError], ctx: EvaluationContext
   ) {
-    guard let prefixItems = subschema["prefixItems"], prefixItems.isArray,
+    guard let prefixItems = subschema[key: .prefixItems], prefixItems.isArray,
       let arr = value.arrayValue
     else { return }
     let schemas = prefixItems.arrayValue ?? []
@@ -99,9 +100,9 @@ extension JSONSchema {
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
     errors: inout [JSONSchemaError], ctx: EvaluationContext
   ) {
-    guard let items = subschema["items"], let arr = value.arrayValue else { return }
+    guard let items = subschema[key: .items], let arr = value.arrayValue else { return }
     let prefixCount: Int
-    if let prefixItems = subschema["prefixItems"], prefixItems.isArray {
+    if let prefixItems = subschema[key: .prefixItems], prefixItems.isArray {
       prefixCount = prefixItems.arrayValue?.count ?? 0
     } else {
       prefixCount = 0

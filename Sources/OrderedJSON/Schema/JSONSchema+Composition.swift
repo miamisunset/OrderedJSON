@@ -11,7 +11,7 @@ extension JSONSchema {
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
     errors: inout [JSONSchemaError], ctx: EvaluationContext
   ) {
-    guard let allOf = subschema["allOf"], allOf.isArray else { return }
+    guard let allOf = subschema[key: .allOf], allOf.isArray else { return }
     for (index, sub) in allOf.enumerated() {
       var subErrors: [JSONSchemaError] = []
       validateValue(
@@ -44,7 +44,7 @@ extension JSONSchema {
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
     errors: inout [JSONSchemaError], ctx: EvaluationContext
   ) {
-    guard let anyOf = subschema["anyOf"], anyOf.isArray else { return }
+    guard let anyOf = subschema[key: .anyOf], anyOf.isArray else { return }
     var matched = false
     for sub in anyOf {
       var subErrors: [JSONSchemaError] = []
@@ -79,7 +79,7 @@ extension JSONSchema {
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
     errors: inout [JSONSchemaError], ctx: EvaluationContext
   ) {
-    guard let oneOf = subschema["oneOf"], oneOf.isArray else { return }
+    guard let oneOf = subschema[key: .oneOf], oneOf.isArray else { return }
     var matchCount = 0
     for sub in oneOf {
       var subErrors: [JSONSchemaError] = []
@@ -108,10 +108,10 @@ extension JSONSchema {
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
     errors: inout [JSONSchemaError], ctx: EvaluationContext
   ) {
-    guard subschema["not"] != nil else { return }
+    guard subschema[key: .not] != nil else { return }
     var subErrors: [JSONSchemaError] = []
     validateValue(
-      value, against: subschema["not"]!, instancePath: instancePath,
+      value, against: subschema[key: .not]!, instancePath: instancePath,
       schemaPath: schemaPath + "/not", errors: &subErrors, ctx: ctx
     )
     if subErrors.isEmpty {
@@ -133,14 +133,14 @@ extension JSONSchema {
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
     errors: inout [JSONSchemaError], ctx: EvaluationContext
   ) {
-    guard let ifSchema = subschema["if"] else { return }
+    guard let ifSchema = subschema[key: .if] else { return }
     var ifErrors: [JSONSchemaError] = []
     validateValue(
       value, against: ifSchema, instancePath: instancePath,
       schemaPath: schemaPath + "/if", errors: &ifErrors, ctx: ctx
     )
     if ifErrors.isEmpty {
-      if let thenSchema = subschema["then"] {
+      if let thenSchema = subschema[key: .then] {
         var thenErrors: [JSONSchemaError] = []
         validateValue(
           value, against: thenSchema, instancePath: instancePath,
@@ -156,7 +156,7 @@ extension JSONSchema {
         }
       }
     } else {
-      if let elseSchema = subschema["else"] {
+      if let elseSchema = subschema[key: .else] {
         var elseErrors: [JSONSchemaError] = []
         validateValue(
           value, against: elseSchema, instancePath: instancePath,
