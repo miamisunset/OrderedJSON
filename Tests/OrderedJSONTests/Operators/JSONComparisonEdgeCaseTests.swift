@@ -64,17 +64,17 @@ import Testing
     let boolFalse = JSON.boolean(false)
     let num = JSON.number(.integer(0))
 
-    #expect(boolTrue < num)       // boolean < number
-    #expect(!(num < boolTrue))   // number < boolean is false
-    #expect(!(boolTrue > num))    // boolean > number is false
-    #expect(num > boolTrue)       // number > boolean
-    #expect(boolTrue <= num)      // boolean <= number
-    #expect(!(num <= boolTrue))   // number <= boolean is false
-    #expect(!(boolTrue >= num))   // boolean >= number is false
-    #expect(num >= boolTrue)      // number >= boolean
+    #expect(boolTrue < num)  // boolean < number
+    #expect(!(num < boolTrue))  // number < boolean is false
+    #expect(!(boolTrue > num))  // boolean > number is false
+    #expect(num > boolTrue)  // number > boolean
+    #expect(boolTrue <= num)  // boolean <= number
+    #expect(!(num <= boolTrue))  // number <= boolean is false
+    #expect(!(boolTrue >= num))  // boolean >= number is false
+    #expect(num >= boolTrue)  // number >= boolean
 
-    #expect(boolFalse < num)      // boolean(false) < number
-    #expect(!(num < boolFalse))   // number < boolean(false) is false
+    #expect(boolFalse < num)  // boolean(false) < number
+    #expect(!(num < boolFalse))  // number < boolean(false) is false
   }
 
   @Test("cross-type number vs string — number < string per type hierarchy")
@@ -82,14 +82,14 @@ import Testing
     let num = JSON.number(.integer(42))
     let str = JSON.string("hello")
 
-    #expect(num < str)            // number < string
-    #expect(!(str < num))         // string < number is false
-    #expect(!(num > str))         // number > string is false
-    #expect(str > num)            // string > number
-    #expect(num <= str)           // number <= string
-    #expect(!(str <= num))        // string <= number is false
-    #expect(!(num >= str))        // number >= string is false
-    #expect(str >= num)           // string >= number
+    #expect(num < str)  // number < string
+    #expect(!(str < num))  // string < number is false
+    #expect(!(num > str))  // number > string is false
+    #expect(str > num)  // string > number
+    #expect(num <= str)  // number <= string
+    #expect(!(str <= num))  // string <= number is false
+    #expect(!(num >= str))  // number >= string is false
+    #expect(str >= num)  // string >= number
   }
 
   @Test("cross-type string vs object — object < string per type hierarchy")
@@ -97,8 +97,8 @@ import Testing
     let str = JSON.string("hello")
     let obj = JSON.object(["key": JSON.string("val")])
 
-    #expect(obj < str)            // object < string
-    #expect(!(str < obj))         // string < object is false
+    #expect(obj < str)  // object < string
+    #expect(!(str < obj))  // string < object is false
   }
 
   @Test("cross-type array vs null — null is less than everything")

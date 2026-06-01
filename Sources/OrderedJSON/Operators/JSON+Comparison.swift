@@ -15,12 +15,12 @@ extension JSON {
   /// null(0) < boolean(1) < number(2) < object(3) < array(4) < string(5) < binary(6)
   private static func typeOrder(_ storage: Storage) -> Int {
     switch storage {
-    case .null:    return 0
+    case .null: return 0
     case .boolean: return 1
-    case .number:  return 2
-    case .object:  return 3
-    case .array:   return 4
-    case .string:  return 5
+    case .number: return 2
+    case .object: return 3
+    case .array: return 4
+    case .string: return 5
     }
   }
 
