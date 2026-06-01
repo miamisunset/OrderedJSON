@@ -4,7 +4,7 @@ import OrderedCollections
 // Comparable conformance is declared on JSON itself — the operators below
 // satisfy Comparable's requirements (a < a is false, a < b implies !(b < a)).
 // Cross-type comparisons use the nlohmann/json type hierarchy:
-// null < boolean < number < object < array < string < binary
+// null < boolean < number < object < array < string
 
 extension JSON {
   // MARK: - Type ordering (matching nlohmann/json semantics)
@@ -12,7 +12,7 @@ extension JSON {
   /// Maps a `Storage` case to its comparison ordinal.
   ///
   /// nlohmann/json ordering:
-  /// null(0) < boolean(1) < number(2) < object(3) < array(4) < string(5) < binary(6)
+  /// null(0) < boolean(1) < number(2) < object(3) < array(4) < string(5)
   private static func typeOrder(_ storage: Storage) -> Int {
     switch storage {
     case .null: return 0
