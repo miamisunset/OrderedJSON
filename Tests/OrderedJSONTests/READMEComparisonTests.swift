@@ -10,8 +10,8 @@ import Testing
 }
 
 @Test func readmeTypeOrdering() {
-  // Note: Cross-type < returns false per current implementation.
-  // Only same-type comparisons are supported.
+  // Cross-type < uses the nlohmann/json type hierarchy:
+  // null < boolean < number < object < array < string
   #expect(JSON.null < JSON.boolean(true))
   #expect(JSON.boolean(false) < JSON.boolean(true))
   #expect(JSON.number(.integer(1)) < JSON.number(.integer(2)))
