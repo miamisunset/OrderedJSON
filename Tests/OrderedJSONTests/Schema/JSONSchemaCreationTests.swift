@@ -78,4 +78,46 @@ struct JSONSchemaCreationTests {
     let compiled = try JSONSchema(schema: schema, draft: .draft202012)
     #expect(compiled.draft == .draft202012)
   }
+
+  // MARK: - JSONSchemaKeyword typed enum tests
+
+  @Test("JSONSchemaKeyword round-trips through rawValue")
+  func keywordRoundTrip() {
+    for keyword in JSONSchemaKeyword.allCases {
+      let raw = keyword.rawValue
+      #expect(!raw.isEmpty)
+      let reconstructed = JSONSchemaKeyword(rawValue: raw)
+      #expect(reconstructed == keyword)
+    }
+  }
+
+  @Test("JSONSchemaKeyword subscript works on JSON objects")
+  func keywordSubscript() {
+    let obj: JSON = .object(["type": .string("object")])
+    let val = obj[key: .type]
+    #expect(val == .string("object"))
+    #expect(val?.stringValue == "object")
+
+    // Missing key returns nil
+    let missing = obj[key: .minimum]
+    #expect(missing == nil)
+  }
+
+  @Test("JSONSchemaKeyword all validation cases are covered")
+  func keywordAllValidationCases() {
+    let allValidationKeywords: Set<JSONSchemaKeyword> = [
+      .type, .properties, .required, .minimum, .maximum,
+      .multipleOf, .pattern, .enum, .const, .minLength, .maxLength,
+      .allOf, .anyOf, .oneOf, .not, .if, .minItems, .maxItems,
+      .uniqueItems, .contains, .minProperties, .maxProperties,
+      .propertyNames, .patternProperties, .additionalProperties,
+      .items, .exclusiveMinimum, .exclusiveMaximum,
+      .format, .dependencies, .additionalItems,
+      .dependentSchemas, .dependentRequired, .prefixItems,
+      .unevaluatedItems, .unevaluatedProperties,
+      .contentMediaType, .contentEncoding, .contentSchema,
+      .minContains, .maxContains,
+    ]
+    #expect(allValidationKeywords.count == 41)
+  }
 }
