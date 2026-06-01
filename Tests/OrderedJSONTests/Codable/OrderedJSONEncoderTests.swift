@@ -121,8 +121,11 @@ extension JSON {
     encoder.outputOptions.sortedKeys = true
     let str = try encoder.encodeAsString(Unsorted(z: 1, a: 2, m: 3))
     // Keys should be a, m, z in sorted output
-    #expect(str.firstIndex(of: Character("a"))! < str.firstIndex(of: Character("m"))!)
-    #expect(str.firstIndex(of: Character("m"))! < str.firstIndex(of: Character("z"))!)
+    let aIdx = try #require(str.firstIndex(of: Character("a")))
+    let mIdx = try #require(str.firstIndex(of: Character("m")))
+    let zIdx = try #require(str.firstIndex(of: Character("z")))
+    #expect(aIdx < mIdx)
+    #expect(mIdx < zIdx)
   }
 
   @Test("sortedKeys false preserves insertion order (default)")
@@ -135,6 +138,8 @@ extension JSON {
     let encoder = OrderedJSONEncoder()
     let str = try encoder.encodeAsString(Unsorted(z: 1, a: 2, m: 3))
     // Default: keys should be in declaration order: z, a, m
-    #expect(str.firstIndex(of: Character("z"))! < str.firstIndex(of: Character("a"))!)
+    let zIdx = try #require(str.firstIndex(of: Character("z")))
+    let aIdx = try #require(str.firstIndex(of: Character("a")))
+    #expect(zIdx < aIdx)
   }
 }
