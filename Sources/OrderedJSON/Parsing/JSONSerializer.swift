@@ -52,13 +52,15 @@ extension JSON {
       precondition(width >= 0, "Indent.spaces width (\(width)) must be non-negative")
       var string = ""
       serializeJSONPretty(
-        self, indent: width, indentCharacter: " ", depth: 0, ensureAscii: ensureAscii, sortedKeys: false, into: &string
+        self, indent: width, indentCharacter: " ", depth: 0, ensureAscii: ensureAscii,
+        sortedKeys: false, into: &string
       )
       return string
     case .tab:
       var string = ""
       serializeJSONPretty(
-        self, indent: 1, indentCharacter: "\t", depth: 0, ensureAscii: ensureAscii, sortedKeys: false, into: &string)
+        self, indent: 1, indentCharacter: "\t", depth: 0, ensureAscii: ensureAscii,
+        sortedKeys: false, into: &string)
       return string
     }
   }
@@ -91,7 +93,8 @@ extension JSON {
         first = false
         serializeJSONString(key, ensureAscii: ensureAscii, into: &string)
         string += ":"
-        serializeJSONCompact(dict[key]!, ensureAscii: ensureAscii, sortedKeys: sortedKeys, into: &string)
+        serializeJSONCompact(
+          dict[key]!, ensureAscii: ensureAscii, sortedKeys: sortedKeys, into: &string)
       }
       string += "}"
     }

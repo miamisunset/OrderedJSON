@@ -91,12 +91,13 @@ extension JSON {
     var encoder = OrderedJSONEncoder()
     encoder.outputOptions.indent = .spaces(2)
     let str = try encoder.encodeAsString(Person(name: "Alice", age: 30))
-    #expect(str == """
-{
-  "name": "Alice",
-  "age": 30
-}
-"""
+    #expect(
+      str == """
+        {
+          "name": "Alice",
+          "age": 30
+        }
+        """
     )
   }
 
