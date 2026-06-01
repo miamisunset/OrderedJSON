@@ -18,6 +18,9 @@ public struct OrderedJSONEncoder {
   /// The strategy to use for encoding `Decimal` values.
   public var decimalEncodingStrategy: DecimalEncodingStrategy = .asString
 
+  /// Output formatting options for string/data encoding.
+  public var outputOptions: OutputOptions = .init()
+
   /// Creates a new encoder with default options.
   public init() {
     userInfo = [:]
@@ -40,7 +43,44 @@ public struct OrderedJSONEncoder {
 
   public func encodeAsString<T: Encodable>(_ value: T) throws -> String {
     let json = try encode(value)
-    return json.dump(indent: .compact)
+    return json.dump(indent: outputOptions.indent)
+  }
+
+  /// Encodes a value and returns the JSON data, using current output options.
+  /// - Parameter value: The value to encode.
+  /// - Returns: UTF-8 encoded JSON data.
+  /// - Throws: `EncodingError` if the value cannot be encoded.
+  public func encodeAsData<T: Encodable>(_ value: T) throws -> Data {
+    let string = try encodeAsString(value)
+    guard let data = string.data(using: .utf8) else {
+      throw EncodingError.invalidValue(
+        value,
+        EncodingError.Context(
+          codingPath: [],
+          debugDescription: "failed to encode JSON string as UTF-8 data"
+        )
+      )
+    }
+    return data
+  }
+}
+
+// MARK: - Output options
+
+extension OrderedJSONEncoder {
+  /// Options controlling JSON output formatting.
+  public struct OutputOptions: Hashable, Sendable {
+    /// Indentation style for pretty-printed output. Defaults to `.compact`.
+    public var indent: JSON.Indent = .compact
+
+    /// If `true`, object keys are sorted alphabetically during serialization.
+    /// Defaults to `false` (preserves insertion order).
+    public var sortedKeys: Bool = false
+
+    public init(indent: JSON.Indent = .compact, sortedKeys: Bool = false) {
+      self.indent = indent
+      self.sortedKeys = sortedKeys
+    }
   }
 }
 
