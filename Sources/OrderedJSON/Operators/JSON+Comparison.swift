@@ -33,7 +33,8 @@ extension JSON {
   /// - Booleans: `false < true`.
   /// - Numbers are compared numerically with integer-to-float promotion.
   /// - Strings are compared lexicographically.
-  /// - Arrays and objects are compared by count (shorter is smaller).
+  /// - Arrays are compared element-by-element (shorter is smaller if all equal).
+  /// - Objects are compared by count (shorter is smaller).
   /// - Different types compare by type hierarchy:
   ///   `null < boolean < number < object < array < string`
   ///
@@ -52,7 +53,12 @@ extension JSON {
     case (.number(.integer(let a)), .number(.float(let b))): return Double(a) < b
     case (.number(.float(let a)), .number(.integer(let b))): return a < Double(b)
     case (.string(let a), .string(let b)): return a < b
-    case (.array(let a), .array(let b)): return a.count < b.count
+    case (.array(let a), .array(let b)):
+      for (lhs, rhs) in zip(a, b) {
+        if lhs < rhs { return true }
+        if rhs < lhs { return false }
+      }
+      return a.count < b.count
     case (.object(let a), .object(let b)): return a.count < b.count
     default:
       return typeOrder(lhs.storage) < typeOrder(rhs.storage)
