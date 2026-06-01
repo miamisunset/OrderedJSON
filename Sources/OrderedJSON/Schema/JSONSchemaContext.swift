@@ -28,7 +28,7 @@ struct EvaluationContext {
   /// Set of enabled keywords from the schema's $vocabulary metaschema.
   /// If nil, all keywords are enabled. If non-nil, only keywords in this
   /// set should be validated. Propagated to nested subschemas.
-  var enabledKeywords: Set<String>?
+  var enabledKeywords: Set<JSONSchemaKeyword>?
 
   /// Creates a context with default values for top-level validation.
   init(
@@ -80,7 +80,7 @@ struct EvaluationContext {
     return next
   }
 
-  func withEnabledKeywords(_ keywords: Set<String>?) -> EvaluationContext {
+  func withEnabledKeywords(_ keywords: Set<JSONSchemaKeyword>?) -> EvaluationContext {
     var next = self
     next.enabledKeywords = keywords
     return next

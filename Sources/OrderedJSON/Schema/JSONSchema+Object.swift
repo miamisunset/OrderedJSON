@@ -11,7 +11,7 @@ extension JSONSchema {
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
     errors: inout [JSONSchemaError], ctx _: EvaluationContext
   ) {
-    guard let minVal = subschema["minProperties"]?.intValue, value.isObject else { return }
+    guard let minVal = subschema[key: .minProperties]?.intValue, value.isObject else { return }
     if value.count < minVal {
       errors.append(
         JSONSchemaError(
@@ -29,7 +29,7 @@ extension JSONSchema {
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
     errors: inout [JSONSchemaError], ctx _: EvaluationContext
   ) {
-    guard let maxVal = subschema["maxProperties"]?.intValue, value.isObject else { return }
+    guard let maxVal = subschema[key: .maxProperties]?.intValue, value.isObject else { return }
     if value.count > maxVal {
       errors.append(
         JSONSchemaError(
@@ -47,7 +47,7 @@ extension JSONSchema {
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
     errors: inout [JSONSchemaError], ctx: EvaluationContext
   ) {
-    guard let pnSchema = subschema["propertyNames"], value.isObject else { return }
+    guard let pnSchema = subschema[key: .propertyNames], value.isObject else { return }
     guard case .object(let dict) = value.storage else { return }
     for (key, _) in dict {
       var keyErrors: [JSONSchemaError] = []
@@ -75,7 +75,7 @@ extension JSONSchema {
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
     errors: inout [JSONSchemaError], ctx: EvaluationContext
   ) {
-    guard let pp = subschema["patternProperties"], pp.isObject, value.isObject else { return }
+    guard let pp = subschema[key: .patternProperties], pp.isObject, value.isObject else { return }
     guard case .object(let patternDict) = pp.storage, case .object(let dict) = value.storage else {
       return
     }
@@ -112,7 +112,7 @@ extension JSONSchema {
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
     errors: inout [JSONSchemaError], ctx: EvaluationContext
   ) {
-    guard let additionalProperties = subschema["additionalProperties"], value.isObject else {
+    guard let additionalProperties = subschema[key: .additionalProperties], value.isObject else {
       return
     }
     guard case .object(let dict) = value.storage else { return }
@@ -147,7 +147,7 @@ extension JSONSchema {
     includeAdditionalProperties: Bool = false
   ) -> Set<String> {
     var keys: Set<String> = []
-    if let properties = subschema["properties"], properties.isObject {
+    if let properties = subschema[key: .properties], properties.isObject {
       guard case .object(let props) = properties.storage else {
         preconditionFailure("properties.isObject was true but storage pattern match failed")
       }
@@ -155,7 +155,7 @@ extension JSONSchema {
         keys.insert(k)
       }
     }
-    if let pp = subschema["patternProperties"], pp.isObject {
+    if let pp = subschema[key: .patternProperties], pp.isObject {
       guard case .object(let patternDict) = pp.storage else {
         preconditionFailure("patternProperties.isObject was true but storage pattern match failed")
       }
@@ -175,7 +175,7 @@ extension JSONSchema {
         }
       }
     }
-    if includeAdditionalProperties, subschema["additionalProperties"] != nil {
+    if includeAdditionalProperties, subschema[key: .additionalProperties] != nil {
       for (key, _) in dict {
         keys.insert(key)
       }
@@ -197,7 +197,7 @@ extension JSONSchema {
 
     // Resolve $ref target first — merge evaluated keys from the
     // referenced schema before processing local keywords.
-    if let refStr = subschema["$ref"]?.stringValue {
+    if let refStr = subschema[key: .dollarRef]?.stringValue {
       if let resolved = compiled?.resolveRef(
         refStr, currentResourceURI: ctx.currentResourceURI,
         remoteRegistry: remoteCompiled
@@ -213,7 +213,7 @@ extension JSONSchema {
 
     // Resolve $dynamicRef target — merge evaluated keys from the
     // dynamically referenced schema.
-    if let dynRefStr = subschema["$dynamicRef"]?.stringValue {
+    if let dynRefStr = subschema[key: .dollarDynamicRef]?.stringValue {
       if let resolved = compiled?.resolveDynamicRef(
         dynRefStr,
         dynamicScope: ctx.dynamicScope, currentResourceURI: ctx.currentResourceURI,
@@ -230,7 +230,7 @@ extension JSONSchema {
 
     // dependentSchemas: when a triggering key is present, the dependent
     // schema's evaluated properties are added.
-    if let depSchemas = subschema["dependentSchemas"], depSchemas.isObject {
+    if let depSchemas = subschema[key: .dependentSchemas], depSchemas.isObject {
       guard case .object(let depDict) = depSchemas.storage else { return keys }
       for (depKey, depSchema) in depDict {
         guard dict[depKey] != nil else { continue }
@@ -245,10 +245,10 @@ extension JSONSchema {
 
     // allOf: union of all subschemas' evaluated keys.
     // Resolve $ref in each subschema before collecting keys.
-    if let allOf = subschema["allOf"], allOf.isArray {
+    if let allOf = subschema[key: .allOf], allOf.isArray {
       for sub in allOf {
         let subSchema: JSON
-        if let innerRef = sub["$ref"]?.stringValue,
+        if let innerRef = sub[key: .dollarRef]?.stringValue,
           let resolved = compiled?.resolveRef(
             innerRef, currentResourceURI: ctx.currentResourceURI,
             remoteRegistry: remoteCompiled
@@ -269,11 +269,11 @@ extension JSONSchema {
 
     // anyOf: union of matching subschemas' evaluated keys.
     // Resolve $ref in each subschema before collecting keys.
-    if let anyOf = subschema["anyOf"], anyOf.isArray {
+    if let anyOf = subschema[key: .anyOf], anyOf.isArray {
       let objectValue = JSON(dict)
       for sub in anyOf {
         let subSchema: JSON
-        if let innerRef = sub["$ref"]?.stringValue,
+        if let innerRef = sub[key: .dollarRef]?.stringValue,
           let resolved = compiled?.resolveRef(
             innerRef, currentResourceURI: ctx.currentResourceURI,
             remoteRegistry: remoteCompiled
@@ -301,7 +301,7 @@ extension JSONSchema {
 
     // oneOf: union of matching subschemas' evaluated keys.
     // Resolve $ref in each subschema before collecting keys.
-    if let oneOf = subschema["oneOf"], oneOf.isArray {
+    if let oneOf = subschema[key: .oneOf], oneOf.isArray {
       let objectValue = JSON(dict)
       for sub in oneOf {
         let subSchema: JSON
@@ -333,7 +333,7 @@ extension JSONSchema {
 
     // if/then/else: only the matching branch's evaluated keys count.
     // Resolve $ref in if/then/else subschemas before collecting keys.
-    if let ifSchema = subschema["if"] {
+    if let ifSchema = subschema[key: .if] {
       let ifSchemaResolved: JSON
       if let innerRef = ifSchema["$ref"]?.stringValue,
         let resolved = compiled?.resolveRef(
@@ -358,7 +358,7 @@ extension JSONSchema {
           includeUnevaluatedProperties: true
         )
         keys.formUnion(ifKeys)
-        if let thenSchema = subschema["then"] {
+        if let thenSchema = subschema[key: .then] {
           let thenSchemaResolved: JSON
           if let innerRef = thenSchema["$ref"]?.stringValue,
             let resolved = compiled?.resolveRef(
@@ -378,7 +378,7 @@ extension JSONSchema {
           keys.formUnion(thenKeys)
         }
       } else {
-        if let elseSchema = subschema["else"] {
+        if let elseSchema = subschema[key: .else] {
           let elseSchemaResolved: JSON
           if let innerRef = elseSchema["$ref"]?.stringValue,
             let resolved = compiled?.resolveRef(
@@ -402,7 +402,7 @@ extension JSONSchema {
 
     // unevaluatedProperties: when called from composition keyword context,
     // keys validated by unevaluatedProperties are also considered evaluated.
-    if includeUnevaluatedProperties, subschema["unevaluatedProperties"] != nil {
+    if includeUnevaluatedProperties, subschema[key: .unevaluatedProperties] != nil {
       for (key, _) in dict {
         if !keys.contains(key) {
           keys.insert(key)
