@@ -16,7 +16,8 @@ extension JSONSchema {
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
     errors: inout [JSONSchemaError], ctx: EvaluationContext
   ) {
-    guard let depSchemas = subschema[key: .dependentSchemas], depSchemas.isObject, value.isObject else {
+    guard let depSchemas = subschema[key: .dependentSchemas], depSchemas.isObject, value.isObject
+    else {
       return
     }
     guard case .object(let depDict) = depSchemas.storage else { return }

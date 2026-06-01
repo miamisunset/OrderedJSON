@@ -11,7 +11,8 @@ extension JSONSchema {
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
     errors: inout [JSONSchemaError], ctx _: EvaluationContext
   ) {
-    guard let patternStr = subschema[key: .pattern]?.stringValue, let strVal = value.stringValue else {
+    guard let patternStr = subschema[key: .pattern]?.stringValue, let strVal = value.stringValue
+    else {
       return
     }
     // Use pre-compiled regex if available, otherwise compile on the fly.

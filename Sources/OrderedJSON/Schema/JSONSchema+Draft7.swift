@@ -94,7 +94,8 @@ extension JSONSchema {
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
     errors: inout [JSONSchemaError], ctx _: EvaluationContext
   ) {
-    guard let formatStr = subschema[key: .format]?.stringValue, let strVal = value.stringValue else {
+    guard let formatStr = subschema[key: .format]?.stringValue, let strVal = value.stringValue
+    else {
       return
     }
     guard let format = JSONSchemaFormat(rawValue: formatStr) else { return }
@@ -199,7 +200,9 @@ extension JSONSchema {
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
     errors: inout [JSONSchemaError], ctx: EvaluationContext
   ) {
-    guard let items = subschema[key: .items], items.isArray, let arr = value.arrayValue else { return }
+    guard let items = subschema[key: .items], items.isArray, let arr = value.arrayValue else {
+      return
+    }
     let tupleSchemas = items.arrayValue ?? []
     for (index, item) in arr.prefix(tupleSchemas.count).enumerated() {
       validateValue(

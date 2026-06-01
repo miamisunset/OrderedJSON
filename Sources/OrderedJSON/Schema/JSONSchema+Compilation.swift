@@ -95,6 +95,9 @@ struct CompiledSchema: Hashable {
     guard depth < keywordCacheMaxDepth else { return }
     guard value.isObject else { return }
     // Collect all keyword values from this subschema.
+    // Note: Non-standard / vendor-specific keywords (e.g., "x-my-custom")
+    // are intentionally excluded — they have no JSONSchemaKeyword case and
+    // the schema system does not process them during validation.
     var keywords: [JSONSchemaKeyword: JSON] = [:]
     if case .object(let dict) = value.storage {
       for (k, v) in dict {

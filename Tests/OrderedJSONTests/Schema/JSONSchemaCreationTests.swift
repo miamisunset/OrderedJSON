@@ -120,4 +120,25 @@ struct JSONSchemaCreationTests {
     ]
     #expect(allValidationKeywords == JSONSchema.validationKeywords)
   }
+
+  @Test("keywordCache only stores recognized JSONSchemaKeyword cases")
+  func keywordCacheExcludesCustomKeywords() throws {
+    let schema = try JSONSchema(
+      schema: .object([
+        "type": .string("object"),
+        "properties": .object([
+          "name": .object(["type": .string("string")])
+        ]),
+        "x-unknown-keyword": .null,
+      ])
+    )
+    let cache = schema.compiled?.keywordCache[""]
+    #expect(cache != nil)
+    // Known keywords are cached
+    #expect(cache?[JSONSchemaKeyword.type] != nil)
+    #expect(cache?[JSONSchemaKeyword.properties] != nil)
+    // Custom keyword "x-unknown-keyword" has no JSONSchemaKeyword case,
+    // so it is excluded from the cache. Keys are JSONSchemaKeyword type.
+    #expect(cache?.count == 2)
+  }
 }

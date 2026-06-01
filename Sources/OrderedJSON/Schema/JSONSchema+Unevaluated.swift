@@ -392,7 +392,8 @@ extension JSONSchema {
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
     errors: inout [JSONSchemaError], ctx: EvaluationContext
   ) {
-    guard let minContains = subschema[key: .minContains]?.intValue, subschema[key: .contains] != nil,
+    guard let minContains = subschema[key: .minContains]?.intValue,
+      subschema[key: .contains] != nil,
       let arr = value.arrayValue
     else { return }
     let containsSchema = subschema[key: .contains]!
@@ -423,7 +424,8 @@ extension JSONSchema {
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
     errors: inout [JSONSchemaError], ctx: EvaluationContext
   ) {
-    guard let maxContains = subschema[key: .maxContains]?.intValue, subschema[key: .contains] != nil,
+    guard let maxContains = subschema[key: .maxContains]?.intValue,
+      subschema[key: .contains] != nil,
       let arr = value.arrayValue
     else { return }
     let containsSchema = subschema[key: .contains]!

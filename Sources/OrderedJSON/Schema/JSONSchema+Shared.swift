@@ -14,6 +14,7 @@ import OrderedCollections
 /// subschema[key: .dollarRef]
 /// ```
 public enum JSONSchemaKeyword: String, Hashable, Sendable, CaseIterable {
+  // CaseIterable is public for API convenience (binary cost is negligible).
   // MARK: - Meta-keywords ($-prefixed → camelCase with "dollar" prefix)
 
   /// `$id` — schema resource identifier

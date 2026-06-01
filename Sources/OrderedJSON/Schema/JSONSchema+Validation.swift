@@ -320,7 +320,8 @@ extension JSONSchema {
       if resolved.schema == subschema {
         let hasOtherKeys: Bool
         if case .object(let dict) = subschema.storage {
-          hasOtherKeys = dict.keys.contains { $0 != "$ref" }
+          let refKey = JSONSchemaKeyword.dollarRef.rawValue
+          hasOtherKeys = dict.keys.contains { $0 != refKey }
         } else {
           hasOtherKeys = false
         }
