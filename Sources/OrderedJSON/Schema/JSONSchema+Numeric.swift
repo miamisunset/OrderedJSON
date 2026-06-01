@@ -10,7 +10,7 @@ extension JSONSchema {
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
     errors: inout [JSONSchemaError], ctx _: EvaluationContext
   ) {
-    guard let minVal = subschema["minimum"] else { return }
+    guard let minVal = subschema[key: .minimum] else { return }
     let valInt = value.intValue
     let minInt = minVal.intValue
     if let v = valInt, let m = minInt {
@@ -40,7 +40,7 @@ extension JSONSchema {
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
     errors: inout [JSONSchemaError], ctx _: EvaluationContext
   ) {
-    guard let maxVal = subschema["maximum"] else { return }
+    guard let maxVal = subschema[key: .maximum] else { return }
     let valInt = value.intValue
     let maxInt = maxVal.intValue
     if let v = valInt, let m = maxInt {
@@ -71,7 +71,7 @@ extension JSONSchema {
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
     errors: inout [JSONSchemaError], ctx _: EvaluationContext
   ) {
-    guard let exclMin = subschema["exclusiveMinimum"], exclMin.isNumber else { return }
+    guard let exclMin = subschema[key: .exclusiveMinimum], exclMin.isNumber else { return }
     guard let exclDouble = exclMin.doubleValue, let valDouble = value.doubleValue else { return }
     if let valInt = value.intValue, let exclInt = exclMin.intValue {
       if valInt <= exclInt {
@@ -104,7 +104,7 @@ extension JSONSchema {
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
     errors: inout [JSONSchemaError], ctx _: EvaluationContext
   ) {
-    guard let exclMax = subschema["exclusiveMaximum"], exclMax.isNumber else { return }
+    guard let exclMax = subschema[key: .exclusiveMaximum], exclMax.isNumber else { return }
     guard let exclDouble = exclMax.doubleValue, let valDouble = value.doubleValue else { return }
     if let valInt = value.intValue, let exclInt = exclMax.intValue {
       if valInt >= exclInt {
@@ -139,7 +139,7 @@ extension JSONSchema {
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
     errors: inout [JSONSchemaError], ctx _: EvaluationContext
   ) {
-    guard let mVal = subschema["multipleOf"] else { return }
+    guard let mVal = subschema[key: .multipleOf] else { return }
     if let mInt = mVal.intValue {
       if let valInt = value.intValue {
         if mInt > 0, valInt % mInt != 0 {

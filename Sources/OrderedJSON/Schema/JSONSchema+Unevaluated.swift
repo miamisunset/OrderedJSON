@@ -22,11 +22,11 @@ extension JSONSchema {
     var indices: Set<Int> = []
     let dataCount = data.count
     // Cache prefixCount to avoid repeated lookups of prefixItems.arrayValue?.count.
-    let prefixCount = subschema["prefixItems"]?.arrayValue?.count ?? 0
+    let prefixCount = subschema[key: .prefixItems]?.arrayValue?.count ?? 0
 
     // Resolve $ref target first — merge evaluated indices from the
     // referenced schema before processing local keywords.
-    if let refStr = subschema["$ref"]?.stringValue,
+    if let refStr = subschema[key: .dollarRef]?.stringValue,
       let resolved = compiled?.resolveRef(
         refStr, currentResourceURI: ctx.currentResourceURI,
         remoteRegistry: remoteCompiled
@@ -42,7 +42,7 @@ extension JSONSchema {
 
     // Resolve $dynamicRef target — merge evaluated indices from the
     // dynamically referenced schema.
-    if let dynRefStr = subschema["$dynamicRef"]?.stringValue {
+    if let dynRefStr = subschema[key: .dollarDynamicRef]?.stringValue {
       if let resolved = compiled?.resolveDynamicRef(
         dynRefStr,
         dynamicScope: ctx.dynamicScope, currentResourceURI: ctx.currentResourceURI,
@@ -58,7 +58,7 @@ extension JSONSchema {
     }
 
     // prefixItems: indices 0..<count are evaluated
-    if let prefixItems = subschema["prefixItems"], prefixItems.isArray {
+    if let prefixItems = subschema[key: .prefixItems], prefixItems.isArray {
       let count = prefixItems.arrayValue?.count ?? 0
       for i in 0..<min(count, dataCount) {
         indices.insert(i)
@@ -66,7 +66,7 @@ extension JSONSchema {
     }
 
     // items: if a schema, all remaining indices are evaluated
-    if let items = subschema["items"] {
+    if let items = subschema[key: .items] {
       if items.isObject {
         for i in prefixCount..<dataCount {
           indices.insert(i)
@@ -79,7 +79,7 @@ extension JSONSchema {
     }
 
     // contains: matching items are evaluated
-    if let containsSchema = subschema["contains"] {
+    if let containsSchema = subschema[key: .contains] {
       for i in 0..<prefixCount {
         indices.insert(i)
       }
@@ -98,10 +98,10 @@ extension JSONSchema {
 
     // allOf: union of all subschemas' evaluated indices.
     // Resolve $ref in each subschema before collecting indices.
-    if let allOf = subschema["allOf"], allOf.isArray {
+    if let allOf = subschema[key: .allOf], allOf.isArray {
       for sub in allOf {
         let subSchema: JSON
-        if let innerRef = sub["$ref"]?.stringValue,
+        if let innerRef = sub[key: .dollarRef]?.stringValue,
           let resolved = compiled?.resolveRef(
             innerRef, currentResourceURI: ctx.currentResourceURI,
             remoteRegistry: remoteCompiled
@@ -122,11 +122,11 @@ extension JSONSchema {
 
     // anyOf: union of matching subschemas' evaluated indices.
     // Resolve $ref in each subschema before collecting indices.
-    if let anyOf = subschema["anyOf"], anyOf.isArray {
+    if let anyOf = subschema[key: .anyOf], anyOf.isArray {
       let arrayValue = JSON(data)
       for sub in anyOf {
         let subSchema: JSON
-        if let innerRef = sub["$ref"]?.stringValue,
+        if let innerRef = sub[key: .dollarRef]?.stringValue,
           let resolved = compiled?.resolveRef(
             innerRef, currentResourceURI: ctx.currentResourceURI,
             remoteRegistry: remoteCompiled
@@ -154,11 +154,11 @@ extension JSONSchema {
 
     // oneOf: union of matching subschemas' evaluated indices.
     // Resolve $ref in each subschema before collecting indices.
-    if let oneOf = subschema["oneOf"], oneOf.isArray {
+    if let oneOf = subschema[key: .oneOf], oneOf.isArray {
       let arrayValue = JSON(data)
       for sub in oneOf {
         let subSchema: JSON
-        if let innerRef = sub["$ref"]?.stringValue,
+        if let innerRef = sub[key: .dollarRef]?.stringValue,
           let resolved = compiled?.resolveRef(
             innerRef, currentResourceURI: ctx.currentResourceURI,
             remoteRegistry: remoteCompiled
@@ -186,7 +186,7 @@ extension JSONSchema {
 
     // if/then/else: only the matching branch's evaluated indices count.
     // Resolve $ref in if/then/else subschemas before collecting indices.
-    if let ifSchema = subschema["if"] {
+    if let ifSchema = subschema[key: .if] {
       let ifSchemaResolved: JSON
       if let innerRef = ifSchema["$ref"]?.stringValue,
         let resolved = compiled?.resolveRef(
@@ -212,7 +212,7 @@ extension JSONSchema {
           includeUnevaluatedItems: true
         )
         indices.formUnion(ifIndices)
-        if let thenSchema = subschema["then"] {
+        if let thenSchema = subschema[key: .then] {
           let thenSchemaResolved: JSON
           if let innerRef = thenSchema["$ref"]?.stringValue,
             let resolved = compiled?.resolveRef(
@@ -233,7 +233,7 @@ extension JSONSchema {
         }
       } else {
         // if fails — only else's indices count (if present)
-        if let elseSchema = subschema["else"] {
+        if let elseSchema = subschema[key: .else] {
           let elseSchemaResolved: JSON
           if let innerRef = elseSchema["$ref"]?.stringValue,
             let resolved = compiled?.resolveRef(
@@ -258,7 +258,7 @@ extension JSONSchema {
 
     // unevaluatedItems: when called from composition keyword context,
     // items validated by unevaluatedItems are also considered evaluated.
-    if includeUnevaluatedItems, subschema["unevaluatedItems"] != nil {
+    if includeUnevaluatedItems, subschema[key: .unevaluatedItems] != nil {
       for i in 0..<dataCount {
         if !indices.contains(i) {
           indices.insert(i)
@@ -278,12 +278,12 @@ extension JSONSchema {
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
     errors: inout [JSONSchemaError], ctx: EvaluationContext
   ) {
-    guard let unevaluated = subschema["unevaluatedItems"], let arr = value.arrayValue else {
+    guard let unevaluated = subschema[key: .unevaluatedItems], let arr = value.arrayValue else {
       return
     }
     // If items is a schema (not boolean), all items past prefixItems are
     // evaluated — unevaluatedItems doesn't apply.
-    if let items = subschema["items"], items.isObject { return }
+    if let items = subschema[key: .items], items.isObject { return }
     // Compute the set of indices evaluated by this schema (including
     // composition keywords).
     let evaluated = evaluatedItemIndices(
@@ -312,7 +312,7 @@ extension JSONSchema {
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
     errors: inout [JSONSchemaError], ctx: EvaluationContext
   ) {
-    guard let unevaluated = subschema["unevaluatedProperties"], value.isObject else { return }
+    guard let unevaluated = subschema[key: .unevaluatedProperties], value.isObject else { return }
     guard case .object(let dict) = value.storage else { return }
     let evaluatedKeys = evaluatedPropertyKeysRecursive(
       for: subschema, dict: dict,
@@ -392,10 +392,10 @@ extension JSONSchema {
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
     errors: inout [JSONSchemaError], ctx: EvaluationContext
   ) {
-    guard let minContains = subschema["minContains"]?.intValue, subschema["contains"] != nil,
+    guard let minContains = subschema[key: .minContains]?.intValue, subschema[key: .contains] != nil,
       let arr = value.arrayValue
     else { return }
-    let containsSchema = subschema["contains"]!
+    let containsSchema = subschema[key: .contains]!
     var matchCount = 0
     for item in arr {
       var itemErrors: [JSONSchemaError] = []
@@ -423,10 +423,10 @@ extension JSONSchema {
     _ value: JSON, subschema: JSON, instancePath: String, schemaPath: String,
     errors: inout [JSONSchemaError], ctx: EvaluationContext
   ) {
-    guard let maxContains = subschema["maxContains"]?.intValue, subschema["contains"] != nil,
+    guard let maxContains = subschema[key: .maxContains]?.intValue, subschema[key: .contains] != nil,
       let arr = value.arrayValue
     else { return }
-    let containsSchema = subschema["contains"]!
+    let containsSchema = subschema[key: .contains]!
     var matchCount = 0
     for item in arr {
       var itemErrors: [JSONSchemaError] = []
