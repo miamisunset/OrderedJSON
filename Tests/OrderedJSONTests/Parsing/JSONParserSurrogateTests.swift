@@ -72,7 +72,7 @@ struct JSONParserSurrogateTests {
   func validSurrogatePairRoundTrip() throws {
     let json = try JSON.parse("\"\\uD83D\\uDE06\"")
     #expect(json == JSON.string("😆"))
-    let dumped = json.dump(indent: nil)
+    let dumped = json.dump(indent: .compact)
     let reparsed = try JSON.parse(dumped)
     #expect(reparsed == json)
   }
