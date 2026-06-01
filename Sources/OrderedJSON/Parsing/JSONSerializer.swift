@@ -2,11 +2,29 @@ import Foundation
 import OrderedCollections
 
 extension JSON {
+  /// Controls indentation for JSON serialization.
+  ///
+  /// Per RFC 8259, JSON indent characters are limited to space and horizontal tab.
+  /// This enum makes invalid indent states impossible at compile time.
+  public enum Indent: Hashable, Sendable {
+    /// Compact output with no whitespace.
+    case compact
+    /// Indent with spaces — the number of spaces per indent level.
+    ///
+    /// The width must be non-negative. A value of 0 produces no leading
+    /// whitespace (effectively compact within containers), while positive
+    /// values produce the corresponding number of spaces per level.
+    /// Negative values trigger a runtime precondition failure.
+    case spaces(Int)
+    /// Indent with horizontal tab characters.
+    case tab
+  }
+
   /// Pretty-prints this JSON value with the given indentation.
   ///
-  /// - Parameter indent: Indentation width in spaces. Use `nil` for compact
-  ///   (single-line) output. Defaults to `nil`.
-  /// - Parameter indentCharacter: Character to use for indentation. Defaults to `" "`.
+  /// - Parameter indent: Indentation style. Use `.compact` for single-line
+  ///   output (default), `.spaces(n)` for n-space indentation, or `.tab`
+  ///   for tab indentation.
   /// - Parameter ensureAscii: If `true`, non-ASCII characters are escaped as
   ///   `\uXXXX`. Defaults to `false`.
   /// - Returns: A JSON string.
@@ -16,30 +34,30 @@ extension JSON {
   /// ```swift
   /// let json = JSON.object(["name": .string("Alice"), "age": .number(.integer(30))])
   /// json.dump()                         // compact: {"name":"Alice","age":30}
-  /// json.dump(indent: 2)                // pretty-printed with 2-space indent
-  /// json.dump(indent: nil)              // compact
+  /// json.dump(indent: .spaces(2))       // pretty-printed with 2-space indent
+  /// json.dump(indent: .compact)         // compact
+  /// json.dump(indent: .tab)             // tab-indented
   /// json.dump(ensureAscii: true)        // escape non-ASCII as \uXXXX
   /// ```
   public func dump(
-    indent: Int? = nil,
-    indentCharacter: Character = " ",
+    indent: Indent = .compact,
     ensureAscii: Bool = false
   ) -> String {
-    if let indentValue = indent {
+    switch indent {
+    case .compact:
       var string = ""
-      serializeJSONPretty(
-        self,
-        indent: indentValue,
-        indentCharacter: indentCharacter,
-        depth: 0,
-        ensureAscii: ensureAscii,
-        into: &string
-      )
+      serializeJSONCompact(self, ensureAscii: ensureAscii, into: &string)
+      return string
+    case .spaces(let width):
+      precondition(width >= 0, "Indent.spaces width (\(width)) must be non-negative")
+      var string = ""
+      serializeJSONPretty(self, indent: width, indentCharacter: " ", depth: 0, ensureAscii: ensureAscii, into: &string)
+      return string
+    case .tab:
+      var string = ""
+      serializeJSONPretty(self, indent: 1, indentCharacter: "\t", depth: 0, ensureAscii: ensureAscii, into: &string)
       return string
     }
-    var string = ""
-    serializeJSONCompact(self, ensureAscii: ensureAscii, into: &string)
-    return string
   }
 
   private func serializeJSONCompact(_ value: JSON, ensureAscii: Bool, into string: inout String) {
