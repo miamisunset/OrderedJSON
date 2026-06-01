@@ -29,12 +29,25 @@ extension JSON {
   public enum Indent: Hashable, Sendable {
     /// Compact output with no whitespace.
     case compact
-    /// Indent with spaces — the associated value is the width per level.
+    /// Indent with spaces — the number of spaces per indent level.
+    ///
+    /// The width must be non-negative. A value of 0 produces no leading
+    /// whitespace (effectively compact within containers), while positive
+    /// values produce the corresponding number of spaces per level.
+    /// Negative values trigger a runtime precondition failure.
     case spaces(Int)
     /// Indent with horizontal tab characters.
     case tab
   }
 }
+```
+
+The `dump()` implementation validates `.spaces` width at the point of use:
+
+```swift
+case .spaces(let width):
+  precondition(width >= 0, "Indent.spaces width must be non-negative")
+  // ... use width for padding
 ```
 
 ### dump() — full replacement
@@ -151,6 +164,8 @@ Following Swift Testing conventions (struct suites, `#expect`, `#require`):
 ### New dump tests
 - `dumpTabIndent` — verify `.tab` produces `\t` indentation
 - `dumpSpaces4` — verify `.spaces(4)` produces 4-space indentation
+- `dumpSpaces0` — verify `.spaces(0)` produces no leading whitespace (valid edge case)
+- `dumpSpacesNegative` — verify `.spaces(-1)` triggers precondition failure
 - `dumpCompact` — verify `.compact` produces no whitespace (already exists, update)
 - `dumpDefaultCompact` — verify `dump()` with no argument matches `.compact`
 
