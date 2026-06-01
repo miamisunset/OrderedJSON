@@ -49,7 +49,7 @@ extension JSON {
       serializeJSONCompact(self, ensureAscii: ensureAscii, sortedKeys: false, into: &string)
       return string
     case .spaces(let width):
-      precondition(width >= 0, "Indent.spaces width (\(width)) must be non-negative")
+      guard width >= 0 else { return dump(indent: .compact) }
       var string = ""
       serializeJSONPretty(
         self, indent: width, indentCharacter: " ", depth: 0, ensureAscii: ensureAscii,
@@ -218,7 +218,7 @@ extension JSON {
     case .compact:
       serializeJSONCompact(self, ensureAscii: ensureAscii, sortedKeys: true, into: &string)
     case .spaces(let width):
-      precondition(width >= 0, "Indent.spaces width (\(width)) must be non-negative")
+      guard width >= 0 else { return _dumpSorted(indent: .compact) }
       serializeJSONPretty(
         self, indent: width, indentCharacter: " ", depth: 0, ensureAscii: ensureAscii,
         sortedKeys: true, into: &string)

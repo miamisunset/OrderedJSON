@@ -250,11 +250,11 @@ import Testing
     #expect(result.contains("\"a\""))
   }
 
-  @Test("dump spaces negative precondition")
+  @Test("dump spaces negative falls back to compact")
   func dumpSpacesNegative() {
-    withKnownIssue {
-      _ = JSON.null.dump(indent: .spaces(-1))
-    }
+    let compact = JSON.null.dump(indent: .compact)
+    let negative = JSON.null.dump(indent: .spaces(-1))
+    #expect(negative == compact)
   }
 
   @Test("dump ensure ascii") func dumpEnsureAscii() {
