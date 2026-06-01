@@ -42,7 +42,7 @@ extension JSONSchema {
     }
 
     // Recursively check composition keywords
-    for keyword in [JSONSchemaKeyword.allOf, .anyOf, .oneOf] {
+    for keyword in JSONSchemaKeyword.compositionKeywords {
       if let subschemas = schema[key: keyword], subschemas.isArray {
         for sub in subschemas where sub.isObject {
           try JSONSchema.validatePatterns(sub)

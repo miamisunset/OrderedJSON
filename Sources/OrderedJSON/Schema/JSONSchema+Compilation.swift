@@ -45,7 +45,7 @@ struct CompiledSchema: Hashable {
   ///   cache provides no benefit for `$ref`-targeted subschemas.
   ///   Consider building the keyword cache **after** `$ref` resolution,
   ///   or at least caching resolved keyword values.
-  let keywordCache: [String: [String: JSON]]
+  let keywordCache: [String: [JSONSchemaKeyword: JSON]]
 
   /// Creates a compiled schema from raw JSON.
   /// - Parameter schema: The raw schema JSON.
@@ -77,8 +77,8 @@ struct CompiledSchema: Hashable {
 
   /// Walks the schema tree and builds a dictionary mapping each subschema's
   /// JSON pointer to its keyword values (excluding `$ref` which is resolved).
-  private static func buildKeywordCache(from schema: JSON) -> [String: [String: JSON]] {
-    var cache: [String: [String: JSON]] = [:]
+  private static func buildKeywordCache(from schema: JSON) -> [String: [JSONSchemaKeyword: JSON]] {
+    var cache: [String: [JSONSchemaKeyword: JSON]] = [:]
     buildKeywordCacheRecursive(schema, pointer: "", cache: &cache)
     return cache
   }
@@ -88,17 +88,19 @@ struct CompiledSchema: Hashable {
   private static let keywordCacheMaxDepth = 100
 
   private static func buildKeywordCacheRecursive(
-    _ value: JSON, pointer: String, cache: inout [String: [String: JSON]],
+    _ value: JSON, pointer: String, cache: inout [String: [JSONSchemaKeyword: JSON]],
     depth: Int = 0
   ) {
     // Depth guard — prevent stack overflow from extremely nested schemas
     guard depth < keywordCacheMaxDepth else { return }
     guard value.isObject else { return }
     // Collect all keyword values from this subschema.
-    var keywords: [String: JSON] = [:]
+    var keywords: [JSONSchemaKeyword: JSON] = [:]
     if case .object(let dict) = value.storage {
       for (k, v) in dict {
-        keywords[k] = v
+        if let kw = JSONSchemaKeyword(rawValue: k) {
+          keywords[kw] = v
+        }
       }
     }
     cache[pointer] = keywords
@@ -158,7 +160,7 @@ struct CompiledSchema: Hashable {
         up, pointer: pointer + "/unevaluatedProperties", cache: &cache, depth: depth + 1)
     }
     // Recurse into composition keywords (allOf, anyOf, oneOf, not, if, then, else)
-    for comp in [JSONSchemaKeyword.allOf, .anyOf, .oneOf] {
+    for comp in JSONSchemaKeyword.compositionKeywords {
       if let arr = value[key: comp], arr.isArray {
         for (i, sub) in arr.enumerated() {
           let childPointer = pointer + "/" + comp.rawValue + "/" + String(i)
@@ -374,7 +376,7 @@ struct CompiledSchema: Hashable {
     }
 
     // composition keywords
-    for keyword in [JSONSchemaKeyword.allOf, .anyOf, .oneOf] {
+    for keyword in JSONSchemaKeyword.compositionKeywords {
       if let subschemas = schema[key: keyword], subschemas.isArray {
         for sub in subschemas where sub.isObject {
           try collectResourcesRecursive(
