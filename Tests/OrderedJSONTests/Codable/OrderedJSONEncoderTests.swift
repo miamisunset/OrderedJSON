@@ -91,8 +91,13 @@ extension JSON {
     var encoder = OrderedJSONEncoder()
     encoder.outputOptions.indent = .spaces(2)
     let str = try encoder.encodeAsString(Person(name: "Alice", age: 30))
-    #expect(str.contains("\n"))
-    #expect(str.contains("  "))
+    #expect(str == """
+{
+  "name": "Alice",
+  "age": 30
+}
+"""
+    )
   }
 
   @Test("encodeAsData returns valid UTF-8 data")
