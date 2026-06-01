@@ -48,7 +48,7 @@ public struct OrderedJSONEncoder {
   public func encodeAsString<T: Encodable>(_ value: T) throws -> String {
     let json = try encode(value)
     if outputOptions.sortedKeys {
-      return json._sortedDump(indent: outputOptions.indent)
+      return json._dumpSorted(indent: outputOptions.indent)
     }
     return json.dump(indent: outputOptions.indent)
   }
