@@ -28,7 +28,10 @@ struct JSONMemoryPerformanceSchemaTests {
     )
     let result = schema.validating(JSON.string("hello"))
     #expect(!result.valid)
-    #expect(result.errors.first?.keyword == .dollarRef || result.errors.first?.keyword == .schemaError)
+    #expect(
+      result.errors.first?.keyword == .dollarRef
+        || result.errors.first?.keyword == .schemaError
+    )
   }
 
   @Test("chain of 30 $refs hits recursion depth guard")
