@@ -126,7 +126,7 @@ import Testing
     let str = JSON.ObjectBuilder()
       .set("x", 1)
       .set("y", "hello")
-      .buildString(indent: 2)
+      .buildString(indent: .spaces(2))
 
     let expected = """
       {

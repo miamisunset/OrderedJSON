@@ -11,7 +11,7 @@ import Testing
   let compact = value.dump()
   #expect(compact == "{\"name\":\"Bob\",\"age\":25}")
 
-  let pretty = value.dump(indent: 2)
+  let pretty = value.dump(indent: .spaces(2))
   #expect(pretty.contains("\n"))
   #expect(pretty.contains("  "))
 }

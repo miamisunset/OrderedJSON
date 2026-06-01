@@ -27,11 +27,4 @@ jobs:
         with:
           submodules: true
       - name: Build & Test
-        # swiftpm-testing-helper may crash with SIGTRAP after all tests pass
-        # (known SwiftPM bug). Capture output and check for failures manually.
-        run: |
-          swift test --parallel -Xswiftc -warnings-as-errors 2>&1 | tee test.log
-          if grep -qE "^\✘" test.log; then
-            echo "::error::Test failures detected"
-            exit 1
-          fi
+        run: swift test --parallel -Xswiftc -warnings-as-errors

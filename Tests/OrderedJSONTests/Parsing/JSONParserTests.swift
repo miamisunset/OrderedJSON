@@ -316,23 +316,23 @@ import Testing
 
 @Suite("Parser Encoding Tests") struct JSONParserEncodingTests {
   @Test("encode standard null") func encodeStandardNull() {
-    #expect(JSON.null.dump(indent: nil) == "null")
+    #expect(JSON.null.dump(indent: .compact) == "null")
   }
 
   @Test("encode standard bool") func encodeStandardBool() {
-    #expect(JSON.boolean(true).dump(indent: nil) == "true")
+    #expect(JSON.boolean(true).dump(indent: .compact) == "true")
   }
 
   @Test("encode standard int") func encodeStandardInt() {
-    #expect(JSON.number(.integer(42)).dump(indent: nil) == "42")
+    #expect(JSON.number(.integer(42)).dump(indent: .compact) == "42")
   }
 
   @Test("encode standard float") func encodeStandardFloat() {
-    #expect(JSON.number(.float(3.14)).dump(indent: nil) == "3.14")
+    #expect(JSON.number(.float(3.14)).dump(indent: .compact) == "3.14")
   }
 
   @Test("encode standard string") func encodeStandardString() {
-    #expect(JSON.string("hello").dump(indent: nil) == "\"hello\"")
+    #expect(JSON.string("hello").dump(indent: .compact) == "\"hello\"")
   }
 
   @Test("encode standard array") func encodeStandardArray() {
@@ -341,7 +341,7 @@ import Testing
       JSON.number(.integer(1)),
       JSON.boolean(true),
     ])
-    #expect(value.dump(indent: nil) == "[\"a\",1,true]")
+    #expect(value.dump(indent: .compact) == "[\"a\",1,true]")
   }
 
   @Test("encode standard object") func encodeStandardObject() {
@@ -349,7 +349,7 @@ import Testing
       "name": JSON.string("Alice"),
       "age": JSON.number(.integer(30)),
     ])
-    #expect(value.dump(indent: nil) == "{\"name\":\"Alice\",\"age\":30}")
+    #expect(value.dump(indent: .compact) == "{\"name\":\"Alice\",\"age\":30}")
   }
 }
 

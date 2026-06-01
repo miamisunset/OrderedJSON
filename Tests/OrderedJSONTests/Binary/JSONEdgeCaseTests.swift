@@ -20,25 +20,25 @@ private func appendBE(_ value: UInt64, to bytes: inout [UInt8]) {
 struct JSONEdgeCaseTests {
   @Test("nan float serializes as null") func nanFloatSerializesAsNull() {
     let json = JSON.number(.float(Double.nan))
-    let dumped = json.dump(indent: nil)
+    let dumped = json.dump(indent: .compact)
     #expect(dumped == "null")
   }
 
   @Test("infinity float serializes as null") func infinityFloatSerializesAsNull() {
     let json = JSON.number(.float(Double.infinity))
-    let dumped = json.dump(indent: nil)
+    let dumped = json.dump(indent: .compact)
     #expect(dumped == "null")
   }
 
   @Test("negative infinity float serializes as null") func negativeInfinityFloatSerializesAsNull() {
     let json = JSON.number(.float(-Double.infinity))
-    let dumped = json.dump(indent: nil)
+    let dumped = json.dump(indent: .compact)
     #expect(dumped == "null")
   }
 
   @Test("nan in object serializes correctly") func nanInObjectSerializesCorrectly() {
     let json = JSON.object(["a": JSON.number(.float(Double.nan)), "b": JSON.number(.integer(1))])
-    let dumped = json.dump(indent: nil)
+    let dumped = json.dump(indent: .compact)
     // NaN should serialize as null, not crash
     #expect(dumped == "{\"a\":null,\"b\":1}" || dumped == "{\"b\":1,\"a\":null}")
   }
@@ -57,7 +57,7 @@ struct JSONEdgeCaseTests {
     }
     #expect(d.isNaN)
     // Serialize to JSON string — should produce null
-    let dumped = decoded.dump(indent: nil)
+    let dumped = decoded.dump(indent: .compact)
     #expect(dumped == "null")
   }
 }
