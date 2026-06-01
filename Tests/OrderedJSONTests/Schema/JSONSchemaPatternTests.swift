@@ -22,7 +22,7 @@ struct JSONSchemaPatternTests {
     )
     let result = schema.validating(.string("abc"))
     #expect(!result.valid)
-    #expect(result.errors.first?.keyword == "pattern")
+    #expect(result.errors.first?.keyword == .pattern)
   }
 
   @Test("pattern — non-string value skips")

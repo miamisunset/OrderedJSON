@@ -16,7 +16,7 @@ extension JSONSchema {
       errors.append(
         JSONSchemaError(
           instancePath: instancePath, schemaPath: schemaPath + "/minProperties",
-          keyword: "minProperties",
+          keyword: .minProperties,
           message: "object has \(value.count) properties, less than minimum \(minVal)"
         )
       )
@@ -34,7 +34,7 @@ extension JSONSchema {
       errors.append(
         JSONSchemaError(
           instancePath: instancePath, schemaPath: schemaPath + "/maxProperties",
-          keyword: "maxProperties",
+          keyword: .maxProperties,
           message: "object has \(value.count) properties, greater than maximum \(maxVal)"
         )
       )
@@ -61,7 +61,7 @@ extension JSONSchema {
         errors.append(
           JSONSchemaError(
             instancePath: childInstancePath, schemaPath: childSchemaPath,
-            keyword: "propertyNames",
+            keyword: .propertyNames,
             message: "property name '\(key)' failed: \(first.message)"
           )
         )

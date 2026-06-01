@@ -19,8 +19,8 @@ struct JSONSchemaItemsTests {
     let result = schema.validating(.array([.string("a"), .number(.integer(1))]))
     #expect(!result.valid)
     #expect(
-      result.errors.map(\.keyword).contains("items")
-        || result.errors.map(\.keyword).contains("type")
+      result.errors.map(\.keyword).contains(.items)
+        || result.errors.map(\.keyword).contains(.type)
     )
     #expect(result.errors.count >= 1)
   }

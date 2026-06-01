@@ -31,7 +31,7 @@ struct JSONSchemaAdditionalPropertiesTests {
     )
     #expect(!result.valid)
     // Error keyword is "false" from the boolean subschema, not "additionalProperties"
-    #expect(result.errors.first?.keyword == "false")
+    #expect(result.errors.first?.keyword == .falseSchema)
   }
 
   @Test("additionalProperties — non-object skips")

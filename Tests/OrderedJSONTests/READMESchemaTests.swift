@@ -53,7 +53,7 @@ import Testing
 
   // Access errors
   for error in result.errors {
-    #expect(error.keyword != "")
+    #expect(!error.keyword.rawValue.isEmpty)
   }
 
   // throwOnError doesn't throw for valid

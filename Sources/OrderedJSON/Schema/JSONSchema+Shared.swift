@@ -153,6 +153,14 @@ public enum JSONSchemaKeyword: String, Hashable, Sendable, CaseIterable {
   /// `definitions` — Draft 7 shared definitions (superseded by $defs)
   case definitions
 
+  // MARK: - Special error categories
+
+  /// Boolean `false` schema — rejects all values (not a standard keyword)
+  case falseSchema = "false"
+
+  /// Generic schema validation error (recursion limit, invalid structure, etc.)
+  case schemaError = "schema"
+
   // MARK: - Keyword groups
 
   /// Composition keywords whose values are arrays of subschemas.

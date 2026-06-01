@@ -610,7 +610,7 @@ struct CompiledSchemaNestedAnnotationTests {
     // /nonexistent doesn't match any compiled resource, so $ref should fail
     let result = schema.validating(.object(["badRef": .string("hello")]))
     #expect(!result.valid)
-    #expect(result.errors.first?.keyword == "$ref")
+    #expect(result.errors.first?.keyword == .dollarRef)
   }
 
   @Test("cross-resource anchor isolation — #rootAnchor not reachable from /child")
@@ -631,7 +631,7 @@ struct CompiledSchemaNestedAnnotationTests {
     // anchor named "rootAnchor". The $ref should fail.
     let result = schema.validating(.object(["child": .object([:])]))
     #expect(!result.valid)
-    #expect(result.errors.first?.keyword == "$ref")
+    #expect(result.errors.first?.keyword == .dollarRef)
   }
 
   @Test("external pointer with tail — #/$defs/A/properties/x")

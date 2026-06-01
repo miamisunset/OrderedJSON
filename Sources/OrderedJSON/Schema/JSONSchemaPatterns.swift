@@ -17,7 +17,7 @@ extension JSONSchema {
         throw JSONSchemaError(
           instancePath: "",
           schemaPath: "/pattern",
-          keyword: "pattern",
+          keyword: .pattern,
           message: "invalid regex pattern: \(patternStr)"
         )
       }
@@ -72,7 +72,7 @@ extension JSONSchema {
           throw JSONSchemaError(
             instancePath: "",
             schemaPath: "/patternProperties",
-            keyword: "patternProperties",
+            keyword: .patternProperties,
             message: "invalid regex pattern '\(pattern)' in patternProperties"
           )
         }

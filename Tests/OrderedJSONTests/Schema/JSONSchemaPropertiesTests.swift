@@ -32,7 +32,7 @@ struct JSONSchemaPropertiesTests {
     let doc: JSON = .object(["age": .string("thirty")])
     let result = schema.validating(doc)
     #expect(!result.valid)
-    #expect(result.errors.first?.keyword == "type")
+    #expect(result.errors.first?.keyword == .type)
   }
 
   @Test("properties — missing key doesn't fail (not required)")

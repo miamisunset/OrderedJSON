@@ -23,7 +23,7 @@ struct JSONSchemaMultipleOfTests {
     )
     let result = schema.validating(.number(.integer(10)))
     #expect(!result.valid)
-    #expect(result.errors.first?.keyword == "multipleOf")
+    #expect(result.errors.first?.keyword == .multipleOf)
   }
 
   @Test("multipleOf — valid float")

@@ -40,7 +40,7 @@ extension JSONSchema {
       guard let key = reqElem.stringValue else {
         errors.append(
           JSONSchemaError(
-            instancePath: instancePath, schemaPath: schemaPath + "/required", keyword: "required",
+            instancePath: instancePath, schemaPath: schemaPath + "/required", keyword: .required,
             message: "required array must contain strings"
           )
         )
@@ -49,7 +49,7 @@ extension JSONSchema {
       if value[key] == nil {
         errors.append(
           JSONSchemaError(
-            instancePath: instancePath, schemaPath: schemaPath + "/required", keyword: "required",
+            instancePath: instancePath, schemaPath: schemaPath + "/required", keyword: .required,
             message: "required property '\(key)' is missing"
           )
         )

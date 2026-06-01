@@ -23,7 +23,7 @@ struct JSONSchemaNumericBoundsTests {
     )
     let result = schema.validating(.number(.integer(5)))
     #expect(!result.valid)
-    #expect(result.errors.first?.keyword == "minimum")
+    #expect(result.errors.first?.keyword == .minimum)
   }
 
   @Test("maximum — valid")
@@ -42,7 +42,7 @@ struct JSONSchemaNumericBoundsTests {
     )
     let result = schema.validating(.number(.integer(200)))
     #expect(!result.valid)
-    #expect(result.errors.first?.keyword == "maximum")
+    #expect(result.errors.first?.keyword == .maximum)
   }
 
   @Test("minimum + maximum — valid in range")
@@ -76,6 +76,6 @@ struct JSONSchemaNumericBoundsTests {
     #expect(schema.validating(.number(.integer(Int64.max))).valid)
     let result = schema.validating(.number(.integer(Int64.max - 1)))
     #expect(!result.valid)
-    #expect(result.errors.first?.keyword == "minimum")
+    #expect(result.errors.first?.keyword == .minimum)
   }
 }

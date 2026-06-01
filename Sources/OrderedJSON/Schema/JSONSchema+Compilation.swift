@@ -287,7 +287,7 @@ struct CompiledSchema: Hashable {
       throw JSONSchemaError(
         instancePath: "",
         schemaPath: "/$id",
-        keyword: "$id",
+        keyword: .dollarId,
         message: "duplicate $id '\(baseURI)'"
       )
     }
@@ -328,7 +328,7 @@ struct CompiledSchema: Hashable {
         throw JSONSchemaError(
           instancePath: "",
           schemaPath: "/$anchor",
-          keyword: "$anchor",
+          keyword: .dollarAnchor,
           message: "duplicate $anchor '\(anchorStr)' in resource '\(baseURI)'"
         )
       }
@@ -341,7 +341,7 @@ struct CompiledSchema: Hashable {
         throw JSONSchemaError(
           instancePath: "",
           schemaPath: "/$dynamicAnchor",
-          keyword: "$dynamicAnchor",
+          keyword: .dollarDynamicAnchor,
           message: "duplicate $dynamicAnchor '\(dynAnchorStr)' in resource '\(baseURI)'"
         )
       }

@@ -22,7 +22,7 @@ struct JSONSchemaPropertyNamesTests {
     )
     let result = schema.validating(.object(["NAME": .string("Alice")]))
     #expect(!result.valid)
-    #expect(result.errors.first?.keyword == "propertyNames")
+    #expect(result.errors.first?.keyword == .propertyNames)
   }
 
   @Test("propertyNames — non-object skips")
@@ -42,6 +42,6 @@ struct JSONSchemaPropertyNamesTests {
     let result = schema.validating(.object(["abcd": .number(.integer(1))]))
     #expect(!result.valid)
     // The error keyword is "propertyNames" (parent wraps inner errors)
-    #expect(result.errors.first?.keyword == "propertyNames")
+    #expect(result.errors.first?.keyword == .propertyNames)
   }
 }

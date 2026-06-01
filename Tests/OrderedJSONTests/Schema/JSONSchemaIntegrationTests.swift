@@ -51,7 +51,7 @@ struct JSONSchemaIntegrationTests {
     let person: JSON = .object(["name": .string("Alice")])
     let result = schema.validating(person)
     #expect(!result.valid)
-    #expect(result.errors.first?.keyword == "required")
+    #expect(result.errors.first?.keyword == .required)
   }
 
   @Test("full person schema — invalid (wrong type)")
@@ -77,7 +77,7 @@ struct JSONSchemaIntegrationTests {
     ])
     let result = schema.validating(person)
     #expect(!result.valid)
-    #expect(result.errors.first?.keyword == "type")
+    #expect(result.errors.first?.keyword == .type)
   }
 
   @Test("full person schema — invalid (age out of range)")
@@ -103,7 +103,7 @@ struct JSONSchemaIntegrationTests {
     ])
     let result = schema.validating(person)
     #expect(!result.valid)
-    #expect(result.errors.first?.keyword == "maximum")
+    #expect(result.errors.first?.keyword == .maximum)
   }
 
   @Test("empty schema — passes everything")

@@ -45,7 +45,7 @@ struct JSONSchemaDependentSchemasTests {
     let doc: JSON = .object(["credit_card": .string("1234"), "number": .string("1234")])
     let result = schema.validating(doc)
     #expect(!result.valid)
-    #expect(result.errors.first?.keyword == "dependentSchemas")
+    #expect(result.errors.first?.keyword == .dependentSchemas)
   }
 
   @Test("dependentSchemas — multiple dependency keys")

@@ -22,7 +22,7 @@ extension JSONSchema {
         errors.append(
           JSONSchemaError(
             instancePath: first.instancePath.isEmpty ? instancePath : first.instancePath,
-            schemaPath: schemaPath + "/allOf/" + String(index), keyword: "allOf",
+            schemaPath: schemaPath + "/allOf/" + String(index), keyword: .allOf,
             message: "subschema #\(index) failed: \(first.message)"
           )
         )
@@ -60,7 +60,7 @@ extension JSONSchema {
     if !matched {
       errors.append(
         JSONSchemaError(
-          instancePath: instancePath, schemaPath: schemaPath + "/anyOf", keyword: "anyOf",
+          instancePath: instancePath, schemaPath: schemaPath + "/anyOf", keyword: .anyOf,
           message: "value does not match any subschema in anyOf"
         )
       )
@@ -93,7 +93,7 @@ extension JSONSchema {
     if matchCount != 1 {
       errors.append(
         JSONSchemaError(
-          instancePath: instancePath, schemaPath: schemaPath + "/oneOf", keyword: "oneOf",
+          instancePath: instancePath, schemaPath: schemaPath + "/oneOf", keyword: .oneOf,
           message: "value matches \(matchCount) subschemas in oneOf (expected exactly 1)"
         )
       )
@@ -117,7 +117,7 @@ extension JSONSchema {
     if subErrors.isEmpty {
       errors.append(
         JSONSchemaError(
-          instancePath: instancePath, schemaPath: schemaPath + "/not", keyword: "not",
+          instancePath: instancePath, schemaPath: schemaPath + "/not", keyword: .not,
           message: "value matches the not schema"
         )
       )
@@ -149,7 +149,7 @@ extension JSONSchema {
         if let first = thenErrors.first {
           errors.append(
             JSONSchemaError(
-              instancePath: instancePath, schemaPath: schemaPath + "/then", keyword: "then",
+              instancePath: instancePath, schemaPath: schemaPath + "/then", keyword: .then,
               message: "then schema failed: \(first.message)"
             )
           )
@@ -165,7 +165,7 @@ extension JSONSchema {
         if let first = elseErrors.first {
           errors.append(
             JSONSchemaError(
-              instancePath: instancePath, schemaPath: schemaPath + "/else", keyword: "else",
+              instancePath: instancePath, schemaPath: schemaPath + "/else", keyword: .else,
               message: "else schema failed: \(first.message)"
             )
           )

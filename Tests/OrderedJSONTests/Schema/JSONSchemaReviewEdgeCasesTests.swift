@@ -34,7 +34,7 @@ struct JSONSchemaReviewEdgeCasesTests {
     #expect(schema.validating(.object(["name": .string("Alice")])).valid)
     let result = schema.validating(.object(["credit_card": .string("1234")]))
     #expect(!result.valid)
-    #expect(result.errors.first?.keyword == "dependentSchemas")
+    #expect(result.errors.first?.keyword == .dependentSchemas)
   }
 
   @Test("if/then — with boolean then (false rejects when if passes)")

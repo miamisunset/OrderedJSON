@@ -34,6 +34,6 @@ struct JSONSchemaBooleanTests {
     let schema = try JSONSchema(schema: .boolean(false))
     let result = schema.validating(.string("test"))
     #expect(!result.valid)
-    #expect(result.errors.first?.keyword == "false")
+    #expect(result.errors.first?.keyword == .falseSchema)
   }
 }

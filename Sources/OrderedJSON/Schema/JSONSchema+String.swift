@@ -30,7 +30,7 @@ extension JSONSchema {
     if regex.firstMatch(in: strVal, options: [], range: range) == nil {
       errors.append(
         JSONSchemaError(
-          instancePath: instancePath, schemaPath: schemaPath + "/pattern", keyword: "pattern",
+          instancePath: instancePath, schemaPath: schemaPath + "/pattern", keyword: .pattern,
           message: "string '\(strVal)' does not match pattern '\(patternStr)'"
         )
       )
@@ -56,7 +56,7 @@ extension JSONSchema {
     if !found {
       errors.append(
         JSONSchemaError(
-          instancePath: instancePath, schemaPath: schemaPath + "/enum", keyword: "enum",
+          instancePath: instancePath, schemaPath: schemaPath + "/enum", keyword: .enum,
           message: "value does not match any of the allowed values in enum"
         )
       )
@@ -75,7 +75,7 @@ extension JSONSchema {
     if !JSONSchema.schemaEqual(value, constVal) {
       errors.append(
         JSONSchemaError(
-          instancePath: instancePath, schemaPath: schemaPath + "/const", keyword: "const",
+          instancePath: instancePath, schemaPath: schemaPath + "/const", keyword: .const,
           message: "value does not match the const value"
         )
       )
@@ -98,7 +98,7 @@ extension JSONSchema {
     if count < minLen {
       errors.append(
         JSONSchemaError(
-          instancePath: instancePath, schemaPath: schemaPath + "/minLength", keyword: "minLength",
+          instancePath: instancePath, schemaPath: schemaPath + "/minLength", keyword: .minLength,
           message: "string length \(count) code points is less than minimum \(minLen)"
         )
       )
@@ -120,7 +120,7 @@ extension JSONSchema {
     if count > maxLen {
       errors.append(
         JSONSchemaError(
-          instancePath: instancePath, schemaPath: schemaPath + "/maxLength", keyword: "maxLength",
+          instancePath: instancePath, schemaPath: schemaPath + "/maxLength", keyword: .maxLength,
           message: "string length \(count) code points is greater than maximum \(maxLen)"
         )
       )

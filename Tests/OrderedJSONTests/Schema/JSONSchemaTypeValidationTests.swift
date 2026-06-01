@@ -18,7 +18,7 @@ struct JSONSchemaTypeValidationTests {
     let schema = try JSONSchema(schema: .object(["type": .string("string")]))
     let result = schema.validating(.number(.integer(42)))
     #expect(!result.valid)
-    #expect(result.errors.first?.keyword == "type")
+    #expect(result.errors.first?.keyword == .type)
   }
 
   @Test("type integer — valid")
@@ -32,7 +32,7 @@ struct JSONSchemaTypeValidationTests {
     let schema = try JSONSchema(schema: .object(["type": .string("integer")]))
     let result = schema.validating(.number(.float(42.5)))
     #expect(!result.valid)
-    #expect(result.errors.first?.keyword == "type")
+    #expect(result.errors.first?.keyword == .type)
   }
 
   @Test("type number — accepts integer")
@@ -88,7 +88,7 @@ struct JSONSchemaTypeValidationTests {
     )
     let result = schema.validating(.boolean(true))
     #expect(!result.valid)
-    #expect(result.errors.first?.keyword == "type")
+    #expect(result.errors.first?.keyword == .type)
   }
 }
 
@@ -101,7 +101,7 @@ struct JSONSchemaTypeValidationEdgeCasesTests {
     let schema = try JSONSchema(schema: .object(["type": .number(.integer(1))]))
     let result = schema.validating(.string("hello"))
     #expect(!result.valid)
-    #expect(result.errors.first?.keyword == "type")
+    #expect(result.errors.first?.keyword == .type)
     #expect(result.errors.first?.message.contains("must be a string") == true)
   }
 
@@ -113,7 +113,7 @@ struct JSONSchemaTypeValidationEdgeCasesTests {
     #expect(schema.validating(.string("hello")).valid)
     let result = schema.validating(.number(.integer(42)))
     #expect(!result.valid)
-    #expect(result.errors.first?.keyword == "type")
+    #expect(result.errors.first?.keyword == .type)
   }
 
   @Test("typeNameOf — float with zero fractional part matches integer type")

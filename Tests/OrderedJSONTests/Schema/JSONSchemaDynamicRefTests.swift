@@ -18,7 +18,7 @@ struct JSONSchemaDynamicRefTests {
     )
     let result = schema.validating(.string("hello"))
     #expect(!result.valid)
-    #expect(result.errors.first?.keyword == "schema")
+    #expect(result.errors.first?.keyword == .schemaError)
   }
 
   @Test("$dynamicRef — fallback to $anchor creates self-reference")
@@ -31,7 +31,7 @@ struct JSONSchemaDynamicRefTests {
     )
     let result = schema.validating(.string("hello"))
     #expect(!result.valid)
-    #expect(result.errors.first?.keyword == "schema")
+    #expect(result.errors.first?.keyword == .schemaError)
   }
 
   @Test("$dynamicRef — unresolvable produces error")
@@ -41,7 +41,7 @@ struct JSONSchemaDynamicRefTests {
     )
     let result = schema.validating(.string("hello"))
     #expect(!result.valid)
-    #expect(result.errors.first?.keyword == "$dynamicRef")
+    #expect(result.errors.first?.keyword == .dollarDynamicRef)
   }
 
   @Test("$dynamicAnchor — compiled schema stores it")
@@ -72,7 +72,7 @@ struct JSONSchemaDynamicRefTests {
     let result = schema.validating(.string("hello"))
     #expect(!result.valid)
     // Depth guard fires during allOf subschema validation
-    #expect(result.errors.first?.keyword == "allOf")
+    #expect(result.errors.first?.keyword == .allOf)
   }
 
   @Test("$dynamicRef — recursive schema via $defs")

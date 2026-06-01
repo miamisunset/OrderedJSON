@@ -23,7 +23,7 @@ struct JSONSchemaEnumTests {
     )
     let result = schema.validating(.string("c"))
     #expect(!result.valid)
-    #expect(result.errors.first?.keyword == "enum")
+    #expect(result.errors.first?.keyword == .enum)
   }
 
   @Test("enum — string values match")

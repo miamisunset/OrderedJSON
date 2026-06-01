@@ -11,8 +11,8 @@ public struct JSONSchemaError: Error, Hashable, Sendable, CustomStringConvertibl
   /// A JSON Pointer path to the keyword in the schema that caused the failure.
   public let schemaPath: String
 
-  /// The keyword that produced the error (e.g. `"type"`, `"minimum"`, `"required"`).
-  public let keyword: String
+  /// The keyword that produced the error (e.g. `.type`, `.minimum`, `.required`).
+  public let keyword: JSONSchemaKeyword
 
   /// A human-readable description of the validation failure.
   public let message: String
@@ -34,7 +34,7 @@ public struct JSONSchemaError: Error, Hashable, Sendable, CustomStringConvertibl
   public init(
     instancePath: String,
     schemaPath: String,
-    keyword: String,
+    keyword: JSONSchemaKeyword,
     message: String,
     failedValue: JSON? = nil,
     parentSchema: JSON? = nil
@@ -48,6 +48,6 @@ public struct JSONSchemaError: Error, Hashable, Sendable, CustomStringConvertibl
   }
 
   public var description: String {
-    "[\(keyword)] \(message) — instance: \(instancePath), schema: \(schemaPath)"
+    "[\(keyword.rawValue)] \(message) — instance: \(instancePath), schema: \(schemaPath)"
   }
 }

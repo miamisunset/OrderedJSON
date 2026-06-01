@@ -31,7 +31,7 @@ struct JSONSchemaUnevaluatedPropertiesTests {
     )
     #expect(!result.valid)
     // Error keyword is "false" from the boolean subschema, not "unevaluatedProperties"
-    #expect(result.errors.first?.keyword == "false")
+    #expect(result.errors.first?.keyword == .falseSchema)
   }
 
   @Test("unevaluatedProperties — additionalProperties now tracked")

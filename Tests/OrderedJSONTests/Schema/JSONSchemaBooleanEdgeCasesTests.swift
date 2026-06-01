@@ -16,7 +16,7 @@ struct JSONSchemaBooleanEdgeCasesTests {
     )
     let result = schema.validating(.string("anything"))
     #expect(!result.valid)
-    #expect(result.errors.first?.keyword == "allOf")
+    #expect(result.errors.first?.keyword == .allOf)
   }
 
   @Test("false schema in anyOf — anyOf fails when all false")
@@ -28,7 +28,7 @@ struct JSONSchemaBooleanEdgeCasesTests {
     )
     let result = schema.validating(.string("anything"))
     #expect(!result.valid)
-    #expect(result.errors.first?.keyword == "anyOf")
+    #expect(result.errors.first?.keyword == .anyOf)
   }
 
   @Test("true schema in anyOf — anyOf passes with at least one true")
@@ -50,7 +50,7 @@ struct JSONSchemaBooleanEdgeCasesTests {
     )
     let result = schema.validating(.string("anything"))
     #expect(!result.valid)
-    #expect(result.errors.first?.keyword == "oneOf")
+    #expect(result.errors.first?.keyword == .oneOf)
     #expect(result.errors.first?.message.contains("2") == true)
   }
 

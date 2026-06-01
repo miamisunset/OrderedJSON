@@ -32,7 +32,7 @@ extension JSONSchema {
         errors.append(
           JSONSchemaError(
             instancePath: instancePath, schemaPath: schemaPath + "/dependentSchemas/" + key,
-            keyword: "dependentSchemas",
+            keyword: .dependentSchemas,
             message: "dependent schema for key '\(key)' failed: \(first.message)"
           )
         )
@@ -61,7 +61,7 @@ extension JSONSchema {
             errors.append(
               JSONSchemaError(
                 instancePath: instancePath, schemaPath: schemaPath + "/dependentRequired/" + key,
-                keyword: "dependentRequired", message: "key '\(key)' requires key '\(reqKeyStr)'"
+                keyword: .dependentRequired, message: "key '\(key)' requires key '\(reqKeyStr)'"
               )
             )
           }

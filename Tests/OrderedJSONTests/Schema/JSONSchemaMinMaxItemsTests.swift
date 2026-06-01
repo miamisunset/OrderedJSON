@@ -19,7 +19,7 @@ struct JSONSchemaMinMaxItemsTests {
     let schema = try JSONSchema(schema: .object(["minItems": .number(.integer(3))]))
     let result = schema.validating(.array([.string("a"), .string("b")]))
     #expect(!result.valid)
-    #expect(result.errors.first?.keyword == "minItems")
+    #expect(result.errors.first?.keyword == .minItems)
   }
 
   @Test("maxItems — valid")
@@ -34,7 +34,7 @@ struct JSONSchemaMinMaxItemsTests {
     let schema = try JSONSchema(schema: .object(["maxItems": .number(.integer(2))]))
     let result = schema.validating(.array([.string("a"), .string("b"), .string("c")]))
     #expect(!result.valid)
-    #expect(result.errors.first?.keyword == "maxItems")
+    #expect(result.errors.first?.keyword == .maxItems)
   }
 
   @Test("minItems / maxItems — non-array skips")

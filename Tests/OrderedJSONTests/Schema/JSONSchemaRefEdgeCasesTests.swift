@@ -33,7 +33,7 @@ struct JSONSchemaRefEdgeCasesTests {
     )
     let result = schema.validating(.string("hello"))
     #expect(!result.valid)
-    #expect(result.errors.first?.keyword == "$ref")
+    #expect(result.errors.first?.keyword == .dollarRef)
   }
 
   @Test("$ref — deep pointer into $defs with nested properties")

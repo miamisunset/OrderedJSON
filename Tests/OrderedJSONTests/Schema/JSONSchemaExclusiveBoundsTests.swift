@@ -23,7 +23,7 @@ struct JSONSchemaExclusiveBoundsTests {
     )
     let result = schema.validating(.number(.integer(10)))
     #expect(!result.valid)
-    #expect(result.errors.first?.keyword == "exclusiveMinimum")
+    #expect(result.errors.first?.keyword == .exclusiveMinimum)
   }
 
   @Test("exclusiveMinimum — Draft 7 with boolean true")
@@ -37,7 +37,7 @@ struct JSONSchemaExclusiveBoundsTests {
     #expect(schema.validating(.number(.integer(11))).valid)
     let result = schema.validating(.number(.integer(10)))
     #expect(!result.valid)
-    #expect(result.errors.first?.keyword == "exclusiveMinimum")
+    #expect(result.errors.first?.keyword == .exclusiveMinimum)
   }
 
   @Test("exclusiveMinimum — Draft 7 with boolean false (allowed)")
@@ -68,7 +68,7 @@ struct JSONSchemaExclusiveBoundsTests {
     )
     let result = schema.validating(.number(.integer(100)))
     #expect(!result.valid)
-    #expect(result.errors.first?.keyword == "exclusiveMaximum")
+    #expect(result.errors.first?.keyword == .exclusiveMaximum)
   }
 
   @Test("exclusiveMaximum — Draft 7 with boolean true")
@@ -82,6 +82,6 @@ struct JSONSchemaExclusiveBoundsTests {
     #expect(schema.validating(.number(.integer(99))).valid)
     let result = schema.validating(.number(.integer(100)))
     #expect(!result.valid)
-    #expect(result.errors.first?.keyword == "exclusiveMaximum")
+    #expect(result.errors.first?.keyword == .exclusiveMaximum)
   }
 }

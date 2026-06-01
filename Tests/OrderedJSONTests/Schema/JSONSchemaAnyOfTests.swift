@@ -33,7 +33,7 @@ struct JSONSchemaAnyOfTests {
     )
     let result = schema.validating(.string("test"))
     #expect(!result.valid)
-    #expect(result.errors.first?.keyword == "anyOf")
+    #expect(result.errors.first?.keyword == .anyOf)
   }
 
   @Test("anyOf — empty array fails (no subschemas to match)")
@@ -41,6 +41,6 @@ struct JSONSchemaAnyOfTests {
     let schema = try JSONSchema(schema: .object(["anyOf": .array([])]))
     let result = schema.validating(.string("test"))
     #expect(!result.valid)
-    #expect(result.errors.first?.keyword == "anyOf")
+    #expect(result.errors.first?.keyword == .anyOf)
   }
 }

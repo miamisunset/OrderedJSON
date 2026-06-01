@@ -29,8 +29,8 @@ struct JSONSchemaUnevaluatedItemsTests {
     let result = schema.validating(.array([.string("a"), .string("b")]))
     #expect(!result.valid)
     #expect(
-      result.errors.map(\.keyword).contains("unevaluatedItems")
-        || result.errors.map(\.keyword).contains("type")
+      result.errors.map(\.keyword).contains(.unevaluatedItems)
+        || result.errors.map(\.keyword).contains(.type)
     )
     #expect(result.errors.count >= 1)
   }

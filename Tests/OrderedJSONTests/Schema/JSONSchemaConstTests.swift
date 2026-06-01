@@ -22,7 +22,7 @@ struct JSONSchemaConstTests {
     )
     let result = schema.validating(.string("world"))
     #expect(!result.valid)
-    #expect(result.errors.first?.keyword == "const")
+    #expect(result.errors.first?.keyword == .const)
   }
 
   @Test("const — string match")
