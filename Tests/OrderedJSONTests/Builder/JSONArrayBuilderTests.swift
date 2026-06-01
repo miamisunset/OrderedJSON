@@ -90,7 +90,7 @@ import Testing
     let str = JSON.ArrayBuilder()
       .add(1)
       .add("two")
-      .buildString(indent: 2)
+      .buildString(indent: .spaces(2))
 
     let expected = """
       [

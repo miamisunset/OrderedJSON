@@ -306,8 +306,9 @@ extension JSON {
     }
 
     /// Builds the JSON object and returns the serialized JSON string.
-    /// - Parameter indent: Number of spaces per indent level. `nil` means compact (no indent).
-    public func buildString(indent: Int? = nil) -> String {
+    /// - Parameter indent: Indentation style. Use `.compact` for single-line
+    ///   output (default), `.spaces(n)` for n-space indentation, or `.tab`.
+    public func buildString(indent: JSON.Indent = .compact) -> String {
       return build().dump(indent: indent)
     }
   }

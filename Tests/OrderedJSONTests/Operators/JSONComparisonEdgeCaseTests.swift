@@ -58,47 +58,47 @@ import Testing
 
   // MARK: - Cross-type comparisons
 
-  @Test("cross-type boolean vs number — not comparable")
+  @Test("cross-type boolean vs number — boolean < number per type hierarchy")
   func crossTypeBoolVsNumber() {
     let boolTrue = JSON.boolean(true)
     let boolFalse = JSON.boolean(false)
     let num = JSON.number(.integer(0))
 
-    #expect((boolTrue < num) == false)
-    #expect((num < boolTrue) == false)
-    #expect((boolTrue > num) == false)
-    #expect((num > boolTrue) == false)
-    #expect((boolTrue <= num) == false)
-    #expect((num <= boolTrue) == false)
-    #expect((boolTrue >= num) == false)
-    #expect((num >= boolTrue) == false)
+    #expect(boolTrue < num)  // boolean < number
+    #expect(!(num < boolTrue))  // number < boolean is false
+    #expect(!(boolTrue > num))  // boolean > number is false
+    #expect(num > boolTrue)  // number > boolean
+    #expect(boolTrue <= num)  // boolean <= number
+    #expect(!(num <= boolTrue))  // number <= boolean is false
+    #expect(!(boolTrue >= num))  // boolean >= number is false
+    #expect(num >= boolTrue)  // number >= boolean
 
-    #expect((boolFalse < num) == false)
-    #expect((num < boolFalse) == false)
+    #expect(boolFalse < num)  // boolean(false) < number
+    #expect(!(num < boolFalse))  // number < boolean(false) is false
   }
 
-  @Test("cross-type number vs string — not comparable")
+  @Test("cross-type number vs string — number < string per type hierarchy")
   func crossTypeNumberVsString() {
     let num = JSON.number(.integer(42))
     let str = JSON.string("hello")
 
-    #expect((num < str) == false)
-    #expect((str < num) == false)
-    #expect((num > str) == false)
-    #expect((str > num) == false)
-    #expect((num <= str) == false)
-    #expect((str <= num) == false)
-    #expect((num >= str) == false)
-    #expect((str >= num) == false)
+    #expect(num < str)  // number < string
+    #expect(!(str < num))  // string < number is false
+    #expect(!(num > str))  // number > string is false
+    #expect(str > num)  // string > number
+    #expect(num <= str)  // number <= string
+    #expect(!(str <= num))  // string <= number is false
+    #expect(!(num >= str))  // number >= string is false
+    #expect(str >= num)  // string >= number
   }
 
-  @Test("cross-type string vs object — not comparable")
+  @Test("cross-type string vs object — object < string per type hierarchy")
   func crossTypeStringVsObject() {
     let str = JSON.string("hello")
     let obj = JSON.object(["key": JSON.string("val")])
 
-    #expect((str < obj) == false)
-    #expect((obj < str) == false)
+    #expect(obj < str)  // object < string
+    #expect(!(str < obj))  // string < object is false
   }
 
   @Test("cross-type array vs null — null is less than everything")
@@ -186,19 +186,148 @@ import Testing
     }
   }
 
-  // MARK: - Type ordering
+  // MARK: - Array element-wise comparison
 
-  @Test("type ordering — null < boolean < number < string < object < array")
+  @Test("array element-wise — same prefix, different length")
+  func arrayElementWiseDifferentLength() {
+    let short = JSON.array([JSON.number(.integer(1)), JSON.number(.integer(2))])
+    let long = JSON.array([
+      JSON.number(.integer(1)), JSON.number(.integer(2)), JSON.number(.integer(3)),
+    ])
+
+    #expect(short < long)
+    #expect(!(long < short))
+    #expect(long > short)
+    #expect(!(short > long))
+  }
+
+  @Test("array element-wise — same prefix, first differing element decides")
+  func arrayElementWiseFirstDifference() {
+    let a = JSON.array([JSON.number(.integer(1)), JSON.number(.integer(2))])
+    let b = JSON.array([JSON.number(.integer(1)), JSON.number(.integer(3))])
+
+    #expect(a < b)
+    #expect(!(b < a))
+  }
+
+  @Test("array element-wise — mixed type elements use type hierarchy")
+  func arrayElementWiseMixedTypes() {
+    let a = JSON.array([JSON.number(.integer(1)), JSON.boolean(true)])
+    let b = JSON.array([JSON.number(.integer(1)), JSON.string("x")])
+
+    // boolean(1) < string(5) per type hierarchy, so a < b
+    #expect(a < b)
+    #expect(!(b < a))
+  }
+
+  @Test("array element-wise — equal arrays are not less")
+  func arrayElementWiseEqual() {
+    let a = JSON.array([JSON.number(.integer(1)), JSON.string("x")])
+    let b = JSON.array([JSON.number(.integer(1)), JSON.string("x")])
+
+    #expect(!(a < b))
+    #expect(!(b < a))
+  }
+
+  @Test("array element-wise — empty arrays are equal")
+  func arrayElementWiseEmpty() {
+    let empty1 = JSON.array([])
+    let empty2 = JSON.array([])
+
+    #expect(!(empty1 < empty2))
+    #expect(!(empty2 < empty1))
+  }
+
+  // MARK: - Object key-value comparison
+
+  @Test("object key-value — same keys, different values")
+  func objectKeyValueDifferentValues() {
+    let a = JSON.object(["a": JSON.number(.integer(1))])
+    let b = JSON.object(["a": JSON.number(.integer(2))])
+
+    #expect(a < b)
+    #expect(!(b < a))
+  }
+
+  @Test("object key-value — different keys sort and compare")
+  func objectKeyValueDifferentKeys() {
+    let a = JSON.object(["a": JSON.number(.integer(1))])
+    let b = JSON.object(["b": JSON.number(.integer(1))])
+
+    // "a" < "b" so a < b
+    #expect(a < b)
+    #expect(!(b < a))
+  }
+
+  @Test("object key-value — superset keys use count comparison")
+  func objectKeyValueSupersetKeys() {
+    let small = JSON.object(["a": JSON.number(.integer(1))])
+    let big = JSON.object(["a": JSON.number(.integer(1)), "b": JSON.number(.integer(2))])
+
+    #expect(small < big)
+    #expect(!(big < small))
+  }
+
+  @Test("object key-value — equal objects are not less")
+  func objectKeyValueEqual() {
+    let a = JSON.object(["a": JSON.number(.integer(1))])
+    let b = JSON.object(["a": JSON.number(.integer(1))])
+
+    #expect(!(a < b))
+    #expect(!(b < a))
+  }
+
+  @Test("object key-value — empty objects are equal")
+  func objectKeyValueEmpty() {
+    let empty1 = JSON.object([:])
+    let empty2 = JSON.object([:])
+
+    #expect(!(empty1 < empty2))
+    #expect(!(empty2 < empty1))
+  }
+
+  // MARK: - Type ordering
   func typeOrdering() {
     #expect(JSON.null < JSON.boolean(true))
-    #expect(JSON.boolean(false) < JSON.boolean(true))
-    #expect(JSON.number(.integer(1)) < JSON.number(.integer(2)))
-    #expect(JSON.string("a") < JSON.string("b"))
+    #expect(JSON.boolean(false) < JSON.number(.integer(0)))
+    #expect(JSON.number(.integer(0)) < JSON.object([:]))
+    #expect(JSON.object([:]) < JSON.array([]))
+    #expect(JSON.array([]) < JSON.string(""))
 
-    let arr = JSON.array([.number(.integer(1))])
-    let obj = JSON.object(["k": .number(.integer(1))])
-    #expect((arr < obj) == false)
-    #expect((obj < arr) == false)
+    // Reverse direction
+    #expect(!(JSON.boolean(true) < JSON.null))
+    #expect(!(JSON.number(.integer(0)) < JSON.boolean(true)))
+    #expect(!(JSON.object([:]) < JSON.number(.integer(0))))
+    #expect(!(JSON.array([]) < JSON.object([:])))
+    #expect(!(JSON.string("") < JSON.array([])))
+  }
+
+  @Test("cross-type — all type pairs respect hierarchy")
+  func crossTypeAllPairs() {
+    let types: [(JSON, String)] = [
+      (.null, "null"),
+      (.boolean(false), "boolean"),
+      (.number(.integer(0)), "number"),
+      (.object([:]), "object"),
+      (.array([]), "array"),
+      (.string(""), "string"),
+    ]
+
+    for i in 0..<types.count {
+      for j in 0..<types.count {
+        let a = types[i].0
+        let b = types[j].0
+        if i < j {
+          #expect(a < b, "\(types[i].1) < \(types[j].1) should be true")
+          #expect(!(b < a), "\(types[j].1) < \(types[i].1) should be false")
+        } else if i == j {
+          #expect(!(a < b), "\(types[i].1) < \(types[i].1) should be false")
+        } else {
+          #expect(!(a < b), "\(types[i].1) < \(types[j].1) should be false")
+          #expect(b < a, "\(types[j].1) < \(types[i].1) should be true")
+        }
+      }
+    }
   }
 }
 

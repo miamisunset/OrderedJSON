@@ -30,7 +30,7 @@ import Testing
     }
     let encoder = OrderedJSONEncoder()
     let json = try encoder.encode(Person(name: "Alice", age: 30))
-    let dumpString = json.dump(indent: nil)
+    let dumpString = json.dump(indent: .compact)
     let encodeString = try encoder.encodeAsString(Person(name: "Alice", age: 30))
     #expect(encodeString == dumpString)
   }

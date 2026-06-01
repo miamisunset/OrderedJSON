@@ -74,7 +74,7 @@ struct JSONIntegrationParseDumpTests {
       {"a": 1, "b": [2, 3, {"c": 4}]}
       """
     let json1 = try JSON.parse(input)
-    let pretty = json1.dump(indent: 2)
+    let pretty = json1.dump(indent: .spaces(2))
     let json2 = try JSON.parse(pretty)
     #expect(json1 == json2)
   }

@@ -2,11 +2,29 @@ import Foundation
 import OrderedCollections
 
 extension JSON {
+  /// Controls indentation for JSON serialization.
+  ///
+  /// Per RFC 8259, JSON indent characters are limited to space and horizontal tab.
+  /// This enum makes invalid indent states impossible at compile time.
+  public enum Indent: Hashable, Sendable {
+    /// Compact output with no whitespace.
+    case compact
+    /// Indent with spaces — the number of spaces per indent level.
+    ///
+    /// The width must be non-negative. A value of 0 produces no leading
+    /// whitespace (effectively compact within containers), while positive
+    /// values produce the corresponding number of spaces per level.
+    /// Negative values trigger a runtime precondition failure.
+    case spaces(Int)
+    /// Indent with horizontal tab characters.
+    case tab
+  }
+
   /// Pretty-prints this JSON value with the given indentation.
   ///
-  /// - Parameter indent: Indentation width in spaces. Use `nil` for compact
-  ///   (single-line) output. Defaults to `nil`.
-  /// - Parameter indentCharacter: Character to use for indentation. Defaults to `" "`.
+  /// - Parameter indent: Indentation style. Use `.compact` for single-line
+  ///   output (default), `.spaces(n)` for n-space indentation, or `.tab`
+  ///   for tab indentation.
   /// - Parameter ensureAscii: If `true`, non-ASCII characters are escaped as
   ///   `\uXXXX`. Defaults to `false`.
   /// - Returns: A JSON string.
@@ -16,33 +34,40 @@ extension JSON {
   /// ```swift
   /// let json = JSON.object(["name": .string("Alice"), "age": .number(.integer(30))])
   /// json.dump()                         // compact: {"name":"Alice","age":30}
-  /// json.dump(indent: 2)                // pretty-printed with 2-space indent
-  /// json.dump(indent: nil)              // compact
+  /// json.dump(indent: .spaces(2))       // pretty-printed with 2-space indent
+  /// json.dump(indent: .compact)         // compact
+  /// json.dump(indent: .tab)             // tab-indented
   /// json.dump(ensureAscii: true)        // escape non-ASCII as \uXXXX
   /// ```
   public func dump(
-    indent: Int? = nil,
-    indentCharacter: Character = " ",
+    indent: Indent = .compact,
     ensureAscii: Bool = false
   ) -> String {
-    if let indentValue = indent {
+    switch indent {
+    case .compact:
+      var string = ""
+      serializeJSONCompact(self, ensureAscii: ensureAscii, sortedKeys: false, into: &string)
+      return string
+    case .spaces(let width):
+      guard width >= 0 else { return dump(indent: .compact) }
       var string = ""
       serializeJSONPretty(
-        self,
-        indent: indentValue,
-        indentCharacter: indentCharacter,
-        depth: 0,
-        ensureAscii: ensureAscii,
-        into: &string
+        self, indent: width, indentCharacter: " ", depth: 0, ensureAscii: ensureAscii,
+        sortedKeys: false, into: &string
       )
       return string
+    case .tab:
+      var string = ""
+      serializeJSONPretty(
+        self, indent: 1, indentCharacter: "\t", depth: 0, ensureAscii: ensureAscii,
+        sortedKeys: false, into: &string)
+      return string
     }
-    var string = ""
-    serializeJSONCompact(self, ensureAscii: ensureAscii, into: &string)
-    return string
   }
 
-  private func serializeJSONCompact(_ value: JSON, ensureAscii: Bool, into string: inout String) {
+  private func serializeJSONCompact(
+    _ value: JSON, ensureAscii: Bool, sortedKeys: Bool, into string: inout String
+  ) {
     switch value.storage {
     case .null:
       string += "null"
@@ -56,18 +81,20 @@ extension JSON {
       string += "["
       for (i, el) in arr.enumerated() {
         if i > 0 { string += "," }
-        serializeJSONCompact(el, ensureAscii: ensureAscii, into: &string)
+        serializeJSONCompact(el, ensureAscii: ensureAscii, sortedKeys: sortedKeys, into: &string)
       }
       string += "]"
     case .object(let dict):
       string += "{"
       var first = true
-      for (key, value) in dict {
+      let keys = sortedKeys ? Array(dict.keys.sorted()) : Array(dict.keys)
+      for key in keys {
         if !first { string += "," }
         first = false
         serializeJSONString(key, ensureAscii: ensureAscii, into: &string)
         string += ":"
-        serializeJSONCompact(value, ensureAscii: ensureAscii, into: &string)
+        serializeJSONCompact(
+          dict[key]!, ensureAscii: ensureAscii, sortedKeys: sortedKeys, into: &string)
       }
       string += "}"
     }
@@ -75,7 +102,7 @@ extension JSON {
 
   private func serializeJSONPretty(
     _ value: JSON, indent: Int, indentCharacter: Character, depth: Int, ensureAscii: Bool,
-    into string: inout String
+    sortedKeys: Bool, into string: inout String
   ) {
     let pad = String(repeating: String(indentCharacter), count: depth * indent)
     let innerPad = String(repeating: String(indentCharacter), count: (depth + 1) * indent)
@@ -102,6 +129,7 @@ extension JSON {
             indentCharacter: indentCharacter,
             depth: depth + 1,
             ensureAscii: ensureAscii,
+            sortedKeys: sortedKeys,
             into: &string
           )
         }
@@ -115,15 +143,16 @@ extension JSON {
       } else {
         string += "{\n"
         var first = true
-        for (key, value) in dict {
+        let keys = sortedKeys ? Array(dict.keys.sorted()) : Array(dict.keys)
+        for key in keys {
           if !first { string += ",\n" }
           first = false
           string += innerPad
           serializeJSONString(key, ensureAscii: ensureAscii, into: &string)
           string += ": "
           serializeJSONPretty(
-            value, indent: indent, indentCharacter: indentCharacter, depth: depth + 1,
-            ensureAscii: ensureAscii, into: &string
+            dict[key]!, indent: indent, indentCharacter: indentCharacter, depth: depth + 1,
+            ensureAscii: ensureAscii, sortedKeys: sortedKeys, into: &string
           )
         }
         string += "\n"
@@ -178,5 +207,26 @@ extension JSON {
       }
     }
     string += "\""
+  }
+
+  // MARK: - Sorted key serialization
+
+  /// Serializes with keys sorted alphabetically for objects.
+  func _dumpSorted(indent: Indent = .compact, ensureAscii: Bool = false) -> String {
+    var string = ""
+    switch indent {
+    case .compact:
+      serializeJSONCompact(self, ensureAscii: ensureAscii, sortedKeys: true, into: &string)
+    case .spaces(let width):
+      guard width >= 0 else { return _dumpSorted(indent: .compact) }
+      serializeJSONPretty(
+        self, indent: width, indentCharacter: " ", depth: 0, ensureAscii: ensureAscii,
+        sortedKeys: true, into: &string)
+    case .tab:
+      serializeJSONPretty(
+        self, indent: 1, indentCharacter: "\t", depth: 0, ensureAscii: ensureAscii,
+        sortedKeys: true, into: &string)
+    }
+    return string
   }
 }
