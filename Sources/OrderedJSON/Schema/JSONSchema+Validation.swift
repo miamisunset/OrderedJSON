@@ -119,7 +119,7 @@ extension JSONSchema {
 
   /// Set of keyword names that are validation-related (not meta-keywords
   /// like `$id`, `$ref`, `$defs`, `$anchor`, `$schema`, `$vocabulary`).
-  private static let validationKeywords: Set<JSONSchemaKeyword> = [
+  package static let validationKeywords: Set<JSONSchemaKeyword> = [
     .type, .properties, .required, .minimum, .maximum,
     .multipleOf, .pattern, .enum, .const, .minLength, .maxLength,
     .allOf, .anyOf, .oneOf, .not, .if, .minItems, .maxItems,

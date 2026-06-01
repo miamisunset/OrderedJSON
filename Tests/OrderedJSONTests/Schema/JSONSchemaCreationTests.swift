@@ -118,6 +118,6 @@ struct JSONSchemaCreationTests {
       .contentMediaType, .contentEncoding, .contentSchema,
       .minContains, .maxContains,
     ]
-    #expect(allValidationKeywords.count == 41)
+    #expect(allValidationKeywords == JSONSchema.validationKeywords)
   }
 }
