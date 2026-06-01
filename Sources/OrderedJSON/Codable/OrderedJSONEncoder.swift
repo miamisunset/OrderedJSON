@@ -41,6 +41,10 @@ public struct OrderedJSONEncoder {
     return impl.json
   }
 
+  /// Encodes a value and returns the JSON string, using current output options.
+  /// - Parameter value: The value to encode.
+  /// - Returns: A JSON string.
+  /// - Throws: `EncodingError` if the value cannot be encoded.
   public func encodeAsString<T: Encodable>(_ value: T) throws -> String {
     let json = try encode(value)
     if outputOptions.sortedKeys {
