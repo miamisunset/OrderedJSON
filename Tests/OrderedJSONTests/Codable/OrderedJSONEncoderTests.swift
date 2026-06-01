@@ -81,4 +81,60 @@ extension JSON {
     let str = try encoder.encodeAsString(Item(id: 1, value: "test"))
     #expect(str == #"{"id":1,"value":"test"}"#)
   }
+
+  @Test("encodeAsString with pretty outputOptions")
+  func encodeAsStringPrettyOutputOptions() throws {
+    struct Person: Encodable {
+      let name: String
+      let age: Int
+    }
+    var encoder = OrderedJSONEncoder()
+    encoder.outputOptions.indent = .spaces(2)
+    let str = try encoder.encodeAsString(Person(name: "Alice", age: 30))
+    #expect(str.contains("\n"))
+    #expect(str.contains("  "))
+  }
+
+  @Test("encodeAsData returns valid UTF-8 data")
+  func encodeAsDataValidUTF8() throws {
+    struct Person: Encodable {
+      let name: String
+      let age: Int
+    }
+    let encoder = OrderedJSONEncoder()
+    let data = try encoder.encodeAsData(Person(name: "Alice", age: 30))
+    #expect(data.count > 0)
+    // Re-parse to verify validity
+    let decoded = try JSON.parse(data)
+    #expect(decoded["name"] == .string("Alice"))
+    #expect(decoded["age"] == .number(.integer(30)))
+  }
+
+  @Test("sortedKeys true produces alphabetically sorted keys")
+  func sortedKeysTrue() throws {
+    struct Unsorted: Encodable {
+      let z: Int
+      let a: Int
+      let m: Int
+    }
+    var encoder = OrderedJSONEncoder()
+    encoder.outputOptions.sortedKeys = true
+    let str = try encoder.encodeAsString(Unsorted(z: 1, a: 2, m: 3))
+    // Keys should be a, m, z in sorted output
+    #expect(str.firstIndex(of: Character("a"))! < str.firstIndex(of: Character("m"))!)
+    #expect(str.firstIndex(of: Character("m"))! < str.firstIndex(of: Character("z"))!)
+  }
+
+  @Test("sortedKeys false preserves insertion order (default)")
+  func sortedKeysFalse() throws {
+    struct Unsorted: Encodable {
+      let z: Int
+      let a: Int
+      let m: Int
+    }
+    let encoder = OrderedJSONEncoder()
+    let str = try encoder.encodeAsString(Unsorted(z: 1, a: 2, m: 3))
+    // Default: keys should be in declaration order: z, a, m
+    #expect(str.firstIndex(of: Character("z"))! < str.firstIndex(of: Character("a"))!)
+  }
 }

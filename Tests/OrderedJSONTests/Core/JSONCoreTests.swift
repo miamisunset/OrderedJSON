@@ -215,6 +215,47 @@ import Testing
     #expect(JSON.string("hello").dump(indent: .spaces(2)) == "\"hello\"")
   }
 
+  @Test("dump tab indent") func dumpTabIndent() {
+    let obj = JSON.object([
+      "a": JSON.string("x"),
+      "b": JSON.array([JSON.number(.integer(1)), JSON.number(.integer(2))]),
+    ])
+    let tabby = obj.dump(indent: .tab)
+    #expect(tabby.contains("\t"))
+    // First line after opening brace should start with \t
+    #expect(tabby.contains("\n\t"))
+  }
+
+  @Test("dump spaces 4") func dumpSpaces4() {
+    let obj = JSON.object([
+      "a": JSON.string("x"),
+      "b": JSON.number(.integer(1)),
+    ])
+    let result = obj.dump(indent: .spaces(4))
+    #expect(result.contains("    "))  // 4 spaces
+    #expect(result.contains("\n"))
+  }
+
+  @Test("dump spaces 0") func dumpSpaces0() {
+    let obj = JSON.object([
+      "a": JSON.string("x"),
+      "b": JSON.array([JSON.number(.integer(1))]),
+    ])
+    let result = obj.dump(indent: .spaces(0))
+    // With width 0, inner content should have no leading whitespace
+    // but newlines still separate elements
+    #expect(result.contains("\n"))
+    #expect(result.contains("{\n"))
+    #expect(result.contains("\"a\""))
+  }
+
+  @Test("dump spaces negative precondition")
+  func dumpSpacesNegative() {
+    withKnownIssue {
+      _ = JSON.null.dump(indent: .spaces(-1))
+    }
+  }
+
   @Test("dump ensure ascii") func dumpEnsureAscii() {
     let val = JSON.string("héllo")
     let ascii = val.dump(indent: .compact, ensureAscii: true)
