@@ -510,7 +510,7 @@ x.typeName       // "number"
 
 `typeName` returns the human-readable string (e.g., `"number"`, `"object"`).
 
-The type hierarchy follows `nlohmann/json`: `null < boolean < number < string < object < array`. This ordering is used by comparison operators (see Comparison section).
+The type hierarchy follows `nlohmann/json`: `null < boolean < number < object < array < string`. This ordering is used by comparison operators (see Comparison section).
 
 ---
 
@@ -814,19 +814,23 @@ JSON.string("a") != JSON.string("b")   // true
 nlohmann/json defines a strict type hierarchy:
 
 ```
-null < boolean < number < string < object < array
+null < boolean < number < object < array < string
 ```
 
-This means `JSON.null < JSON.boolean(true)` is true, and `JSON.null < JSON.string("x")` is true. Objects compare by key count first, then by each key-value pair. Arrays compare by element count first, then by each element.
+This means `JSON.null < JSON.boolean(true)` is true, and `JSON.null < JSON.string("x")` is true. Cross-type comparisons follow the type hierarchy, so `boolean < number`, `number < object`, `object < array`, and `array < string` are all true. Objects compare by key count first, then by each key-value pair. Arrays compare by element count first, then by each element.
 
 ```swift
-// Type ordering examples (same-type comparisons only)
-JSON.null < JSON.boolean(true)                // true (null < any non-null)
-JSON.boolean(false) < JSON.boolean(true)       // true
-JSON.number(.integer(1)) < JSON.number(.integer(2))  // true
-JSON.string("a") < JSON.string("b")            // true
-JSON.object(["x": JSON(1)]) < JSON.object(["x": JSON(1), "y": JSON(2)]) // true (by count)
-JSON.array([JSON(1)]) < JSON.array([JSON(1), JSON(2)]) // true (by count)
+// Type ordering examples
+JSON.null < JSON.boolean(true)                  // true (null < boolean)
+JSON.boolean(false) < JSON.number(.integer(0))   // true (boolean < number)
+JSON.number(.integer(0)) < JSON.object([:])      // true (number < object)
+JSON.object([:]) < JSON.array([])                // true (object < array)
+JSON.array([]) < JSON.string("")                 // true (array < string)
+JSON.null < JSON.string("x")                     // true (null < string)
+JSON.number(.integer(1)) < JSON.number(.integer(2))  // true (same type, by value)
+JSON.string("a") < JSON.string("b")              // true (same type, lexicographic)
+JSON.object(["x": JSON(1)]) < JSON.object(["x": JSON(1), "y": JSON(2)]) // true (same type, by count)
+JSON.array([JSON(1)]) < JSON.array([JSON(1), JSON(2)]) // true (same type, by count)
 ```
 
 ### Mixed number comparison
