@@ -155,7 +155,7 @@ struct JSONSchemaOutputModeTests {
   @Test("buildVerboseErrors — keyword mismatch falls back to first error")
   func buildVerboseErrorsKeywordMismatch() throws {
     // Errors with schema paths /foo/bar and /foo/baz share group "foo"
-    // but neither has keyword "foo". Should use first alphabetically.
+    // but neither has keyword .type or .not matching "foo". Should use first alphabetically.
     let e1 = JSONSchemaError(
       instancePath: "", schemaPath: "/foo/bar", keyword: .type,
       message: "bar failed"
