@@ -151,6 +151,11 @@ public enum JSONSchemaKeyword: String, Hashable, Sendable, CaseIterable {
   case dependencies
   /// `definitions` — Draft 7 shared definitions (superseded by $defs)
   case definitions
+
+  // MARK: - Keyword groups
+
+  /// Composition keywords whose values are arrays of subschemas.
+  public static let compositionKeywords: [JSONSchemaKeyword] = [.allOf, .anyOf, .oneOf]
 }
 
 extension JSON {
