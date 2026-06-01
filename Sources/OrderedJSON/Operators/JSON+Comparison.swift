@@ -34,7 +34,7 @@ extension JSON {
   /// - Numbers are compared numerically with integer-to-float promotion.
   /// - Strings are compared lexicographically.
   /// - Arrays are compared element-by-element (shorter is smaller if all equal).
-  /// - Objects are compared by count (shorter is smaller).
+  /// - Objects are compared by sorted key-value pairs (shorter is smaller if all equal).
   /// - Different types compare by type hierarchy:
   ///   `null < boolean < number < object < array < string`
   ///
@@ -59,7 +59,16 @@ extension JSON {
         if rhs < lhs { return false }
       }
       return a.count < b.count
-    case (.object(let a), .object(let b)): return a.count < b.count
+    case (.object(let a), .object(let b)):
+      let aSorted = a.elements.sorted { $0.key < $1.key }
+      let bSorted = b.elements.sorted { $0.key < $1.key }
+      for (lhs, rhs) in zip(aSorted, bSorted) {
+        if lhs.key < rhs.key { return true }
+        if rhs.key < lhs.key { return false }
+        if lhs.value < rhs.value { return true }
+        if rhs.value < lhs.value { return false }
+      }
+      return a.count < b.count
     default:
       return typeOrder(lhs.storage) < typeOrder(rhs.storage)
     }
