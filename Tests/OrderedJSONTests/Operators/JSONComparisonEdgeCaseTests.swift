@@ -191,7 +191,9 @@ import Testing
   @Test("array element-wise — same prefix, different length")
   func arrayElementWiseDifferentLength() {
     let short = JSON.array([JSON.number(.integer(1)), JSON.number(.integer(2))])
-    let long = JSON.array([JSON.number(.integer(1)), JSON.number(.integer(2)), JSON.number(.integer(3))])
+    let long = JSON.array([
+      JSON.number(.integer(1)), JSON.number(.integer(2)), JSON.number(.integer(3)),
+    ])
 
     #expect(short < long)
     #expect(!(long < short))
